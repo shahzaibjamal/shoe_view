@@ -8,38 +8,6 @@ import 'package:shoe_view/shoe_response.dart';
 import 'shoe_list_view.dart';
 import 'shoe_model.dart';
 
-// Wrapper to serialize GoogleSignInAuthenticationEventSignIn
-class GoogleSignInEventWrapper {
-  final dynamic event;
-  GoogleSignInEventWrapper(this.event);
-
-  Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{};
-    try {
-      map['idToken'] = event.idToken;
-    } catch (_) {}
-    try {
-      map['email'] = event.email;
-    } catch (_) {}
-    try {
-      map['accessToken'] = event.accessToken;
-    } catch (_) {}
-    try {
-      map['serverAuthCode'] = event.serverAuthCode;
-    } catch (_) {}
-    try {
-      map['displayName'] = event.displayName;
-    } catch (_) {}
-    try {
-      map['photoUrl'] = event.photoUrl;
-    } catch (_) {}
-    try {
-      map['scopes'] = event.scopes;
-    } catch (_) {}
-    return map;
-  }
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await fcore.Firebase.initializeApp();
@@ -53,6 +21,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Shoe View',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -171,24 +140,6 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() { _loading = false; });
   }
 
-  void _explicitSignIn() async {
-    print('Explicit sign-in button pressed');
-    setState(() { _loading = true; _error = null; });
-    try {
-      await _googleSignIn.initialize(
-        clientId: '208115481751-nhcu2josbkqrdq2tcje0krn5hmuat0n1.apps.googleusercontent.com',
-        serverClientId: '208115481751-6021ik4oq3deeabsfs6ns31v4hkrim3v.apps.googleusercontent.com',
-      );
-      print('GoogleSignIn.initialize called (explicit)');
-      await _googleSignIn.attemptLightweightAuthentication();
-      print('GoogleSignIn.attemptLightweightAuthentication called (explicit)');
-    } catch (e, stack) {
-      print('Explicit sign-in error: $e\n$stack');
-      setState(() { _error = e.toString(); });
-    }
-    setState(() { _loading = false; });
-  }
-
   Future<void> _callCheckUserAuthorization(String email, String idToken) async {
     final isTest = false;
     final result = await FirebaseFunctions.instance.httpsCallable('checkUserAuthorization').call({
@@ -230,11 +181,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ElevatedButton(
                       onPressed: _triggerSignIn,
                       child: const Text('Sign in with Google'),
-                    ),
-                    // ElevatedButton(
-                    //   onPressed: _explicitSignIn,
-                    //   child: const Text('Explicit Sign in with Google'),
-                    // ),
+                    )
                   ],
                   ElevatedButton(
                     onPressed: _signOut,
