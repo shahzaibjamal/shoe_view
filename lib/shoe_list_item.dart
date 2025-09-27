@@ -125,7 +125,7 @@ class ShoeListItem extends StatelessWidget {
 
         // Trailing: Edit and Delete buttons
         trailing: SizedBox(
-          width: 120,
+          width: 150,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
