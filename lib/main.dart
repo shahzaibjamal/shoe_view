@@ -198,19 +198,18 @@ class _AuthScreenState extends State<AuthScreen> {
     });
     print('checkUserAuthorization response: ${result.data}');
     // Assuming 'result' is the raw map from your Firebase function call
-    // final rawData = result.data as Map<String, dynamic>;
-    // final shoeResponse = ShoeResponse.fromJson(rawData);
+    final rawData = result.data as Map<String, dynamic>;
+    final shoeResponse = ShoeResponse.fromJson(rawData);
 
-    // if (!shoeResponse.isAuthorized) {
-    //   setState(() {
-    //     _error = 'User is not authorized to access the shoe data.';
-    //     _signedIn = false;
-    //     _email = null;
-    //   });
-    //   await _googleSignIn.signOut();
-    //   return;
-    // }
-    // final shoesList = shoeResponse.shoes;
+    if (!shoeResponse.isAuthorized) {
+      setState(() {
+        _error = 'User is not authorized to access the shoe data.';
+        _signedIn = false;
+        _email = null;
+      });
+      await _googleSignIn.signOut();
+      return;
+    }
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => ShoeListView(initialShoes: [])),

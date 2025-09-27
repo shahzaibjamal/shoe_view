@@ -23,17 +23,22 @@ class _ShoeListViewState extends State<ShoeListView> {
   // Initialize the Firebase service
   final FirebaseService _firebaseService = FirebaseService();
 
+  // --- New State Variables for Sorting ---
+  String _sortField = 'itemId'; // Options: 'itemId', 'sellingPrice'
+  bool _sortAscending = true;
+  // ---------------------------------------
+
   // Helper method to build the image widget (network or file)
   Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
     // Priority 1: Remote URL (from Firestore)
     if (remoteImageUrl.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: remoteImageUrl,
-        width: 50,
-        height: 50,
+        width: 60,
+        height: 60,
         fit: BoxFit.cover,
-        placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-        errorWidget: (context, url, error) => const Icon(Icons.error),
+        placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
+        errorWidget: (context, url, error) => const Icon(Icons.error, size: 40),
       );
     }
     // Priority 2: Local File Path (from ImagePicker, not yet uploaded)
@@ -42,17 +47,17 @@ class _ShoeListViewState extends State<ShoeListView> {
       try {
         return Image.file(
           File(imagePath),
-          width: 50,
-          height: 50,
+          width: 60,
+          height: 60,
           fit: BoxFit.cover,
         );
       } catch (e) {
         // Fallback if the path is invalid or file is missing
-        return const Icon(Icons.broken_image, size: 50);
+        return const Icon(Icons.broken_image, size: 40);
       }
     }
     // Fallback: No image available
-    return const Icon(Icons.image_not_supported, size: 50);
+    return const Icon(Icons.image_not_supported, size: 40, color: Colors.grey);
   }
 
   // Helper function for safe parsing
@@ -88,6 +93,9 @@ class _ShoeListViewState extends State<ShoeListView> {
     await showDialog(
       context: context,
       builder: (context) {
+        // Local state for tracking the loading process during save/upload
+        bool isLoading = false;
+
         return StatefulBuilder(
           builder: (context, dialogSetState) {
             
@@ -95,21 +103,21 @@ class _ShoeListViewState extends State<ShoeListView> {
             Widget imagePreview() {
               if (dialogImageFile != null) {
                 // Show newly picked local image
-                return Image.file(dialogImageFile!, width: 50, height: 50, fit: BoxFit.cover);
+                return Image.file(dialogImageFile!, width: 60, height: 60, fit: BoxFit.cover);
               } else if (currentRemoteImageUrl.isNotEmpty) {
                 // Show remote image if editing existing shoe
                 return CachedNetworkImage(
                   imageUrl: currentRemoteImageUrl,
-                  width: 50,
-                  height: 50,
+                  width: 60,
+                  height: 60,
                   fit: BoxFit.cover,
                   placeholder: (context, url) => const Center(child: SizedBox(
                     width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.0)
                   )),
-                  errorWidget: (context, url, error) => const Icon(Icons.error, size: 50),
+                  errorWidget: (context, url, error) => const Icon(Icons.error, size: 60),
                 );
               }
-              return const Icon(Icons.image_not_supported, size: 50);
+              return const Icon(Icons.image_not_supported, size: 60, color: Colors.grey);
             }
             
             return AlertDialog(
@@ -123,7 +131,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                       keyboardType: TextInputType.number,
                       maxLength: 3,
                       // Disable editing Item ID when updating existing shoe
-                      enabled: !isEditing, 
+                      enabled: !isEditing && !isLoading, // Disabled while editing AND loading
                       decoration: InputDecoration(
                         labelText: 'Item ID (e.g., 123)',
                         // Hint that ID cannot be changed once set
@@ -134,10 +142,12 @@ class _ShoeListViewState extends State<ShoeListView> {
                       controller: shipmentIdController,
                       keyboardType: TextInputType.text,
                       maxLength: 2,
+                      enabled: !isLoading, // Disabled while loading
                       decoration: const InputDecoration(labelText: 'Shipment ID (e.g., S1)'),
                     ),
                     TextField(
                       controller: nameController,
+                      enabled: !isLoading, // Disabled while loading
                       decoration: const InputDecoration(labelText: 'Shoe Name/Detail'),
                     ),
                     Row(
@@ -147,6 +157,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                             controller: sizeEurController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             maxLength: 4,
+                            enabled: !isLoading, // Disabled while loading
                             decoration: const InputDecoration(labelText: 'Size EUR'),
                           ),
                         ),
@@ -156,6 +167,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                             controller: sizeUkController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             maxLength: 4,
+                            enabled: !isLoading, // Disabled while loading
                             decoration: const InputDecoration(labelText: 'Size UK'),
                           ),
                         ),
@@ -164,14 +176,17 @@ class _ShoeListViewState extends State<ShoeListView> {
                     TextField(
                       controller: priceController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      enabled: !isLoading, // Disabled while loading
                       decoration: const InputDecoration(labelText: 'Selling Price'),
                     ),
                     TextField(
                       controller: instagramController,
+                      enabled: !isLoading, // Disabled while loading
                       decoration: const InputDecoration(labelText: 'Instagram Link'),
                     ),
                     TextField(
                       controller: tiktokController,
+                      enabled: !isLoading, // Disabled while loading
                       decoration: const InputDecoration(labelText: 'TikTok Link'),
                     ),
                     const SizedBox(height: 16),
@@ -180,7 +195,8 @@ class _ShoeListViewState extends State<ShoeListView> {
                         ElevatedButton.icon(
                           icon: const Icon(Icons.photo_library),
                           label: const Text('Pick Image'),
-                          onPressed: () async {
+                          // Disable image picking while saving
+                          onPressed: isLoading ? null : () async { 
                             final picker = ImagePicker();
                             final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600);
                             if (picked != null) {
@@ -194,10 +210,17 @@ class _ShoeListViewState extends State<ShoeListView> {
                         ),
                         const SizedBox(width: 16),
                         // Image Preview
-                        SizedBox(
-                          width: 50,
-                          height: 50,
-                          child: imagePreview(),
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8.0),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8.0),
+                            child: imagePreview(),
+                          ),
                         ),
                       ],
                     ),
@@ -207,11 +230,13 @@ class _ShoeListViewState extends State<ShoeListView> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  // Disable cancel while loading
+                  onPressed: isLoading ? null : () => Navigator.of(context).pop(), 
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () async {
+                  // Disable button while loading
+                  onPressed: isLoading ? null : () async {
                     // 1. Data Validation
                     final itemId = _safeIntParse(shoeIdController.text);
                     final shipmentId = shipmentIdController.text.trim();
@@ -219,6 +244,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                     
                     if (itemId == 0 || shipmentId.isEmpty || name.isEmpty) {
                       // Basic validation failure (you might want a better UI feedback here)
+                      // For now, silently fail, relying on user to see required fields
                       return;
                     }
                     
@@ -235,19 +261,42 @@ class _ShoeListViewState extends State<ShoeListView> {
                       localImagePath: dialogImageFile?.path ?? '',
                       remoteImageUrl: currentRemoteImageUrl, // Maintain remote URL if no new image
                       isUploaded: shoe?.isUploaded ?? false, // Maintain previous state
-                      // Ensure documentId is kept for existing shoes if needed by other components
                       // documentId: shoe?.documentId ?? 0,
                     );
 
-                    // 3. Save the data via the service (uses itemId as document key)
-                    await _firebaseService.saveShoe(newShoe, localImageFile: dialogImageFile);
+                    // Start loading state
+                    dialogSetState(() {
+                      isLoading = true;
+                    });
                     
-                    // 4. Close dialog
-                    if (mounted) {
-                      Navigator.of(context).pop();
+                    try {
+                      // 3. Save the data via the service (uses itemId as document key)
+                      await _firebaseService.saveShoe(newShoe, localImageFile: dialogImageFile);
+                      
+                      // 4. Close dialog on success
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    } catch (e) {
+                      debugPrint('Error saving shoe: $e');
+                      // If saving fails, reset loading state and let user try again/fix input
+                      dialogSetState(() {
+                        isLoading = false;
+                      });
+                      // NOTE: A more robust app would show a snackbar here
                     }
                   },
-                  child: Text(isEditing ? 'Update' : 'Add Shoe'),
+                  // Show spinner while loading, otherwise show the text
+                  child: isLoading 
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3.0,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ) 
+                      : Text(isEditing ? 'Update' : 'Add Shoe'),
                 ),
               ],
             );
@@ -283,6 +332,51 @@ class _ShoeListViewState extends State<ShoeListView> {
       appBar: AppBar(
         title: const Text('Real-time Shoe Inventory'),
         backgroundColor: Colors.blueGrey,
+        actions: [
+          // Dropdown for selecting sort field
+          Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _sortField,
+                dropdownColor: Colors.blueGrey[700],
+                icon: const Icon(Icons.sort, color: Colors.white),
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _sortField = newValue;
+                    });
+                  }
+                },
+                items: [
+                  DropdownMenuItem(
+                    value: 'itemId',
+                    child: Text('ID', style: TextStyle(color: _sortField == 'itemId' ? Colors.amberAccent : Colors.white)),
+                  ),
+                  DropdownMenuItem(
+                    value: 'sellingPrice',
+                    child: Text('Price', style: TextStyle(color: _sortField == 'sellingPrice' ? Colors.amberAccent : Colors.white)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Button for toggling sort direction
+          IconButton(
+            icon: Icon(
+              _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                _sortAscending = !_sortAscending;
+              });
+            },
+            tooltip: 'Toggle Sort Direction',
+          ),
+          const SizedBox(width: 8.0),
+        ],
       ),
       body: StreamBuilder<List<Shoe>>(
         // Use the list provided in the constructor as initial data
@@ -290,14 +384,11 @@ class _ShoeListViewState extends State<ShoeListView> {
         stream: _firebaseService.streamShoes(),
         builder: (context, snapshot) {
           // --- Connection State Handling ---
-          // When using initialData, we only show a spinner if there is no data at all
-          // AND we are still waiting for the first stream event.
           if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
-            // Log the error for debugging
             debugPrint('Firestore Stream Error: ${snapshot.error}');
             return Center(
               child: Padding(
@@ -314,11 +405,27 @@ class _ShoeListViewState extends State<ShoeListView> {
             return const Center(child: Text('No shoes added yet. Click "+" to add the first entry!'));
           }
 
+          // --- NEW: Client-Side Sorting Logic ---
+          final sortedShoes = List<Shoe>.from(shoes);
+          sortedShoes.sort((a, b) {
+            int comparison = 0;
+            if (_sortField == 'itemId') {
+              // Sort by Item ID (int)
+              comparison = a.itemId.compareTo(b.itemId);
+            } else if (_sortField == 'sellingPrice') {
+              // Sort by Selling Price (double)
+              comparison = a.sellingPrice.compareTo(b.sellingPrice);
+            }
+            // Apply ascending/descending direction
+            return _sortAscending ? comparison : -comparison;
+          });
+          // -------------------------------------
+
           // --- Display Data ---
           return ListView.builder(
-            itemCount: shoes.length,
+            itemCount: sortedShoes.length,
             itemBuilder: (context, index) {
-              final shoe = shoes[index];
+              final shoe = sortedShoes[index]; // Use the sorted list
               return Card(
                 elevation: 4,
                 margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
