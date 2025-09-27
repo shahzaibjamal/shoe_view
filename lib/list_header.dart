@@ -9,7 +9,7 @@ class ListHeader extends StatelessWidget {
   final ValueChanged<String> onSortFieldChanged;
   final VoidCallback onSortDirectionToggled;
   // New callback for copying the displayed data
-  final VoidCallback onCopyDataPressed;
+//  final VoidCallback onCopyDataPressed;
 
   const ListHeader({
     super.key,
@@ -20,7 +20,7 @@ class ListHeader extends StatelessWidget {
     required this.sortAscending,
     required this.onSortFieldChanged,
     required this.onSortDirectionToggled,
-    required this.onCopyDataPressed, // Added new required parameter
+//    required this.onCopyDataPressed, // Added new required parameter
   });
 
   @override
@@ -69,7 +69,7 @@ class ListHeader extends StatelessWidget {
               // --- NEW COPY BUTTON ---
               IconButton(
                 icon: const Icon(Icons.content_copy, color: Colors.white),
-                onPressed: onCopyDataPressed,
+                onPressed: () {},
                 tooltip: 'Copy currently displayed shoes details to clipboard',
               ),
               const SizedBox(width: 16),

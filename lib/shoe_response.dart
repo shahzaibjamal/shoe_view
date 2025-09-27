@@ -1,4 +1,3 @@
-import 'package:shoe_view/shoe_model.dart';
 
 class ShoeResponse {
   final bool isAuthorized;
