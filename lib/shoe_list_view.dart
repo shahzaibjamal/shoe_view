@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shoe_view/shoe_list_item.dart';
 
 import 'shoe_model.dart';
 import 'firebase_service.dart';
@@ -219,14 +220,13 @@ class _ShoeListViewState extends State<ShoeListView> {
   void _shareToWhatsapp(Shoe shoe) async {
     final imageFile = XFile(shoe.localImagePath);
     final image = CachedNetworkImage(
-                    imageUrl: shoe.remoteImageUrl,
-                    fit: BoxFit.contain, // Show the whole image
-                    placeholder: (context, url) => const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                    errorWidget: (context, url, error) =>
-                        const Icon(Icons.error, size: 80, color: Colors.red),
-                  );
+      imageUrl: shoe.remoteImageUrl,
+      fit: BoxFit.contain, // Show the whole image
+      placeholder: (context, url) =>
+          const Center(child: CircularProgressIndicator(color: Colors.white)),
+      errorWidget: (context, url, error) =>
+          const Icon(Icons.error, size: 80, color: Colors.red),
+    );
     await Share.shareXFiles([imageFile], text: 'Check out this image!');
   }
 
@@ -784,114 +784,17 @@ class _ShoeListViewState extends State<ShoeListView> {
                     itemCount: sortedShoes.length,
                     itemBuilder: (context, index) {
                       final shoe = sortedShoes[index]; // Use the sorted list
-                      return Card(
-                        elevation: 4,
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 1.0,
-                          ),
-
-                          // Leading: Image or Placeholder (now wrapped in GestureDetector)
-                          leading: GestureDetector(
-                            // Only enable tap if a remote image URL is available
-                            onTap: shoe.remoteImageUrl.isNotEmpty
-                                ? () =>
-                                      _showFullScreenImage(shoe.remoteImageUrl)
-                                : null,
-                            child: SizedBox(
-                              width: 80,
-                              height: 80,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12.0),
-                                child: _buildShoeImage(
-                                  shoe.localImagePath,
-                                  shoe.remoteImageUrl,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // Title: Name and IDs
-                          title: Text(
-                            shoe.shoeDetail,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-
-                          // Subtitle: Details (price is now Rs. and on the same line as sizes)
-                          subtitle: Text(
-                            // IDs are on the first line
-                            'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}\n'
-                            'EUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} | Price: Rs.${shoe.sellingPrice.toStringAsFixed(2)}',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-
-                          // Trailing: Edit and Delete buttons
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              // Edit Button
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  color: Colors.blueGrey,
-                                ),
-                                tooltip: 'Edit Shoe',
-                                onPressed: () {
-                                  _showShoeDialog(
-                                    shoe: shoe,
-                                    originalLocalPath: shoe.localImagePath,
-                                  );
-                                },
-                              ),
-                              // Delete Button
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                ),
-                                tooltip: 'Delete Shoe',
-                                onPressed: () => _deleteShoe(shoe),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.share_rounded,
-                                  color: Colors.black87,
-                                ),
-                                tooltip: 'Share Shoe',
-                                onPressed: () {
-                                  Clipboard.setData(
-                                    ClipboardData(
-                                      text:
-                                          'Name: ${shoe.shoeDetail}\n'
-                                          'Size: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}\n'
-                                          'Price: Rs.${shoe.sellingPrice.toStringAsFixed(2)}\n'
-                                          'Instagram: ${shoe.instagramLink}\n'
-                                          'TikTok: ${shoe.tiktokLink}\n',
-                                    ),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Details copied to clipboard! ${shoe.shoeDetail}.',
-                                      ),
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                },
-                                onLongPress: () => _shareToWhatsapp(shoe),
-                              ),
-                            ],
-                          ),
-                        ),
+                      return ShoeListItem(
+                        shoe: shoe,
+                        onEdit: (localImagePath) {
+                          _showShoeDialog(
+                            shoe: shoe,
+                            originalLocalPath: shoe.localImagePath,
+                          );
+                        },
+                        onDelete: () {
+                          _deleteShoe(shoe);
+                        },
                       );
                     },
                   );
