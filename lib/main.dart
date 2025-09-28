@@ -11,10 +11,12 @@ import 'package:provider/provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await fcore.Firebase.initializeApp();
-  runApp(ChangeNotifierProvider(
-    create: (context) => AppStatusNotifier(),
-    child: const MyApp(),
-  ));
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => AppStatusNotifier(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -26,7 +28,7 @@ class MyApp extends StatelessWidget {
       title: 'Shoe View',
       debugShowCheckedModeBanner: false,
       darkTheme: ThemeData.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -111,6 +113,7 @@ class _AuthScreenState extends State<AuthScreen> {
           _signedIn = true;
           _email = email;
           _error = null;
+          _loading = true;
         });
         if (idToken != null) {
           await _callCheckUserAuthorization(email, idToken);
@@ -146,9 +149,9 @@ class _AuthScreenState extends State<AuthScreen> {
         _error = e.toString();
       });
     }
-    setState(() {
-      _loading = false;
-    });
+    // setState(() {
+    //   _loading = false;
+    // });
   }
 
   void _signOut() async {
@@ -177,6 +180,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _callCheckUserAuthorization(String email, String idToken) async {
     final isTest = false;
+    _loading = isTest;
     final result = await FirebaseFunctions.instance
         .httpsCallable('checkUserAuthorization')
         .call({'email': email, 'idToken': idToken, 'isTest': isTest});
@@ -190,6 +194,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _error = 'User is not authorized to access the shoe data.';
         _signedIn = false;
         _email = null;
+        _loading = false;
       });
       await _googleSignIn.signOut();
       return;

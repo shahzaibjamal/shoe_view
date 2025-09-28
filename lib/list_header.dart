@@ -9,7 +9,8 @@ class ListHeader extends StatelessWidget {
   final ValueChanged<String> onSortFieldChanged;
   final VoidCallback onSortDirectionToggled;
   // New callback for copying the displayed data
- final VoidCallback onCopyDataPressed;
+  final VoidCallback onCopyDataPressed;
+  final VoidCallback onShareDataPressed;
 
   const ListHeader({
     super.key,
@@ -20,7 +21,8 @@ class ListHeader extends StatelessWidget {
     required this.sortAscending,
     required this.onSortFieldChanged,
     required this.onSortDirectionToggled,
-   required this.onCopyDataPressed, // Added new required parameter
+    required this.onCopyDataPressed, // Added new required parameter
+    required this.onShareDataPressed, // Added new required parameter
   });
 
   @override
@@ -28,7 +30,12 @@ class ListHeader extends StatelessWidget {
     return Container(
       height: height,
       color: Colors.blueGrey.shade800,
-      padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 20.0, bottom: 8.0),
+      padding: const EdgeInsets.only(
+        left: 16.0,
+        right: 16.0,
+        top: 20.0,
+        bottom: 8.0,
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -39,8 +46,12 @@ class ListHeader extends StatelessWidget {
             child: TextField(
               controller: searchController,
               decoration: InputDecoration(
-                hintText: 'Search: Name, Size (e.g., 42), or Price (e.g., <2500, >1500, =2100)...',
-                hintStyle: TextStyle(color: Colors.blueGrey.shade300, fontSize: 14),
+                hintText:
+                    'Search: Name, Size (e.g., 42), or Price (e.g., <2500, >1500, =2100)...',
+                hintStyle: TextStyle(
+                  color: Colors.blueGrey.shade300,
+                  fontSize: 14,
+                ),
                 prefixIcon: const Icon(Icons.search, color: Colors.white70),
                 filled: true,
                 fillColor: Colors.blueGrey.shade700,
@@ -48,14 +59,19 @@ class ListHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12.0),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
-                suffixIcon: searchQuery.isNotEmpty ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.white70),
-                  onPressed: () {
-                    searchController.clear();
-                    // Listener on searchController handles the state update in ShoeListView
-                  },
-                ) : null,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 10.0,
+                  horizontal: 16.0,
+                ),
+                suffixIcon: searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.white70),
+                        onPressed: () {
+                          searchController.clear();
+                          // Listener on searchController handles the state update in ShoeListView
+                        },
+                      )
+                    : null,
               ),
               style: const TextStyle(color: Colors.white),
               cursorColor: Colors.white,
@@ -70,12 +86,22 @@ class ListHeader extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.content_copy, color: Colors.white),
                 onPressed: () => onCopyDataPressed(),
+                onLongPress: () => onShareDataPressed(),
+
                 tooltip: 'Copy currently displayed shoes details to clipboard',
               ),
+              IconButton(
+                icon: const Icon(Icons.share_sharp, color: Colors.white),
+                onPressed: () => onShareDataPressed(),
+                tooltip: 'Share currently displayed shoes details',
+              ),
               const SizedBox(width: 16),
-              // --- END NEW COPY BUTTON ---
 
-              const Text('Sort By:', style: TextStyle(color: Colors.white, fontSize: 16)),
+              // --- END NEW COPY BUTTON ---
+              const Text(
+                'Sort By:',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
               const SizedBox(width: 8),
               DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
@@ -91,11 +117,25 @@ class ListHeader extends StatelessWidget {
                   items: [
                     DropdownMenuItem(
                       value: 'itemId',
-                      child: Text('ID', style: TextStyle(color: sortField == 'itemId' ? Colors.amberAccent : Colors.white)),
+                      child: Text(
+                        'ID',
+                        style: TextStyle(
+                          color: sortField == 'itemId'
+                              ? Colors.amberAccent
+                              : Colors.white,
+                        ),
+                      ),
                     ),
                     DropdownMenuItem(
                       value: 'sellingPrice',
-                      child: Text('Price', style: TextStyle(color: sortField == 'sellingPrice' ? Colors.amberAccent : Colors.white)),
+                      child: Text(
+                        'Price',
+                        style: TextStyle(
+                          color: sortField == 'sellingPrice'
+                              ? Colors.amberAccent
+                              : Colors.white,
+                        ),
+                      ),
                     ),
                   ],
                 ),

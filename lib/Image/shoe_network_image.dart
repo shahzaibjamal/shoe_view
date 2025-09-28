@@ -19,7 +19,7 @@ class ShoeNetworkImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CachedNetworkImage(
       imageUrl: imageUrl,
-      cacheManager: ImageCacheManager(),
+      cacheManager: ShoeViewCacheManager(),
       placeholder: (context, url) => Container(
         height: height,
         width: width,

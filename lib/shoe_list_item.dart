@@ -11,26 +11,30 @@ class ShoeListItem extends StatelessWidget {
   final Shoe shoe;
   final Function(String originalLocalPath) onEdit;
   final VoidCallback onDelete;
+  final ValueChanged<Shoe> onCopyDataPressed;
+  final ValueChanged<Shoe> onShareDataPressed;
 
   const ShoeListItem({
     super.key,
     required this.shoe,
     required this.onEdit,
     required this.onDelete,
+    required this.onCopyDataPressed,
+    required this.onShareDataPressed,
   });
 
   // Helper method to build the image widget (network or file)
   Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
     // Priority 1: Remote URL (from Firestore)
-      return CachedNetworkImage(
-        imageUrl: remoteImageUrl,
-        width: 60,
-        height: 60,
-        fit: BoxFit.cover,
-        placeholder: (context, url) =>
-            const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
-        errorWidget: (context, url, error) => const Icon(Icons.error, size: 40),
-      );
+    return CachedNetworkImage(
+      imageUrl: remoteImageUrl,
+      width: 60,
+      height: 60,
+      fit: BoxFit.cover,
+      placeholder: (context, url) =>
+          const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
+      errorWidget: (context, url, error) => const Icon(Icons.error, size: 40),
+    );
     // Priority 2: Local File Path (from ImagePicker, not yet uploaded)
   }
 
@@ -64,86 +68,93 @@ class ShoeListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 8.0,
-          horizontal: 16.0,
-        ),
-
-        // Leading: Image or Placeholder (wrapped in GestureDetector)
-        leading: GestureDetector(
-          onTap: shoe.remoteImageUrl.isNotEmpty
-              ? () => _showFullScreenImage(context, shoe.remoteImageUrl)
-              : null,
-          child: SizedBox(
-            width: 60,
-            height: 60,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: _buildShoeImage(shoe.localImagePath, shoe.remoteImageUrl),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Stack(
+        children: [
+          // The main content of the card
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 8.0,
+              horizontal: 16.0,
+            ),
+            leading: GestureDetector(
+              onTap: shoe.remoteImageUrl.isNotEmpty
+                  ? () => _showFullScreenImage(context, shoe.remoteImageUrl)
+                  : null,
+              child: SizedBox(
+                width: 60,
+                height: 60,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: _buildShoeImage(
+                    shoe.localImagePath,
+                    shoe.remoteImageUrl,
+                  ),
+                ),
+              ),
+            ),
+            title: Text(
+              shoe.shoeDetail,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Text(
+              'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}\n'
+              'EUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \n Price: Rs.${shoe.sellingPrice.toStringAsFixed(2)}',
+              style: TextStyle(color: Colors.grey[600]),
             ),
           ),
-        ),
 
-        // Title: Name and IDs
-        title: Text(
-          shoe.shoeDetail,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-
-        // Subtitle: Details (IDs, Sizes, Price)
-        subtitle: Text(
-          'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}\n'
-          'EUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} | Price: Rs.${shoe.sellingPrice.toStringAsFixed(2)}',
-          style: TextStyle(color: Colors.grey[600]),
-        ),
-
-        // Trailing: Edit and Delete buttons
-        trailing: SizedBox(
-          width: 150,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Edit Button
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blueGrey),
-                tooltip: 'Edit Shoe',
-                onPressed: () => onEdit(shoe.localImagePath),
-              ),
-              // Delete Button
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                tooltip: 'Delete Shoe',
-                onPressed: onDelete,
-              ),
-              IconButton(
-                icon: const Icon(Icons.share_rounded, color: Colors.black87),
-                tooltip: 'Share Shoe',
-                onPressed: () {
-                  Clipboard.setData(
-                    ClipboardData(
-                      text:
-                          'Name: ${shoe.shoeDetail}\n'
-                          'Size: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}\n'
-                          'Price: Rs.${shoe.sellingPrice.toStringAsFixed(2)}\n'
-                          'Instagram: ${shoe.instagramLink}\n'
-                          'TikTok: ${shoe.tiktokLink}\n',
-                    ),
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Details copied to clipboard! ${shoe.shoeDetail}.',
+          // Position the buttons in the top-right corner
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SizedBox(
+              width: 150,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blueGrey),
+                        tooltip: 'Edit Shoe',
+                        onPressed: () => onEdit(shoe.localImagePath),
                       ),
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
-                },
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        tooltip: 'Delete Shoe',
+                        onPressed: onDelete,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.copy, color: Colors.black87),
+                        tooltip: 'Copy Shoe Data',
+                        onPressed: () {
+                          onCopyDataPressed(shoe);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.share_rounded,
+                          color: Colors.black87,
+                        ),
+                        tooltip: 'Share Shoe',
+                        onPressed: () {
+                          onShareDataPressed(shoe);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

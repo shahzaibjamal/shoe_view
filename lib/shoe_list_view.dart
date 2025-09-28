@@ -1,13 +1,17 @@
-import 'package:flutter/material.dart';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'dart:math'; // Added for price comparison logic
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shoe_view/Image/collage_builder.dart';
 import 'package:shoe_view/list_header.dart';
 import 'package:shoe_view/shoe_form_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'shoe_model.dart';
 import 'firebase_service.dart';
@@ -154,19 +158,6 @@ class _ShoeListViewState extends State<ShoeListView> {
     return shoe.shoeDetail.toLowerCase().contains(query);
   }
 
-  void _shareToWhatsapp(Shoe shoe) async {
-    final imageFile = XFile(shoe.localImagePath);
-    final image = CachedNetworkImage(
-      imageUrl: shoe.remoteImageUrl,
-      fit: BoxFit.contain, // Show the whole image
-      placeholder: (context, url) =>
-          const Center(child: CircularProgressIndicator(color: Colors.white)),
-      errorWidget: (context, url, error) =>
-          const Icon(Icons.error, size: 80, color: Colors.red),
-    );
-    await Share.shareXFiles([imageFile], text: 'Check out this image!');
-  }
-
   void _deleteShoe(Shoe shoe) async {
     final confirmed =
         await showDialog<bool>(
@@ -200,39 +191,74 @@ class _ShoeListViewState extends State<ShoeListView> {
     }
   }
 
-  void _copyAll() {
-    final buffer = StringBuffer();
-    buffer.writeln('Shoe List:');
-    // buffer.writeln('ID\tDetail\tSize(EUR)\tSize(UK)\tPrice\tImage URL');
-    // Use the current filtered and sorted list
-    // Note: This duplicates some logic; ideally, we would refactor to avoid this.
-    // For simplicity, we will reapply the filtering and sorting here.
-    // In a real app, consider maintaining a separate state for the displayed list.
-print("initial ${_filteredShoes.length}");
+  void _onShareShoe(Shoe shoe) {
+    _ShareData([shoe]);
+  }
 
-print(_filteredShoes.length);
-      for (int i = 0; i < _filteredShoes.length; i++) {
-        final shoe = _filteredShoes[i];
-        buffer.writeln('${i + 1}.');
-        buffer.writeln('Name: ${shoe.shoeDetail}');
-        buffer.writeln('Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}');
-        buffer.writeln('Price: Rs.${shoe.sellingPrice}');
-        buffer.writeln('Instagram: ${shoe.instagramLink}');
-        buffer.writeln('TikTok: ${shoe.tiktokLink}');
-        buffer.writeln(''); // Add a blank line for separation
-        
-      }
+  // --- Share All Data as Collage ---
+  void _onShareAll() {
+    _ShareData(_filteredShoes);
+  }
 
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Shoes details copied to clipboard! ${_filteredShoes.length}')),
+  void _ShareData(List<Shoe> shoesToShare) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          // Set contentPadding to zero to remove default padding
+          contentPadding: EdgeInsets.zero,
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.8,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          content: SizedBox.fromSize(
+            child: CollageBuilder(shoes: shoesToShare, text: _copyData(shoesToShare)),
+          ),
+        );
+      },
     );
+  }
+
+  void _onCopyShoe(Shoe shoe) {
+    _copyData([shoe]);
+  }
+
+  // --- Copy All Data to Clipboard ---
+  void _copyAll() {
+    Clipboard.setData(ClipboardData(text: _copyData(_filteredShoes)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Shoes details copied to clipboard! ${_filteredShoes.length}',
+        ),
+      ),
+    );
+  }
+
+  String _copyData(List<Shoe> shoeList) {
+    final buffer = StringBuffer();
+    final gap = ' '; // base gap after numbering
+
+    for (int i = 0; i < shoeList.length; i++) {
+      final shoe = shoeList[i];
+      final numbering = '${i + 1}.';
+      final indent = ' ' * (numbering.length + gap.length);
+
+      buffer.writeln('${numbering}${gap}Name: ${shoe.shoeDetail}');
+      buffer.writeln('${indent}Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}');
+      buffer.writeln('${indent}Price: Rs.${shoe.sellingPrice}');
+      buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
+      buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
+      buffer.writeln(); // blank line for separation
+    }
+
+    return buffer.toString();
   }
 
   @override
   Widget build(BuildContext context) {
     // --- MODIFIED: Calculate 20% of the screen height for the custom header ---
-    final double headerHeight = MediaQuery.of(context).size.height * 0.15;
+    final double headerHeight = MediaQuery.of(context).size.height * 0.16;
 
     // *** No AppBar is used, only Scaffold body ***
     return Scaffold(
@@ -252,7 +278,8 @@ print(_filteredShoes.length);
                   _sortAscending = !_sortAscending;
                 });
               },
-              onCopyDataPressed: () => _copyAll(), // Pass the copy function
+              onCopyDataPressed: _copyAll,
+              onShareDataPressed: _onShareAll,
             ),
 
             // Main Content Area (takes remaining space)
@@ -327,6 +354,8 @@ print(_filteredShoes.length);
                       final shoe = sortedShoes[index]; // Use the sorted list
                       return ShoeListItem(
                         shoe: shoe,
+                        onCopyDataPressed: _onCopyShoe,
+                        onShareDataPressed: _onShareShoe,
                         onEdit: (localImagePath) => showDialog(
                           context: context,
                           builder: (BuildContext context) {

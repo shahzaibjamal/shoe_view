@@ -1,9 +1,9 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
-class ImageCacheManager extends CacheManager {
-  static const key = 'kickHiveCache';
+class ShoeViewCacheManager extends CacheManager {
+  static const key = 'shoe_view_cache';
 
-  ImageCacheManager()
+  ShoeViewCacheManager()
       : super(
           Config(
             key,
