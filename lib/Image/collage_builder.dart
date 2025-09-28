@@ -1,11 +1,11 @@
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:shoe_view/Image/shoe_network_image.dart';
-import 'package:shoe_view/shoe_model.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:ui' as ui;
-import 'dart:io';
+import 'package:shoe_view/Image/shoe_network_image.dart';
+import 'package:shoe_view/shoe_model.dart';
 
 class CollageBuilder extends StatefulWidget {
   final List<Shoe> shoes;
@@ -24,92 +24,124 @@ class _CollageBuilderState extends State<CollageBuilder> {
 
   @override
   Widget build(BuildContext context) {
-    // Determine the number of images to display, up to _maxImages
     final imagesToDisplay = widget.shoes.take(_maxImages).toList();
     final imageCount = imagesToDisplay.length;
 
-    // Determine grid layout based on number of images
-    final int crossAxisCount = imageCount <= 4
-        ? 2
-        : imageCount <= 9
-        ? 3
-        : 4;
+    if (imageCount == 0) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Text('No shoes selected to build collage.'),
+        ),
+      );
+    }
+
+    final int crossAxisCount = _calculateGridSize(imageCount);
+    final int rowCount = (imageCount / crossAxisCount).ceil();
+    const double spacing = 4.0;
+    const double itemSize = 100.0;
+
+    final double collageWidth =
+        (crossAxisCount * itemSize) + ((crossAxisCount - 1) * spacing);
+    final double collageHeight =
+        (rowCount * itemSize) + ((rowCount - 1) * spacing);
 
     return Column(
-      mainAxisSize: MainAxisSize.min, // Make Column fit its children
+      mainAxisSize: MainAxisSize.min,
       children: [
-        RepaintBoundary(
-          key: _collageKey,
-          child: Container(
-            color: Colors.white,
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              children: imagesToDisplay.asMap().entries.map((entry) {
-                final index = entry.key;
-                final shoe = entry.value;
-
-                return Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: Stack(
-                    alignment: Alignment.bottomLeft,
-                    children: [
-                      Container(
-                        width:
-                            MediaQuery.of(context).size.width / crossAxisCount -
-                            8,
-                        height:
-                            MediaQuery.of(context).size.width / crossAxisCount -
-                            8,
-                        color: Colors.grey[200],
-                        child: ShoeNetworkImage(
-                          imageUrl: shoe.remoteImageUrl,
-                          // Use BoxFit.fitWidth to fit the image horizontally
-                          fit: BoxFit.fitHeight,
-                        ),
-                      ),
-                      Positioned(
-                        left: 5,
-                        bottom: 5,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '${index + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+        Center(
+          child: RepaintBoundary(
+            key: _collageKey,
+            child: SizedBox(
+              width: collageWidth,
+              height: collageHeight,
+              child: GridView.builder(
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: spacing,
+                  mainAxisSpacing: spacing,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: imageCount,
+                itemBuilder: (context, index) {
+                  final shoe = imagesToDisplay[index];
+                  return SizedBox(
+                    width: itemSize,
+                    height: itemSize,
+                    child: Stack(
+                      alignment: Alignment.bottomLeft,
+                      children: [
+                        Container(
+                          color: Colors.grey[200],
+                          child: ShoeNetworkImage(
+                            imageUrl: shoe.remoteImageUrl,
+                            fit: BoxFit.values.firstWhere(
+                              (e) => e != BoxFit.contain,
+                              orElse: () => BoxFit.cover,
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                        Positioned(
+                          left: 5,
+                          bottom: 5,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _captureAndShareCollage,
-          child: _isSaving
-              ? const CircularProgressIndicator(strokeWidth: 2)
-              : const Text('Share to WhatsApp'),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: ElevatedButton(
+            onPressed: _isSaving ? null : _captureAndShareCollage,
+            child: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text('Share to WhatsApp'),
+          ),
         ),
       ],
     );
   }
 
+  int _calculateGridSize(int count) {
+    if (count <= 1) return 1;
+    if (count <= 4) return 2;
+    if (count <= 9) return 3;
+    return 4;
+  }
+
   Future<void> _captureAndShareCollage() async {
-    setState(() {
-      _isSaving = true;
-    });
+    setState(() => _isSaving = true);
 
     try {
       final boundary =
@@ -123,26 +155,21 @@ class _CollageBuilderState extends State<CollageBuilder> {
       final file = await File('${tempDir.path}/collage.png').create();
       await file.writeAsBytes(pngBytes);
 
-      // await Share.shareXFiles([XFile(file.path)], text: 'Check out my shoe collage!');
       await SharePlus.instance.share(
         ShareParams(text: widget.text, files: [XFile(file.path)]),
       );
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       debugPrint('Error capturing or sharing collage: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to share collage.')),
+          const SnackBar(
+            content: Text('Failed to share collage. Check permissions.'),
+          ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 }

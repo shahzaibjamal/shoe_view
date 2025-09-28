@@ -116,11 +116,11 @@ class ListHeader extends StatelessWidget {
                   },
                   items: [
                     DropdownMenuItem(
-                      value: 'itemId',
+                      value: 'size',
                       child: Text(
-                        'ID',
+                        'Size',
                         style: TextStyle(
-                          color: sortField == 'itemId'
+                          color: sortField == 'size'
                               ? Colors.amberAccent
                               : Colors.white,
                         ),

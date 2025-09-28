@@ -2,16 +2,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'dart:math'; // Added for price comparison logic
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:provider/provider.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
+import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/list_header.dart';
 import 'package:shoe_view/shoe_form_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'shoe_model.dart';
 import 'firebase_service.dart';
@@ -34,9 +32,10 @@ class _ShoeListViewState extends State<ShoeListView> {
   final FirebaseService _firebaseService = FirebaseService();
 
   // --- State Variables for Sorting & Searching ---
-  String _sortField = 'itemId'; // Options: 'itemId', 'sellingPrice'
+  String _sortField = 'size'; // Options: 'size', 'sellingPrice'
   bool _sortAscending = true;
   String _searchQuery = ''; // Tracks the text in the search bar
+  static const double _epsilon = 1e-9;
   List<Shoe> _filteredShoes = [];
   final TextEditingController _searchController =
       TextEditingController(); // Controller for search input
@@ -47,6 +46,9 @@ class _ShoeListViewState extends State<ShoeListView> {
     super.initState();
     // 1. Add listener for real-time search filtering as the user types
     _searchController.addListener(_onSearchChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForTrialExpiration(); // or show your Snackbar/Dialog here
+    });
   }
 
   @override
@@ -64,98 +66,201 @@ class _ShoeListViewState extends State<ShoeListView> {
     });
   }
 
-  void _onSearchChangedText(String value) {
-    // Update the search query state immediately on text change
-    setState(() {
-      _searchQuery = value.toLowerCase().trim();
-    });
-  }
-
   // Helper function for safe parsing
   double _safeDoubleParse(String? text) {
     if (text == null || text.isEmpty) return 0.0;
     return double.tryParse(text) ?? 0.0;
   }
 
-  // ------------------------------------
-
-  /// New Smart Query Logic:
-  /// 1. If any price operator (<, >, =) is present, filter ONLY by price.
-  /// 2. If the query is a pure number (including decimals), filter ONLY by size (exact match string).
-  /// 3. Otherwise, filter by shoeDetail (text search).
+  /// Refactored Smart Query Logic:
+  /// The shoe must match ALL filter requirements derived from the query tokens:
+  /// 1. Price: Must match combined range/exact price condition (if [<>=~] is present).
+  /// 2. Shipment ID: Must contain ID (if # is present).
+  /// 3. Size/Text: Any remaining token must match EITHER exact size OR shoeDetail text.
   bool _doesShoeMatchSmartQuery(Shoe shoe) {
-    final query = _searchQuery;
-    if (query.isEmpty) return true;
+    final rawQuery = _searchQuery;
+    if (rawQuery.isEmpty) return true;
 
-    // Regex to identify price operators and values: [<>=]\s*(\d+\.?\d*)
-    final priceRegex = RegExp(r'([<>=])\s*(\d+\.?\d*)');
-    final matches = priceRegex.allMatches(query);
+    // 1. Tokenize the query and remove 'lim' commands
+    final queryTokens = rawQuery
+        .toLowerCase()
+        .split(RegExp(r'\s+')) // Split by one or more spaces
+        .where((s) => s.isNotEmpty && !s.startsWith('lim'))
+        .toList();
 
-    // --- 1. PRICE FILTERING ---
-    if (matches.isNotEmpty) {
-      // If any price condition is present, assume user is looking for price.
+    if (queryTokens.isEmpty) return true;
 
+    bool allFiltersMatch = true;
+    bool isPriceFilterActive = false;
+
+    // Regex for price tokens and any text/size tokens
+    final priceRegex = RegExp(r'^([<>=~])(\d+\.?\d*)$');
+
+    // --- 2. Process tokens for individual/instant checks (Shipment ID, Size OR, Pure Size, Text) ---
+    for (final token in queryTokens) {
+      final priceMatch = priceRegex.firstMatch(token);
+
+      if (priceMatch != null) {
+        // Price filter token: Mark price filter active, continue to process other tokens
+        isPriceFilterActive = true;
+        continue;
+      }
+      // Shipment ID Filter (e.g., #12345): Must match or fail
+      else if (token.startsWith('#')) {
+        final idQuery = token.substring(1).trim();
+        // Convert integer shipmentId to string for comparison
+        if (!shoe.shipmentId.toString().contains(idQuery)) {
+          allFiltersMatch = false;
+          break; // Failed Shipment ID filter
+        }
+      }
+      // Size OR Filter (e.g., 42|43): Must match any size in the OR list or fail
+      else if (token.contains('|')) {
+        final sizeCriteria = token
+            .split('|')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        bool matchesSizeOr = sizeCriteria.any(
+          (sizeStr) =>
+              shoe.sizeEur.trim() == sizeStr || shoe.sizeUk.trim() == sizeStr,
+        );
+
+        if (!matchesSizeOr) {
+          allFiltersMatch = false;
+          break; // Failed Size OR filter
+        }
+      }
+      // Pure Number / Text Filter: Token must match EITHER exact size OR text detail
+      else {
+        final isPureNumber = RegExp(r'^\d+(\.\d+)?$').hasMatch(token);
+
+        if (isPureNumber) {
+          // Treat as exact size search (e.g., "42")
+          final sizeStr = token;
+          final matchesSize =
+              shoe.sizeEur.trim() == sizeStr || shoe.sizeUk.trim() == sizeStr;
+
+          if (!matchesSize) {
+            allFiltersMatch = false;
+            break; // Failed Pure Number Size filter
+          }
+        } else {
+          // Treat as standard text search (e.g., "adidas")
+          if (!shoe.shoeDetail.toLowerCase().contains(token)) {
+            allFiltersMatch = false;
+            break; // Failed Text filter
+          }
+        }
+      }
+    }
+
+    // If any non-price filter failed in the first pass, return false immediately
+    if (allFiltersMatch == false) {
+      return false;
+    }
+
+    // --- 3. Evaluate Combined Price Filter (if active) ---
+    if (isPriceFilterActive) {
       double? lowerBound;
       double? upperBound;
       double? exactPrice;
 
-      for (var match in matches) {
-        final operator = match.group(1); // <, >, or =
-        final valueStr = match.group(
-          2,
-        ); // The number part (e.g., "2500" or "1500.50")
+      for (final token in queryTokens) {
+        final match = priceRegex.firstMatch(token);
+        if (match == null) continue; // Skip non-price tokens
+
+        final operator = match.group(1); // <, >, =, or ~
+        final valueStr = match.group(2);
         final value = _safeDoubleParse(valueStr);
 
         if (operator == '=') {
-          // Exact match takes precedence, stop processing bounds
           exactPrice = value;
-          break;
         } else if (operator == '<') {
-          // Keep the tightest upper bound (minimum value with '<')
           upperBound = upperBound == null ? value : min(upperBound, value);
         } else if (operator == '>') {
-          // Keep the tightest lower bound (maximum value with '>')
           lowerBound = lowerBound == null ? value : max(lowerBound, value);
+        } else if (operator == '~') {
+          // Range filter (~1500 means 1000 to 2000, i.e., +/- 500)
+          const range = 500.0;
+          lowerBound = lowerBound == null
+              ? value - range
+              : max(lowerBound, value - range);
+          upperBound = upperBound == null
+              ? value + range
+              : min(upperBound, value + range);
         }
       }
 
       final price = shoe.sellingPrice;
 
       if (exactPrice != null) {
-        // Exact match check
-        return price == exactPrice;
+        // Exact match check with tolerance
+        return (price - exactPrice).abs() < _epsilon;
       }
 
-      if (lowerBound != null && price < lowerBound) {
-        return false; // Fails lower bound check
+      // Check bounds with tolerance for floating point safety
+      if (lowerBound != null && price < lowerBound - _epsilon) {
+        return false;
       }
 
-      if (upperBound != null && price > upperBound) {
-        return false; // Fails upper bound check
+      if (upperBound != null && price > upperBound + _epsilon) {
+        return false;
       }
-
-      // If we reach here, and we had valid price criteria, the shoe matches.
-      return lowerBound != null || upperBound != null;
+      // If it got this far, it passed the price filter.
+      return true;
     }
 
-    // Clean query of spaces for number check (e.g., "42 5" should fail, "42.5" should pass)
-    final cleanQuery = query.replaceAll(' ', '');
-    final isPureNumber = RegExp(r'^\d+(\.\d+)?$').hasMatch(cleanQuery);
+    // If we reach here, and all individual filters passed (and no price filter was active), we match.
+    return true;
+  }
 
-    // --- 2. SIZE FILTERING (Pure Number/Decimal) ---
-    if (isPureNumber) {
-      // Treat as size search (exact match on EUR or UK size strings).
-      final sizeStr = cleanQuery;
+  List<Shoe> getFilteredShoes(List<Shoe> shoes) {
+    final rawQuery = _searchQuery.trim().toLowerCase();
+    if (rawQuery.isEmpty) return shoes;
 
-      final matchesSize =
-          shoe.sizeEur.trim() == sizeStr || shoe.sizeUk.trim() == sizeStr;
+    final tokens = rawQuery
+        .split(RegExp(r'\s+'))
+        .where((s) => s.isNotEmpty)
+        .toList();
 
-      return matchesSize;
+    // Extract lim token
+    String? limType;
+    int? limCount;
+    final limRegex = RegExp(r'^lim([<>=~])(\d+)$');
+
+    final filterTokens = <String>[];
+    for (final token in tokens) {
+      final match = limRegex.firstMatch(token);
+      if (match != null) {
+        limType = match.group(1); // <, >, ~
+        limCount = int.tryParse(match.group(2)!);
+      } else {
+        filterTokens.add(token);
+      }
     }
 
-    // --- 3. TEXT FILTERING (Default) ---
-    // If no specific pattern (price or pure size number) was found, treat as shoe detail search.
-    return shoe.shoeDetail.toLowerCase().contains(query);
+    // Apply filtering
+    final filteredShoes = shoes.where((shoe) {
+      _searchQuery = filterTokens.join(' ');
+      return _doesShoeMatchSmartQuery(shoe);
+    }).toList();
+
+    // Apply limiting
+    if (limType != null && limCount != null && limCount > 0) {
+      if (limType == '<') {
+        filteredShoes.sort((a, b) => a.sellingPrice.compareTo(b.sellingPrice));
+        return filteredShoes.take(limCount).toList();
+      } else if (limType == '>') {
+        filteredShoes.sort((a, b) => b.sellingPrice.compareTo(a.sellingPrice));
+        return filteredShoes.take(limCount).toList();
+      } else if (limType == '~') {
+        filteredShoes.shuffle();
+        return filteredShoes.take(limCount).toList();
+      }
+    }
+
+    return filteredShoes;
   }
 
   void _deleteShoe(Shoe shoe) async {
@@ -213,13 +318,39 @@ class _ShoeListViewState extends State<ShoeListView> {
           ),
           content: Padding(
             padding: const EdgeInsets.all(12.0),
-            child: 
-            SizedBox.fromSize(
-              child: CollageBuilder(shoes: shoesToShare, text: _copyData(shoesToShare)),
+            child: SizedBox.fromSize(
+              child: CollageBuilder(
+                shoes: shoesToShare,
+                text: _copyData(shoesToShare),
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  void _checkForTrialExpiration() {
+    // Implement trial expiration logic here
+    // For example, check if the trial period has ended and update the UI or state accordingly
+    final isTrial = context.watch<AppStatusNotifier>().isTrial;
+
+    // ScaffoldMessenger.of(
+    //   context,
+    // ).showSnackBar(SnackBar(content: Text('This is a trial!')));
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Trial Expired'),
+        content: Text('${isTrial ? '' : 'Your trial period has ended.'}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -263,7 +394,6 @@ class _ShoeListViewState extends State<ShoeListView> {
   Widget build(BuildContext context) {
     // --- MODIFIED: Calculate 20% of the screen height for the custom header ---
     final double headerHeight = MediaQuery.of(context).size.height * 0.16;
-
     // *** No AppBar is used, only Scaffold body ***
     return Scaffold(
       body: SafeArea(
@@ -276,7 +406,11 @@ class _ShoeListViewState extends State<ShoeListView> {
               searchQuery: _searchController.text,
               sortField: _sortField,
               sortAscending: _sortAscending,
-              onSortFieldChanged: _onSearchChangedText,
+              onSortFieldChanged: (value) {
+                setState(() {
+                  _sortField = value;
+                });
+              },
               onSortDirectionToggled: () {
                 setState(() {
                   _sortAscending = !_sortAscending;
@@ -324,10 +458,11 @@ class _ShoeListViewState extends State<ShoeListView> {
                   }
 
                   // --- Filter Logic (using the new smart query acceptor) ---
-                  _filteredShoes = shoes.where((shoe) {
-                    return _doesShoeMatchSmartQuery(shoe);
-                  }).toList();
-
+                  // _filteredShoes = shoes.where((shoe) {
+                  //   return _doesShoeMatchSmartQuery(shoe);
+                  // }).toList();
+                  _filteredShoes = getFilteredShoes(shoes);
+                  print('before  ${_filteredShoes.length}');
                   if (_filteredShoes.isEmpty) {
                     return Center(
                       child: Text('No shoes found matching "$_searchQuery".'),
@@ -337,11 +472,14 @@ class _ShoeListViewState extends State<ShoeListView> {
 
                   // --- Client-Side Sorting Logic (applied to the filtered list) ---
                   final sortedShoes = List<Shoe>.from(_filteredShoes);
+                  print('sortedShoes  ${_filteredShoes.length}');
                   sortedShoes.sort((a, b) {
                     int comparison = 0;
-                    if (_sortField == 'itemId') {
-                      // Sort by Item ID (int)
-                      comparison = a.itemId.compareTo(b.itemId);
+                    if (_sortField == 'size') {
+                      // FIX: Parse size strings to double for correct numerical comparison
+                      final sizeA = double.tryParse(a.sizeEur) ?? 0.0;
+                      final sizeB = double.tryParse(b.sizeEur) ?? 0.0;
+                      comparison = sizeA.compareTo(sizeB);
                     } else if (_sortField == 'sellingPrice') {
                       // Sort by Selling Price (double)
                       comparison = a.sellingPrice.compareTo(b.sellingPrice);
@@ -350,6 +488,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                     return _sortAscending ? comparison : -comparison;
                   });
                   // -------------------------------------
+                  print('sortedShoes after ${_filteredShoes.length}');
 
                   // --- Display Data ---
                   return ListView.builder(

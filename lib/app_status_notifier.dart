@@ -5,8 +5,8 @@ class AppStatusNotifier extends ChangeNotifier {
 
   bool get isTrial => _isTrial;
 
-  void updateStatus(bool newStatus) {
-    _isTrial = newStatus;
+  void updateTrial(bool trial) {
+    _isTrial = trial;
     notifyListeners(); // Notify all listeners to rebuild
   }
 }
