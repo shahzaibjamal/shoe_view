@@ -95,7 +95,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 4),
         ElevatedButton(
           onPressed: _isSaving ? null : _captureAndShareCollage,
           child: _isSaving

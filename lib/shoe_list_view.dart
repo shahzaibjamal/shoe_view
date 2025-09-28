@@ -211,8 +211,12 @@ class _ShoeListViewState extends State<ShoeListView> {
             maxWidth: MediaQuery.of(context).size.width * 0.8,
             maxHeight: MediaQuery.of(context).size.height * 0.8,
           ),
-          content: SizedBox.fromSize(
-            child: CollageBuilder(shoes: shoesToShare, text: _copyData(shoesToShare)),
+          content: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: 
+            SizedBox.fromSize(
+              child: CollageBuilder(shoes: shoesToShare, text: _copyData(shoesToShare)),
+            ),
           ),
         );
       },
