@@ -110,6 +110,7 @@ class Shoe {
 
   // Creates an updated copy of the object.
   Shoe copyWith({
+    int? documentId,
     int? itemId,
     String? shipmentId,
     String? shoeDetail,

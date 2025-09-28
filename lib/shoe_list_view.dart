@@ -33,6 +33,7 @@ class _ShoeListViewState extends State<ShoeListView> {
   String _sortField = 'itemId'; // Options: 'itemId', 'sellingPrice'
   bool _sortAscending = true;
   String _searchQuery = ''; // Tracks the text in the search bar
+  List<Shoe> _filteredShoes = [];
   final TextEditingController _searchController =
       TextEditingController(); // Controller for search input
   // ---------------------------------------
@@ -58,12 +59,14 @@ class _ShoeListViewState extends State<ShoeListView> {
       _searchQuery = _searchController.text.toLowerCase().trim();
     });
   }
+
   void _onSearchChangedText(String value) {
     // Update the search query state immediately on text change
     setState(() {
       _searchQuery = value.toLowerCase().trim();
     });
   }
+
   // Helper method to build the image widget (network or file)
   Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
     // Priority 1: Remote URL (from Firestore)
@@ -270,11 +273,39 @@ class _ShoeListViewState extends State<ShoeListView> {
     }
   }
 
+  void _copyAll() {
+    final buffer = StringBuffer();
+    buffer.writeln('Shoe List:');
+    // buffer.writeln('ID\tDetail\tSize(EUR)\tSize(UK)\tPrice\tImage URL');
+    // Use the current filtered and sorted list
+    // Note: This duplicates some logic; ideally, we would refactor to avoid this.
+    // For simplicity, we will reapply the filtering and sorting here.
+    // In a real app, consider maintaining a separate state for the displayed list.
+print("initial ${_filteredShoes.length}");
+
+print(_filteredShoes.length);
+      for (int i = 0; i < _filteredShoes.length; i++) {
+        final shoe = _filteredShoes[i];
+        buffer.writeln('${i + 1}.');
+        buffer.writeln('Name: ${shoe.shoeDetail}');
+        buffer.writeln('Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}');
+        buffer.writeln('Price: Rs.${shoe.sellingPrice}');
+        buffer.writeln('Instagram: ${shoe.instagramLink}');
+        buffer.writeln('TikTok: ${shoe.tiktokLink}');
+        buffer.writeln(''); // Add a blank line for separation
+        
+      }
+
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Shoes details copied to clipboard! ${_filteredShoes.length}')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     // --- MODIFIED: Calculate 20% of the screen height for the custom header ---
-    final double headerHeight = MediaQuery.of(context).size.height * 0.20;
+    final double headerHeight = MediaQuery.of(context).size.height * 0.15;
 
     // *** No AppBar is used, only Scaffold body ***
     return Scaffold(
@@ -294,6 +325,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                   _sortAscending = !_sortAscending;
                 });
               },
+              onCopyDataPressed: () => _copyAll(), // Pass the copy function
             ),
 
             // Main Content Area (takes remaining space)
@@ -334,11 +366,11 @@ class _ShoeListViewState extends State<ShoeListView> {
                   }
 
                   // --- Filter Logic (using the new smart query acceptor) ---
-                  List<Shoe> filteredShoes = shoes.where((shoe) {
+                  _filteredShoes = shoes.where((shoe) {
                     return _doesShoeMatchSmartQuery(shoe);
                   }).toList();
 
-                  if (filteredShoes.isEmpty) {
+                  if (_filteredShoes.isEmpty) {
                     return Center(
                       child: Text('No shoes found matching "$_searchQuery".'),
                     );
@@ -346,7 +378,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                   // ---------------------------
 
                   // --- Client-Side Sorting Logic (applied to the filtered list) ---
-                  final sortedShoes = List<Shoe>.from(filteredShoes);
+                  final sortedShoes = List<Shoe>.from(_filteredShoes);
                   sortedShoes.sort((a, b) {
                     int comparison = 0;
                     if (_sortField == 'itemId') {
