@@ -67,85 +67,12 @@ class _ShoeListViewState extends State<ShoeListView> {
     });
   }
 
-  // Helper method to build the image widget (network or file)
-  Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
-    // Priority 1: Remote URL (from Firestore)
-    if (remoteImageUrl.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: remoteImageUrl,
-        width: 60,
-        height: 60,
-        fit: BoxFit.cover,
-        placeholder: (context, url) =>
-            const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
-        errorWidget: (context, url, error) => const Icon(Icons.error, size: 40),
-      );
-    }
-    // Priority 2: Local File Path (from ImagePicker, not yet uploaded)
-    else if (imagePath.isNotEmpty) {
-      try {
-        return Image.file(
-          File(imagePath),
-          width: 60,
-          height: 60,
-          fit: BoxFit.cover,
-        );
-      } catch (e) {
-        // Fallback if the path is invalid or file is missing
-        return const Icon(Icons.broken_image, size: 40);
-      }
-    }
-    // Fallback: No image available
-    return const Icon(Icons.image_not_supported, size: 40, color: Colors.grey);
-  }
-
-  // Helper function for safe parsing
-  int _safeIntParse(String? text) {
-    if (text == null || text.isEmpty) return 0;
-    return int.tryParse(text) ?? 0;
-  }
-
   // Helper function for safe parsing
   double _safeDoubleParse(String? text) {
     if (text == null || text.isEmpty) return 0.0;
     return double.tryParse(text) ?? 0.0;
   }
 
-  // New: Full Screen Image View
-  void _showFullScreenImage(String imageUrl) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        // Black background for a typical image viewing experience
-        backgroundColor: Colors.black,
-        insetPadding: EdgeInsets.zero,
-        child: GestureDetector(
-          // Tap anywhere to dismiss the full-screen view
-          onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.5,
-            height: MediaQuery.of(context).size.height * 0.75,
-            alignment: Alignment.center,
-            child: imageUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.contain, // Show the whole image
-                    placeholder: (context, url) => const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                    errorWidget: (context, url, error) =>
-                        const Icon(Icons.error, size: 80, color: Colors.red),
-                  )
-                : const Icon(
-                    Icons.image_not_supported,
-                    size: 80,
-                    color: Colors.grey,
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
   // ------------------------------------
 
   /// New Smart Query Logic:

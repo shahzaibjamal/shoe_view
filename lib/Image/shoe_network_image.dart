@@ -1,0 +1,34 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:shoe_view/Image/image_cache_manager.dart';
+
+class ShoeNetworkImage extends StatelessWidget {
+  final String imageUrl;
+  final double height;
+  final double width;
+  final BoxFit fit;
+
+  const ShoeNetworkImage({
+    required this.imageUrl,
+    this.height = 100,
+    this.width = 100,
+    this.fit = BoxFit.fitWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      cacheManager: ImageCacheManager(),
+      placeholder: (context, url) => Container(
+        height: height,
+        width: width,
+        color: Colors.grey[300],
+      ),
+      errorWidget: (context, url, error) => Icon(Icons.error),
+      height: height,
+      width: width,
+      fit: fit,
+    );
+  }
+}

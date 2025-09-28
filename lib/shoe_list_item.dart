@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
+import 'package:shoe_view/Image/shoe_network_image.dart';
 
 import 'shoe_model.dart';
 
@@ -21,7 +22,6 @@ class ShoeListItem extends StatelessWidget {
   // Helper method to build the image widget (network or file)
   Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
     // Priority 1: Remote URL (from Firestore)
-    if (remoteImageUrl.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: remoteImageUrl,
         width: 60,
@@ -31,53 +31,29 @@ class ShoeListItem extends StatelessWidget {
             const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
         errorWidget: (context, url, error) => const Icon(Icons.error, size: 40),
       );
-    }
     // Priority 2: Local File Path (from ImagePicker, not yet uploaded)
-    else if (imagePath.isNotEmpty) {
-      try {
-        return Image.file(
-          File(imagePath),
-          width: 60,
-          height: 60,
-          fit: BoxFit.cover,
-        );
-      } catch (e) {
-        // Fallback if the path is invalid or file is missing
-        return const Icon(Icons.broken_image, size: 40);
-      }
-    }
-    // Fallback: No image available
-    return const Icon(Icons.image_not_supported, size: 40, color: Colors.grey);
   }
 
   // Full Screen Image View
   void _showFullScreenImage(BuildContext context, String imageUrl) {
+    final height = MediaQuery.of(context).size.height * 0.75;
+    final width = MediaQuery.of(context).size.width * 0.75;
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent, // Keep this transparent
         insetPadding: EdgeInsets.zero,
         child: GestureDetector(
           onTap: () => Navigator.of(context).pop(),
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            alignment: Alignment.center,
-            child: imageUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) => const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                    errorWidget: (context, url, error) =>
-                        const Icon(Icons.error, size: 80, color: Colors.red),
-                  )
-                : const Icon(
-                    Icons.image_not_supported,
-                    size: 80,
-                    color: Colors.grey,
-                  ),
+          // Wrap the entire content in a ClipRRect
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16.0),
+            child: ShoeNetworkImage(
+              width: width,
+              height: height,
+              imageUrl: imageUrl,
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),
