@@ -8,6 +8,7 @@ class Shoe {
   final String shoeDetail;
   final String sizeEur;
   final String sizeUk;
+  final String status;
   final double sellingPrice;
   final String instagramLink;
   final String tiktokLink;
@@ -26,6 +27,7 @@ class Shoe {
     required this.sellingPrice,
     required this.instagramLink,
     required this.tiktokLink,
+    required this.status,
     this.localImagePath = '',
     this.remoteImageUrl = '',
     this.isUploaded = false,
@@ -41,19 +43,31 @@ class Shoe {
     final shoeDetail = map['ShoeDetail']?.toString() ?? '';
     final sizeEur = map['Size']?.toString() ?? '';
     final sizeUk = map['SizeUK']?.toString() ?? '';
-    final sellingPrice = double.tryParse(map['SellingPrice']?.toString() ?? '') ?? 0.0;
+    final sellingPrice =
+        double.tryParse(map['SellingPrice']?.toString() ?? '') ?? 0.0;
     final remoteImageUrl = map['RemoteImageURL']?.toString() ?? '';
     final isUploaded = map['IsUploaded'] as bool? ?? false;
     final isConfirmed = map['IsConfirmed'] as bool? ?? false;
+    final status = map['Status']?.toString() ?? '';
     final links = map['Links'] as List<dynamic>?;
-    
+
     String instagram = '';
     String tiktok = '';
-    if (links != null && links.isNotEmpty) {
-      final linkMap = links.first as Map<String, dynamic>?;
-      if (linkMap != null) {
-        instagram = linkMap['instagram']?.toString() ?? '';
-        tiktok = linkMap['tiktok']?.toString() ?? '';
+    // if (links != null && links.isNotEmpty) {
+    //   final linkMap = links.first as Map<String, dynamic>?;
+    //   if (linkMap != null) {
+    //     instagram = linkMap['instagram']?.toString() ?? '';
+    //     tiktok = linkMap['tiktok']?.toString() ?? '';
+    //   }
+    // }
+    if (links != null) {
+      for (var link in links) {
+        final linkStr = link.toString();
+        if (linkStr.contains('instagram.com')) {
+          instagram = linkStr;
+        } else if (linkStr.contains('tiktok.com')) {
+          tiktok = linkStr;
+        }
       }
     }
 
@@ -70,6 +84,7 @@ class Shoe {
       remoteImageUrl: remoteImageUrl,
       isUploaded: isUploaded,
       isConfirmed: isConfirmed,
+      status: status,
     );
   }
 
@@ -77,7 +92,7 @@ class Shoe {
   Map<String, dynamic> toMap() {
     return {
       'DocumentID': documentId,
-      'ItemID': itemId, 
+      'ItemID': itemId,
       'ShipmentID': shipmentId,
       'ShoeDetail': shoeDetail,
       'Size': sizeEur,
@@ -85,28 +100,30 @@ class Shoe {
       'SellingPrice': sellingPrice,
       'RemoteImageURL': remoteImageUrl,
       'Links': [
-        {'instagram': instagramLink, 'tiktok': tiktokLink}
+        {'instagram': instagramLink, 'tiktok': tiktokLink},
       ],
       'IsUploaded': isUploaded,
       'IsConfirmed': isConfirmed,
+      'Status': status,
     };
   }
-  
+
   // Creates an empty Shoe instance for new entries.
   const Shoe.empty()
-      : documentId = 0,
-        itemId = 0,
-        shipmentId = '',
-        shoeDetail = '',
-        sizeEur = '',
-        sizeUk = '',
-        sellingPrice = 0.0,
-        instagramLink = '',
-        tiktokLink = '',
-        localImagePath = '',
-        remoteImageUrl = '',
-        isUploaded = false,
-        isConfirmed = false;
+    : documentId = 0,
+      itemId = 0,
+      shipmentId = '',
+      shoeDetail = '',
+      sizeEur = '',
+      sizeUk = '',
+      sellingPrice = 0.0,
+      instagramLink = '',
+      tiktokLink = '',
+      localImagePath = '',
+      remoteImageUrl = '',
+      status = '',
+      isUploaded = false,
+      isConfirmed = false;
 
   // Creates an updated copy of the object.
   Shoe copyWith({
@@ -121,6 +138,7 @@ class Shoe {
     String? tiktokLink,
     String? localImagePath,
     String? remoteImageUrl,
+    String? status,
     bool? isUploaded,
     bool? isConfirmed,
   }) {
@@ -138,6 +156,85 @@ class Shoe {
       remoteImageUrl: remoteImageUrl ?? this.remoteImageUrl,
       isUploaded: isUploaded ?? this.isUploaded,
       isConfirmed: isConfirmed ?? this.isConfirmed,
+      status: status ?? this.status,
     );
+  }
+
+  factory Shoe.fromJson(Map<String, dynamic> map) {
+    // Safely parse values with fallbacks
+    final itemId = int.tryParse(map['Item ID']?.toString() ?? '') ?? 0;
+    final shipmentId = map['Shipment ID']?.toString() ?? '';
+    final shoeDetail = map['Shoe Detail']?.toString() ?? '';
+    final sizeEur = map['Size']?.toString() ?? '';
+    final sizeUk = map['Size UK']?.toString() ?? '';
+    final status = map['Status']?.toString() ?? '';
+    final sellingPrice =
+        double.tryParse(map['Selling Price']?.toString() ?? '') ?? 0.0;
+    String imageUrl = map['MediaThumbnail']?.toString() ?? '';
+
+/******************************************************/
+    final desiredWidth = 600;
+    final uri = Uri.parse(imageUrl);
+    final queryParameters = Map<String, String>.from(uri.queryParameters);
+    queryParameters['sz'] = 'w$desiredWidth';
+    final newUri = uri.replace(queryParameters: queryParameters);
+    imageUrl = newUri.toString();
+/******************************************************/
+    final isUploaded = map['Uploaded'] as bool? ?? false;
+    final isConfirmed = map['Video Created'] as bool? ?? false;
+    final links = map['Links'] as List<dynamic>?;
+
+    String instagram = '';
+    String tiktok = '';
+
+    if (links != null) {
+      for (var link in links) {
+        final linkStr = link.toString();
+        if (linkStr.contains('instagram.com')) {
+          instagram = linkStr;
+        } else if (linkStr.contains('tiktok.com')) {
+          tiktok = linkStr;
+        }
+      }
+    }
+
+    return Shoe(
+      documentId: 0,
+      itemId: itemId,
+      shipmentId: shipmentId,
+      shoeDetail: shoeDetail,
+      sizeEur: sizeEur,
+      sizeUk: sizeUk,
+      sellingPrice: sellingPrice,
+      instagramLink: instagram,
+      tiktokLink: tiktok,
+      remoteImageUrl: imageUrl,
+      isUploaded: isUploaded,
+      isConfirmed: isConfirmed,
+      status: status,
+    );
+  }
+
+  String updateDriveImageUrl(String originalUrl, int desiredWidth) {
+    try {
+      // 1. Parse the original URL
+      final uri = Uri.parse(originalUrl);
+
+      // 2. Extract the existing query parameters as a mutable map
+      final queryParameters = Map<String, String>.from(uri.queryParameters);
+
+      // 3. Update the 'sz' parameter with the new width (e.g., 'w800')
+      // We use 'w' prefix for width control.
+      queryParameters['sz'] = 'w$desiredWidth';
+
+      // 4. Reconstruct the new URL
+      final newUri = uri.replace(queryParameters: queryParameters);
+
+      return newUri.toString();
+    } catch (e) {
+      // Return the original URL on failure
+      print('Error modifying image URL: $e');
+      return originalUrl;
+    }
   }
 }

@@ -44,20 +44,36 @@ class ShoeListItem extends StatelessWidget {
     final width = MediaQuery.of(context).size.width * 0.75;
     showDialog(
       context: context,
+      barrierColor: const Color.fromARGB(200, 0, 0, 0),
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent, // Keep this transparent
         insetPadding: EdgeInsets.zero,
         child: GestureDetector(
           onTap: () => Navigator.of(context).pop(),
           // Wrap the entire content in a ClipRRect
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16.0),
-            child: ShoeNetworkImage(
-              width: width,
-              height: height,
-              imageUrl: imageUrl,
-              fit: BoxFit.contain,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16.0),
+                child: ShoeNetworkImage(
+                  width: width,
+                  height: height,
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              Text(
+                textAlign: TextAlign.center,
+                '${shoe.shoeDetail}\nID: ${shoe.itemId} | #${shoe.shipmentId}\nEUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \nPrice: Rs.${shoe.sellingPrice.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -99,7 +115,7 @@ class ShoeListItem extends StatelessWidget {
             ),
             subtitle: Text(
               'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}\n'
-              'EUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \n Price: Rs.${shoe.sellingPrice.toStringAsFixed(2)}',
+              'EUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \nPrice: Rs.${shoe.sellingPrice.toStringAsFixed(2)}',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ),

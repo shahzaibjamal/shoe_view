@@ -77,10 +77,11 @@ class _CollageBuilderState extends State<CollageBuilder> {
                           color: Colors.grey[200],
                           child: ShoeNetworkImage(
                             imageUrl: shoe.remoteImageUrl,
-                            fit: BoxFit.values.firstWhere(
-                              (e) => e != BoxFit.contain,
-                              orElse: () => BoxFit.cover,
-                            ),
+                            fit: BoxFit.cover
+                            // fit: BoxFit.values.firstWhere(
+                            //   (e) => e != BoxFit.none,
+                            //   orElse: () => BoxFit.none,
+                            // ),
                           ),
                         ),
                         Positioned(

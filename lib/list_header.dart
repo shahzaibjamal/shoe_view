@@ -11,6 +11,7 @@ class ListHeader extends StatelessWidget {
   // New callback for copying the displayed data
   final VoidCallback onCopyDataPressed;
   final VoidCallback onShareDataPressed;
+  final VoidCallback onRefreshDataPressed;
 
   const ListHeader({
     super.key,
@@ -22,7 +23,8 @@ class ListHeader extends StatelessWidget {
     required this.onSortFieldChanged,
     required this.onSortDirectionToggled,
     required this.onCopyDataPressed, // Added new required parameter
-    required this.onShareDataPressed, // Added new required parameter
+    required this.onShareDataPressed,
+     required this.onRefreshDataPressed, // Added new required parameter
   });
 
   @override
@@ -84,10 +86,13 @@ class ListHeader extends StatelessWidget {
             children: [
               // --- NEW COPY BUTTON ---
               IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                onPressed: () => onRefreshDataPressed(),
+                tooltip: 'Refresh currently displayed shoes details',
+              ),
+              IconButton(
                 icon: const Icon(Icons.content_copy, color: Colors.white),
                 onPressed: () => onCopyDataPressed(),
-                onLongPress: () => onShareDataPressed(),
-
                 tooltip: 'Copy currently displayed shoes details to clipboard',
               ),
               IconButton(
@@ -115,6 +120,17 @@ class ListHeader extends StatelessWidget {
                     }
                   },
                   items: [
+                    DropdownMenuItem(
+                      value: 'ItemId',
+                      child: Text(
+                        'Item ID',
+                        style: TextStyle(
+                          color: sortField == 'ItemId'
+                              ? Colors.amberAccent
+                              : Colors.white,
+                        ),
+                      ),
+                    ),
                     DropdownMenuItem(
                       value: 'size',
                       child: Text(
