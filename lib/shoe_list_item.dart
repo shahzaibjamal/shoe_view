@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +7,7 @@ import 'shoe_model.dart';
 
 class ShoeListItem extends StatelessWidget {
   final Shoe shoe;
-  final Function(String originalLocalPath) onEdit;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
   final ValueChanged<Shoe> onCopyDataPressed;
   final ValueChanged<Shoe> onShareDataPressed;
@@ -135,7 +133,7 @@ class ShoeListItem extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blueGrey),
                         tooltip: 'Edit Shoe',
-                        onPressed: () => onEdit(shoe.localImagePath),
+                        onPressed: onEdit,
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),

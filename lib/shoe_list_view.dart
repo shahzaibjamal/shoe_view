@@ -1,12 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'dart:math'; // Added for price comparison logic
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
-import 'package:shoe_view/app_status_notifier.dart';
+import 'package:shoe_view/error_dialog.dart';
 import 'package:shoe_view/list_header.dart';
 import 'package:shoe_view/shoe_form_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
@@ -83,7 +80,6 @@ class _ShoeListViewState extends State<ShoeListView> {
     return size.toString().trim().replaceAll(RegExp(r'\.0$'), '');
   }
 
-
   /// The shoe must match ALL filter requirements derived from the query tokens.
   bool _doesShoeMatchSmartQuery(Shoe shoe) {
     final rawQuery = _searchQuery;
@@ -129,30 +125,30 @@ class _ShoeListViewState extends State<ShoeListView> {
             .map((s) => s.trim())
             .where((s) => s.isNotEmpty)
             .toList();
-        
+
         // MODIFIED: Expand criteria to include the next +0.5 size for every input
-        final Set<String> targetSizes = {}; // Use Set to automatically handle duplicates
-        
+        final Set<String> targetSizes =
+            {}; // Use Set to automatically handle duplicates
+
         for (final sizeStr in rawSizeCriteria) {
           // 1. Add the exact input size (formatted for comparison)
           targetSizes.add(_formatSizeForComparison(sizeStr));
-          
+
           // 2. Calculate and add the next half size (e.g., 44.5 input includes 45)
           final inputSize = double.tryParse(sizeStr);
           if (inputSize != null) {
-              final nextHalfSize = inputSize + 0.5;
-              targetSizes.add(_formatSizeForComparison(nextHalfSize));
+            final nextHalfSize = inputSize + 0.5;
+            targetSizes.add(_formatSizeForComparison(nextHalfSize));
           }
         }
-        
+
         // Use helper for clean shoe sizes
         final shoeSizeEur = _formatSizeForComparison(shoe.sizeEur);
         final shoeSizeUk = _formatSizeForComparison(shoe.sizeUk);
-        
+
         // Check if either shoe size is in the list of expanded target sizes
         bool matchesSizeOr = targetSizes.any(
-          (targetStr) =>
-              shoeSizeEur == targetStr || shoeSizeUk == targetStr,
+          (targetStr) => shoeSizeEur == targetStr || shoeSizeUk == targetStr,
         );
 
         if (!matchesSizeOr) {
@@ -170,27 +166,27 @@ class _ShoeListViewState extends State<ShoeListView> {
 
           // MODIFIED: Auto-include the next half size for any numeric input
           final Set<String> targetSizeStrings = {};
-          
+
           // 1. Add the exact input size (formatted for comparison)
           targetSizeStrings.add(_formatSizeForComparison(sizeStr));
-          
+
           // 2. Calculate and add the next half size
           final inputSize = double.tryParse(sizeStr);
           if (inputSize != null) {
-              final nextHalfSize = inputSize + 0.5;
-              targetSizeStrings.add(_formatSizeForComparison(nextHalfSize));
+            final nextHalfSize = inputSize + 0.5;
+            targetSizeStrings.add(_formatSizeForComparison(nextHalfSize));
           }
-          
+
           // Get the shoe sizes as strings for comparison (maintaining safety)
           final shoeSizeEurStr = _formatSizeForComparison(shoe.sizeEur);
           final shoeSizeUkStr = _formatSizeForComparison(shoe.sizeUk);
-          
+
           // Check for exact match (e.g. "44.5") OR next half-size match (e.g. "45") in either EUR or UK
           final matchesSize = targetSizeStrings.any(
             (targetStr) =>
                 shoeSizeEurStr == targetStr || shoeSizeUkStr == targetStr,
           );
-          
+
           if (!matchesSize) {
             allFiltersMatch = false;
             break; // Failed Pure Number Size filter
@@ -334,7 +330,18 @@ class _ShoeListViewState extends State<ShoeListView> {
     if (confirmed) {
       // Delete the document and the image from Firebase
       // await _firebaseService.deleteShoe(shoe);
-      await _firebaseService.deleteShoeFromCloud(shoe);
+      final response = await _firebaseService.deleteShoeFromCloud(shoe);
+      if (response['success'] == false) {
+        showDialog(
+          context: context,
+          builder: (context) => ErrorDialog(
+            title: 'Something went wrong. Please try again.',
+            message: response['message'],
+            onDismissed: () => {},
+          ),
+        );
+      }
+
       // The StreamBuilder handles the UI update automatically
     }
   }
@@ -495,7 +502,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                   }
 
                   for (var shoe in _manuallyFetchedShoes) {
-                      allShoesSet['${shoe.itemId}_${shoe.shipmentId}'] = shoe;
+                    allShoesSet['${shoe.itemId}_${shoe.shipmentId}'] = shoe;
                   }
 
                   final combinedShoes = allShoesSet.values.toList();
@@ -601,13 +608,12 @@ class _ShoeListViewState extends State<ShoeListView> {
                         shoe: shoe,
                         onCopyDataPressed: _onCopyShoe,
                         onShareDataPressed: _onShareShoe,
-                        onEdit: (localImagePath) => showDialog(
+                        onEdit: () => showDialog(
                           context: context,
                           builder: (BuildContext context) {
                             return ShoeFormDialogContent(
                               shoe: shoe,
                               firebaseService: FirebaseService(),
-                              originalLocalPath: localImagePath,
                             );
                           },
                         ),

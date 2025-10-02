@@ -1,10 +1,12 @@
 // ----------------------------------------------------------------------
 // 3. ShoeFormDialog Component (The complex content inside the AlertDialog)
 // ----------------------------------------------------------------------
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:shoe_view/Image/shoe_network_image.dart';
+import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
+import 'package:shoe_view/error_dialog.dart';
 
 // Assuming these imports exist and are available
 import 'shoe_model.dart';
@@ -13,14 +15,9 @@ import 'firebase_service.dart';
 
 class ShoeFormDialogContent extends StatefulWidget {
   final Shoe? shoe;
-  final String? originalLocalPath;
   final FirebaseService firebaseService;
 
-  const ShoeFormDialogContent({
-    this.shoe,
-    this.originalLocalPath,
-    required this.firebaseService,
-  });
+  const ShoeFormDialogContent({this.shoe, required this.firebaseService});
 
   @override
   State<ShoeFormDialogContent> createState() => _ShoeFormDialogContentState();
@@ -42,6 +39,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   String _currentRemoteImageUrl = '';
   bool _isLoading = false;
   bool _isEditing;
+  String _status = 'Available';
 
   _ShoeFormDialogContentState()
     : _isEditing = false; // Initializer needed for late
@@ -74,12 +72,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       text: widget.shoe?.tiktokLink ?? '',
     );
 
-    _dialogImageFile =
-        widget.originalLocalPath != null && widget.originalLocalPath!.isNotEmpty
-        ? File(widget.originalLocalPath!)
-        : null;
+    _dialogImageFile = null;
     _currentRemoteImageUrl = widget.shoe?.remoteImageUrl ?? '';
-    print("called");
   }
 
   @override
@@ -144,6 +138,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       instagramLink: _instagramController.text.trim(),
       tiktokLink: _tiktokController.text.trim(),
       localImagePath: _dialogImageFile?.path ?? '',
+      status: _status,
       remoteImageUrl:
           _currentRemoteImageUrl, // Maintain remote URL if no new image
       isUploaded: widget.shoe?.isUploaded ?? false,
@@ -155,20 +150,35 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     });
 
     try {
-      // 3. Save the data via the service (uses itemId as document key)
-      //
-      // await widget.firebaseService.saveShoe(newShoe, localImageFile: _dialogImageFile);
+      print(_currentRemoteImageUrl);
 
-      List<int> imageBytes = await _dialogImageFile!.readAsBytes();
-      final data = await widget.firebaseService.updateShoe(
-        newShoe,
-        base64Encode(imageBytes),
-      );
-      print('result add - ' + data);
-      // 4. Close dialog on success (pop the dialog)
-      if (mounted) {
-        Navigator.of(context).pop();
+      File? imageFile = _dialogImageFile;
+      String? base64Image;
+
+      if (imageFile != null && await imageFile.exists()) {
+        final imageBytes = await imageFile.readAsBytes();
+        if (imageBytes.isNotEmpty) {
+          base64Image = base64Encode(imageBytes);
+        }
       }
+
+      final response = await widget.firebaseService.updateShoe(
+        newShoe,
+        base64Image, // ✅ will be null if no image
+      );
+      if (response['success'] == false) {
+        showDialog(
+          context: context,
+          builder: (context) => ErrorDialog(
+            title: 'Something went wrong.',
+            message: response['message'],
+            onDismissed: _onDismissed,
+          ),
+        );
+        return;
+      }
+
+      _onDismissed();
     } catch (e) {
       debugPrint('Error saving shoe: $e');
       // If saving fails, reset loading state and let user try again/fix input
@@ -178,33 +188,25 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     }
   }
 
+  void _onDismissed() {
+    if (mounted) {
+    Navigator.of(context).pop();
+    }
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
   // Helper method to build the image widget (network or file)
-  Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
+  Widget _buildShoeImage(String remoteImageUrl) {
     // Priority 1: Remote URL (from Firestore)
     if (remoteImageUrl.isNotEmpty) {
-      return CachedNetworkImage(
+      return ShoeNetworkImage(
         imageUrl: remoteImageUrl,
-        width: 60,
-        height: 60,
+        width: 70,
+        height: 70,
         fit: BoxFit.cover,
-        placeholder: (context, url) =>
-            const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
-        errorWidget: (context, url, error) => const Icon(Icons.error, size: 40),
       );
-    }
-    // Priority 2: Local File Path (from ImagePicker, not yet uploaded)
-    else if (imagePath.isNotEmpty) {
-      try {
-        return Image.file(
-          File(imagePath),
-          width: 60,
-          height: 60,
-          fit: BoxFit.cover,
-        );
-      } catch (e) {
-        // Fallback if the path is invalid or file is missing
-        return const Icon(Icons.broken_image, size: 40);
-      }
     }
     // Fallback: No image available
     return const Icon(Icons.image_not_supported, size: 40, color: Colors.grey);
@@ -213,21 +215,18 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   @override
   Widget build(BuildContext context) {
     // Build the image preview widget
-    Widget imagePreview() {
+    Widget imagePreview(double width, double height) {
       if (_dialogImageFile != null) {
         // Show newly picked local image
         return Image.file(
           _dialogImageFile!,
-          width: 60,
-          height: 60,
+          width: width,
+          height: height,
           fit: BoxFit.cover,
         );
       } else if (_currentRemoteImageUrl.isNotEmpty) {
         // Show remote image if editing existing shoe
-        return _buildShoeImage(
-          '',
-          _currentRemoteImageUrl,
-        ); // Reusing the helper
+        return _buildShoeImage(_currentRemoteImageUrl); // Reusing the helper
       }
       return const Icon(
         Icons.image_not_supported,
@@ -298,6 +297,57 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                 ),
               ],
             ),
+            RadioGroup<String>(
+              groupValue: _status,
+              onChanged: (value) => setState(() => _status = value!),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Radio<String>(value: 'Available'),
+                      Text(
+                        'Available',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.left,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Radio<String>(value: 'Sold'),
+                      Text(
+                        'Sold',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.left,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Radio<String>(value: 'Repaired'),
+                      Text(
+                        'Repaired',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.left,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             TextField(
               controller: _priceController,
               keyboardType: const TextInputType.numberWithOptions(
@@ -326,18 +376,19 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                   label: const Text('Pick Image'),
                   onPressed: _isLoading ? null : _pickImage,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 26),
                 // Image Preview
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 90,
+                  height: 90,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8.0),
-                    child: imagePreview(),
+
+                    child: imagePreview(90, 90),
                   ),
                 ),
               ],

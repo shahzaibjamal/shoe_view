@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:shoe_view/Image/image_cache_manager.dart';
+import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
 
 class ShoeNetworkImage extends StatelessWidget {
   final String imageUrl;

@@ -183,29 +183,23 @@ class FirebaseService {
     return path.startsWith('http');
   }
 
-  Future<String> updateShoe(Shoe shoe, String base64Image) async {
-    final callable = FirebaseFunctions.instance.httpsCallable('updateShoe');
-    await callable
-        .call({
-          'shoeData': shoe.toMap(),
-          'imageBase64': base64Image,
-          'userId': _userId,
-        })
-        .then((value) {
-          // Handle success
-          print(value.data);
-          print(value.data['success']);
-          print(value.data['newDocumentId']);
-          return value.data['success'];
-        })
-        .catchError((error) {
-          // Handle error
-          return 'Error';
-        });
-    return 'Failed';
+  Future<dynamic> updateShoe(Shoe shoe, String? base64Image) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('updateShoe');
+      final result = await callable.call({
+        'shoeData': shoe.toMap(),
+        'imageBase64': base64Image,
+        'userId': _userId,
+      });
+      print('${result.data}');
+      return result.data;
+    } catch (error) {
+      print('Error updating shoe: $error');
+      return 'Error';
+    }
   }
 
-  Future<String> deleteShoeFromCloud(Shoe shoe) async {
+  Future<dynamic> deleteShoeFromCloud(Shoe shoe) async {
     final callable = FirebaseFunctions.instance.httpsCallable('deleteShoe');
     print('${shoe.documentId} ${shoe.remoteImageUrl}');
     await callable
@@ -217,7 +211,7 @@ class FirebaseService {
         .then((value) {
           // Handle success
           print(value.data);
-          return value.data['success'];
+          return value.data;
         })
         .catchError((error) {
           // Handle error
