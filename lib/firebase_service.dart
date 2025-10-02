@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart'; // Needed for debugPrint in non-Flutter environments
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -36,12 +37,10 @@ class FirebaseService {
         final data = doc.data();
         final shoe = Shoe.fromMap(data);
 
-        // Since we now use doc.id as the itemId, we update the model's fields
-        // to reflect the Firestore key.
-        final itemIdFromDocId = int.tryParse(doc.id) ?? 0;
+        final documentId = doc.id;
 
         // Note: We keep documentId populated just in case, but itemId is now the primary key.
-        return shoe.copyWith(itemId: itemIdFromDocId);
+        return shoe.copyWith(documentId: documentId);
       }).toList();
     });
   }
@@ -80,11 +79,11 @@ class FirebaseService {
   // --- Image Upload ---
 
   /// Uploads the given [file] to Firebase Storage.
-  Future<String?> uploadImage(File file, int shoeId) async {
+  Future<String?> uploadImage(File file, String documentId) async {
     try {
       // Create a unique path using user ID, shoe ID, and a timestamp for uniqueness
       final uploadPath =
-          'shoes/$_userId/${shoeId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          'shoes/$_userId/${documentId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final storageRef = _storage.ref().child(uploadPath);
       final metadata = SettableMetadata(contentType: 'image/jpeg');
 
@@ -104,8 +103,8 @@ class FirebaseService {
   /// This function now uses the **shoe.itemId** as the Firestore document ID.
   Future<void> saveShoe(Shoe shoe, {File? localImageFile}) async {
     // 1. Validate the primary key
-    if (shoe.itemId <= 0) {
-      debugPrint('Error: Cannot save shoe with invalid Item ID.');
+    if (shoe.documentId.isEmpty) {
+      debugPrint('Error: Cannot save shoe with invalid Document ID.');
       return;
     }
 
@@ -113,7 +112,7 @@ class FirebaseService {
 
     // 2. Image Upload (if a new local file is provided)
     if (localImageFile != null) {
-      final uploadedUrl = await uploadImage(localImageFile, shoe.itemId);
+      final uploadedUrl = await uploadImage(localImageFile, shoe.documentId);
       if (uploadedUrl != null) {
         remoteUrl = uploadedUrl;
       }
@@ -127,40 +126,40 @@ class FirebaseService {
         )
         .toMap();
 
-    // 4. Determine the document reference using the **itemId**
-    final docId = shoe.itemId.toString();
+    // 4. Determine the document reference using the **documentId**
+    final docId = shoe.documentId.toString();
     final docRef = _firestore
         .collection('users')
         .doc(_userId)
         .collection('shoes')
-        .doc(docId); // Document ID is now based on itemId
+        .doc(docId); // Document ID is now based on documentId
 
     // 5. Use Set with merge: true to handle both creation and update (upsert)
     // This simplifies the logic by removing the need for an existence check.
     await docRef.set(dataToSave, SetOptions(merge: true));
     debugPrint(
-      'Shoe data saved successfully for Item ID: ${shoe.itemId} (Doc ID: $docId)',
+      'Shoe data saved successfully for Document ID: ${shoe.documentId} (Doc ID: $docId)',
     );
   }
 
   // --- Delete Operation ---
 
   /// Deletes the image from Cloud Storage and the document from Firestore.
-  /// Now uses the **shoe.itemId** for the document reference.
+  /// Now uses the **shoe.documentId** for the document reference.
   Future<void> deleteShoe(Shoe shoe) async {
-    if (shoe.itemId <= 0) {
-      debugPrint('Error: Cannot delete shoe without a valid Item ID.');
+    if (shoe.documentId.isEmpty) {
+      debugPrint('Error: Cannot delete shoe without a valid Document ID.');
       return;
     }
 
-    final docId = shoe.itemId.toString();
+    final docId = shoe.documentId;
 
     // 1. Delete Firestore document
     await _firestore
         .collection('users')
         .doc(_userId)
         .collection('shoes')
-        .doc(docId) // Document ID is based on itemId
+        .doc(docId) // Document ID is based on documentId
         .delete();
 
     // 2. Delete storage image (only if a remote URL exists)
@@ -175,12 +174,55 @@ class FirebaseService {
       }
     }
     debugPrint(
-      'Shoe document deleted successfully for Item ID: ${shoe.itemId}',
+      'Shoe document deleted successfully for Document ID: ${shoe.documentId} (Doc ID: $docId)',
     );
   }
 
   /// Utility to check if a path is a network URL.
   bool _isNetworkImage(String path) {
     return path.startsWith('http');
+  }
+
+  Future<String> updateShoe(Shoe shoe, String base64Image) async {
+    final callable = FirebaseFunctions.instance.httpsCallable('updateShoe');
+    await callable
+        .call({
+          'shoeData': shoe.toMap(),
+          'imageBase64': base64Image,
+          'userId': _userId,
+        })
+        .then((value) {
+          // Handle success
+          print(value.data);
+          print(value.data['success']);
+          print(value.data['newDocumentId']);
+          return value.data['success'];
+        })
+        .catchError((error) {
+          // Handle error
+          return 'Error';
+        });
+    return 'Failed';
+  }
+
+  Future<String> deleteShoeFromCloud(Shoe shoe) async {
+    final callable = FirebaseFunctions.instance.httpsCallable('deleteShoe');
+    print('${shoe.documentId} ${shoe.remoteImageUrl}');
+    await callable
+        .call({
+          'documentId': shoe.documentId,
+          'remoteImageUrl': shoe.remoteImageUrl,
+          'userId': _userId,
+        })
+        .then((value) {
+          // Handle success
+          print(value.data);
+          return value.data['success'];
+        })
+        .catchError((error) {
+          // Handle error
+          return 'Error';
+        });
+    return 'Success';
   }
 }

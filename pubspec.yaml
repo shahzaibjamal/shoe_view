@@ -47,6 +47,7 @@ dependencies:
   image: ^4.5.4
   path_provider: ^2.1.5
   http: ^1.5.0
+  firebase_app_check: ^0.4.1
 
 
 dev_dependencies:

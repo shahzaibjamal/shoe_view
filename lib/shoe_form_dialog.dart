@@ -8,7 +8,9 @@ import 'package:image_picker/image_picker.dart';
 
 // Assuming these imports exist and are available
 import 'shoe_model.dart';
+import 'dart:convert';
 import 'firebase_service.dart';
+
 class ShoeFormDialogContent extends StatefulWidget {
   final Shoe? shoe;
   final String? originalLocalPath;
@@ -39,25 +41,43 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   File? _dialogImageFile;
   String _currentRemoteImageUrl = '';
   bool _isLoading = false;
-   bool _isEditing;
+  bool _isEditing;
 
-  _ShoeFormDialogContentState() : _isEditing = false; // Initializer needed for late
+  _ShoeFormDialogContentState()
+    : _isEditing = false; // Initializer needed for late
 
   @override
   void initState() {
     super.initState();
     _isEditing = widget.shoe != null;
 
-    _shoeIdController = TextEditingController(text: widget.shoe != null ? widget.shoe!.itemId.toString() : '');
-    _shipmentIdController = TextEditingController(text: widget.shoe?.shipmentId ?? '');
-    _nameController = TextEditingController(text: widget.shoe?.shoeDetail ?? '');
-    _sizeEurController = TextEditingController(text: widget.shoe?.sizeEur ?? '');
+    _shoeIdController = TextEditingController(
+      text: widget.shoe != null ? widget.shoe!.itemId.toString() : '',
+    );
+    _shipmentIdController = TextEditingController(
+      text: widget.shoe?.shipmentId ?? '',
+    );
+    _nameController = TextEditingController(
+      text: widget.shoe?.shoeDetail ?? '',
+    );
+    _sizeEurController = TextEditingController(
+      text: widget.shoe?.sizeEur ?? '',
+    );
     _sizeUkController = TextEditingController(text: widget.shoe?.sizeUk ?? '');
-    _priceController = TextEditingController(text: widget.shoe != null ? widget.shoe!.sellingPrice.toString() : '');
-    _instagramController = TextEditingController(text: widget.shoe?.instagramLink ?? '');
-    _tiktokController = TextEditingController(text: widget.shoe?.tiktokLink ?? '');
+    _priceController = TextEditingController(
+      text: widget.shoe != null ? widget.shoe!.sellingPrice.toString() : '',
+    );
+    _instagramController = TextEditingController(
+      text: widget.shoe?.instagramLink ?? '',
+    );
+    _tiktokController = TextEditingController(
+      text: widget.shoe?.tiktokLink ?? '',
+    );
 
-    _dialogImageFile = widget.originalLocalPath != null && widget.originalLocalPath!.isNotEmpty ? File(widget.originalLocalPath!) : null;
+    _dialogImageFile =
+        widget.originalLocalPath != null && widget.originalLocalPath!.isNotEmpty
+        ? File(widget.originalLocalPath!)
+        : null;
     _currentRemoteImageUrl = widget.shoe?.remoteImageUrl ?? '';
     print("called");
   }
@@ -77,7 +97,10 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 600,
+    );
     if (picked != null) {
       setState(() {
         _dialogImageFile = File(picked.path);
@@ -86,7 +109,6 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       });
     }
   }
-
 
   // Helper function for safe parsing
   int _safeIntParse(String? text) {
@@ -122,7 +144,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       instagramLink: _instagramController.text.trim(),
       tiktokLink: _tiktokController.text.trim(),
       localImagePath: _dialogImageFile?.path ?? '',
-      remoteImageUrl: _currentRemoteImageUrl, // Maintain remote URL if no new image
+      remoteImageUrl:
+          _currentRemoteImageUrl, // Maintain remote URL if no new image
       isUploaded: widget.shoe?.isUploaded ?? false,
     );
 
@@ -133,8 +156,15 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
 
     try {
       // 3. Save the data via the service (uses itemId as document key)
-      await widget.firebaseService.saveShoe(newShoe, localImageFile: _dialogImageFile);
+      //
+      // await widget.firebaseService.saveShoe(newShoe, localImageFile: _dialogImageFile);
 
+      List<int> imageBytes = await _dialogImageFile!.readAsBytes();
+      final data = await widget.firebaseService.updateShoe(
+        newShoe,
+        base64Encode(imageBytes),
+      );
+      print('result add - ' + data);
       // 4. Close dialog on success (pop the dialog)
       if (mounted) {
         Navigator.of(context).pop();
@@ -147,6 +177,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       });
     }
   }
+
   // Helper method to build the image widget (network or file)
   Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
     // Priority 1: Remote URL (from Firestore)
@@ -178,18 +209,31 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     // Fallback: No image available
     return const Icon(Icons.image_not_supported, size: 40, color: Colors.grey);
   }
+
   @override
   Widget build(BuildContext context) {
     // Build the image preview widget
     Widget imagePreview() {
       if (_dialogImageFile != null) {
         // Show newly picked local image
-        return Image.file(_dialogImageFile!, width: 60, height: 60, fit: BoxFit.cover);
+        return Image.file(
+          _dialogImageFile!,
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+        );
       } else if (_currentRemoteImageUrl.isNotEmpty) {
         // Show remote image if editing existing shoe
-        return _buildShoeImage('', _currentRemoteImageUrl); // Reusing the helper
+        return _buildShoeImage(
+          '',
+          _currentRemoteImageUrl,
+        ); // Reusing the helper
       }
-      return const Icon(Icons.image_not_supported, size: 60, color: Colors.grey);
+      return const Icon(
+        Icons.image_not_supported,
+        size: 60,
+        color: Colors.grey,
+      );
     }
 
     return AlertDialog(
@@ -217,7 +261,9 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
               enabled: !_isEditing && !_isLoading,
               decoration: InputDecoration(
                 labelText: 'Shipment ID (e.g., 123)',
-                helperText: _isEditing ? 'Shipment ID cannot be changed.' : null,
+                helperText: _isEditing
+                    ? 'Shipment ID cannot be changed.'
+                    : null,
               ),
             ),
             TextField(
@@ -230,7 +276,9 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                 Expanded(
                   child: TextField(
                     controller: _sizeEurController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     maxLength: 4,
                     enabled: !_isLoading,
                     decoration: const InputDecoration(labelText: 'Size EUR'),
@@ -240,7 +288,9 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                 Expanded(
                   child: TextField(
                     controller: _sizeUkController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     maxLength: 4,
                     enabled: !_isLoading,
                     decoration: const InputDecoration(labelText: 'Size UK'),
@@ -250,9 +300,13 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
             ),
             TextField(
               controller: _priceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               enabled: !_isLoading,
-              decoration: const InputDecoration(labelText: 'Selling Price (Rs.)'),
+              decoration: const InputDecoration(
+                labelText: 'Selling Price (Rs.)',
+              ),
             ),
             TextField(
               controller: _instagramController,
@@ -314,4 +368,3 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     );
   }
 }
-

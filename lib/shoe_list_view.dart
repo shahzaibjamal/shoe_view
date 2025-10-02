@@ -264,7 +264,7 @@ class _ShoeListViewState extends State<ShoeListView> {
     // If we reach here, and all individual filters passed (and no price filter was active), we match.
     return true;
   }
-  
+
   // --- FIX: Logic to refresh/add data from an external source ---
   void _onRefreshData() {
     setState(() {
@@ -333,7 +333,8 @@ class _ShoeListViewState extends State<ShoeListView> {
 
     if (confirmed) {
       // Delete the document and the image from Firebase
-      await _firebaseService.deleteShoe(shoe);
+      // await _firebaseService.deleteShoe(shoe);
+      await _firebaseService.deleteShoeFromCloud(shoe);
       // The StreamBuilder handles the UI update automatically
     }
   }
@@ -486,14 +487,15 @@ class _ShoeListViewState extends State<ShoeListView> {
                   // 1. Merge Stream Data and Manually Fetched Data
                   final streamShoes = snapshot.data ?? [];
                   // Combine both lists and ensure uniqueness using a Set if itemIds are unique
-                  final allShoesSet = <int, Shoe>{};
+                  final allShoesSet = <String, Shoe>{};
                   if (_manuallyFetchedShoes.isEmpty) {
                     for (var shoe in streamShoes) {
-                      allShoesSet[shoe.itemId] = shoe;
+                      allShoesSet['${shoe.itemId}_${shoe.shipmentId}'] = shoe;
                     }
                   }
+
                   for (var shoe in _manuallyFetchedShoes) {
-                    allShoesSet[shoe.itemId] = shoe;
+                      allShoesSet['${shoe.itemId}_${shoe.shipmentId}'] = shoe;
                   }
 
                   final combinedShoes = allShoesSet.values.toList();

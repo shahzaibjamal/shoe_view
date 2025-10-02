@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class Shoe {
-  final int documentId; // Firestore document ID (not used as primary key)
+  final String documentId; // Firestore document ID (not used as primary key)
   final int itemId;
   final String shipmentId;
   final String shoeDetail;
@@ -38,7 +38,8 @@ class Shoe {
   factory Shoe.fromMap(Map<String, dynamic> map) {
     // Safely parse values with fallbacks
     final itemId = int.tryParse(map['ItemID']?.toString() ?? '') ?? 0;
-    final documentId = int.tryParse(map['DocumentID']?.toString() ?? '') ?? 0;
+    print(map['DocumentID']);
+    final documentId = map['DocumentID']?.toString() ?? '';
     final shipmentId = map['ShipmentID']?.toString() ?? '';
     final shoeDetail = map['ShoeDetail']?.toString() ?? '';
     final sizeEur = map['Size']?.toString() ?? '';
@@ -110,7 +111,7 @@ class Shoe {
 
   // Creates an empty Shoe instance for new entries.
   const Shoe.empty()
-    : documentId = 0,
+    : documentId = '',
       itemId = 0,
       shipmentId = '',
       shoeDetail = '',
@@ -127,7 +128,7 @@ class Shoe {
 
   // Creates an updated copy of the object.
   Shoe copyWith({
-    int? documentId,
+    String? documentId,
     int? itemId,
     String? shipmentId,
     String? shoeDetail,
@@ -199,7 +200,7 @@ class Shoe {
     }
 
     return Shoe(
-      documentId: 0,
+      documentId:'',
       itemId: itemId,
       shipmentId: shipmentId,
       shoeDetail: shoeDetail,

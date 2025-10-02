@@ -1,3 +1,4 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart' as fcore;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +12,15 @@ import 'package:provider/provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await fcore.Firebase.initializeApp();
+  // await FirebaseAppCheck.instance.activate(
+  //   androidProvider: AndroidProvider.playIntegrity,
+  // );
+
+ final debugProvider = AndroidDebugProvider(debugToken: '88E15778-3EEC-4586-AB37-2F44D5F39CA3');
+  await FirebaseAppCheck.instance.activate(
+    providerAndroid: debugProvider
+  );
+
   runApp(
     ChangeNotifierProvider(
       create: (context) => AppStatusNotifier(),
@@ -55,11 +65,19 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         // User is already signed in — skip auth flow
-        _navigateToHome();
+        setState(() {
+          _loading = true;
+        });
+        final String? idToken = await user?.getIdToken();
+        final String? email = user.email;
+
+        if (idToken != null && email != null) {
+          await _callCheckUserAuthorization(email, idToken);
+        }
       } else {
         // Show sign-in screen
 
@@ -149,9 +167,6 @@ class _AuthScreenState extends State<AuthScreen> {
         _error = e.toString();
       });
     }
-    // setState(() {
-    //   _loading = false;
-    // });
   }
 
   void _signOut() async {
@@ -204,12 +219,6 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     _navigateToHome();
-
-    //     if (mounted) {
-    //   Navigator.of(context).pushReplacement(
-    //     MaterialPageRoute(builder: (_) => ShoeListView(initialShoes: [])),
-    //   );
-    // }
   }
 
   void _navigateToHome() {
