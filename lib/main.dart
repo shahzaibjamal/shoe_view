@@ -1,9 +1,12 @@
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Import this for kReleaseMode
 import 'package:firebase_core/firebase_core.dart' as fcore;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/shoe_response.dart';
 import 'shoe_list_view.dart';
 import 'app_status_notifier.dart';
@@ -12,15 +15,24 @@ import 'package:provider/provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await fcore.Firebase.initializeApp();
-  // await FirebaseAppCheck.instance.activate(
-  //   androidProvider: AndroidProvider.playIntegrity,
-  // );
+  const String debugToken = '88E15778-3EEC-4586-AB37-2F44D5F39CA3';
 
- final debugProvider = AndroidDebugProvider(debugToken: '88E15778-3EEC-4586-AB37-2F44D5F39CA3');
-  await FirebaseAppCheck.instance.activate(
-    providerAndroid: debugProvider
-  );
+  if (kReleaseMode) {
+    // Production/Release Build: Use Play Integrity Provider
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.playIntegrity,
+      // You can omit the debug token here since it's only used for debug builds.
+    );
+  } else {
+    // Debug Build: Use Debug Provider for local testing (requires debug token)
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.debug,
+      // NOTE: providerAndroid is the deprecated parameter, use androidProvider
+      // providerAndroid: AndroidDebugProvider(debugToken: debugToken), // deprecated syntax
+    );
 
+    AppLogger.mode = LogMode.loggerAndCrashlytics;
+  }
   runApp(
     ChangeNotifierProvider(
       create: (context) => AppStatusNotifier(),
@@ -95,15 +107,15 @@ class _AuthScreenState extends State<AuthScreen> {
                     .onError(_handleAuthenticationError);
               });
         } catch (e, stack) {
-          print('initState crash: $e\n$stack');
+          AppLogger.log('initState crash: $e\n$stack');
         }
       }
     });
   }
 
   void _handleAuthenticationEvent(event) {
-    print('GoogleSignIn event type: ${event.runtimeType}');
-    print('Full event object: $event');
+    AppLogger.log('GoogleSignIn event type: ${event.runtimeType}');
+    AppLogger.log('Full event object: $event');
     // Extract user and idToken using event-based API
     Future<void>(() async {
       final user = switch (event) {
@@ -126,7 +138,7 @@ class _AuthScreenState extends State<AuthScreen> {
         final String email = firebaseUser?.email ?? user.email;
         // Get Firebase ID token
         final String? idToken = await firebaseUser?.getIdToken();
-        print('Firebase ID token: $idToken');
+        AppLogger.log('Firebase ID token: $idToken');
         setState(() {
           _signedIn = true;
           _email = email;
@@ -153,16 +165,16 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _triggerSignIn() async {
-    print('Google Sign-In button pressed');
+    AppLogger.log('Google Sign-In button pressed');
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       await _googleSignIn.attemptLightweightAuthentication();
-      print('GoogleSignIn.attemptLightweightAuthentication called');
+      AppLogger.log('GoogleSignIn.attemptLightweightAuthentication called');
     } catch (e, stack) {
-      print('GoogleSignIn error: $e\n$stack');
+      AppLogger.log('GoogleSignIn error: $e\n$stack');
       setState(() {
         _error = e.toString();
       });
@@ -170,20 +182,20 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _signOut() async {
-    print('Sign out button pressed');
+    AppLogger.log('Sign out button pressed');
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       await _googleSignIn.signOut();
-      print('GoogleSignIn.signOut called');
+      AppLogger.log('GoogleSignIn.signOut called');
       setState(() {
         _signedIn = false;
         _email = null;
       });
     } catch (e, stack) {
-      print('SignOut error: $e\n$stack');
+      AppLogger.log('SignOut error: $e\n$stack');
       setState(() {
         _error = e.toString();
       });
@@ -199,12 +211,12 @@ class _AuthScreenState extends State<AuthScreen> {
     final result = await FirebaseFunctions.instance
         .httpsCallable('checkUserAuthorization')
         .call({'email': email, 'idToken': idToken, 'isTest': isTest});
-    print('checkUserAuthorization response: ${result.data}');
+    AppLogger.log('checkUserAuthorization response: ${result.data}');
     // Assuming 'result' is the raw map from your Firebase function call
     final rawData = result.data as Map<String, dynamic>;
     final shoeResponse = ShoeResponse.fromJson(rawData);
 
-    print(
+    AppLogger.log(
       'isTrial - ${shoeResponse.isTrial} isAuthorized - ${shoeResponse.isAuthorized} trialStartedMillis - ${shoeResponse.trialStartedMillis} lastLoginMillis - ${shoeResponse.lastLoginMillis}',
     );
     context.read<AppStatusNotifier>().updateTrial(shoeResponse.isTrial);
@@ -257,6 +269,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         style: const TextStyle(color: Colors.red),
                       ),
                     ),
+                  VersionFooter(),
                 ],
               ),
       ),

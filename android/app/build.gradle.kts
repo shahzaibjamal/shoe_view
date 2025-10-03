@@ -1,3 +1,17 @@
+import java.util.Properties // FIX: Import Properties class for file loading
+
+// --- Locate and load key.properties from the 'android' folder ---
+val localProperties = Properties()
+val localPropertiesFile = project.file("../key.properties") // Looks in android/key.properties
+
+if (localPropertiesFile.exists()) {
+    // Load the key.properties file if it exists
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+} else {
+    // CRITICAL: Log a warning if the file is not found.
+    logger.warn("WARNING: key.properties not found at: ${localPropertiesFile.absolutePath}")
+}
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -30,11 +44,32 @@ android {
         versionName = flutter.versionName
     }
 
+    // --- RELEASE SIGNING CONFIGURATION ---
+    signingConfigs {
+        create("release") {
+            // Check if properties were loaded before trying to get values
+            val storeFileProperty = localProperties.getProperty("storeFile")
+            if (storeFileProperty != null && storeFileProperty.isNotEmpty()) {
+                // Since the key.properties file specifies 'app/...' (relative to android/), 
+                // using project.file() correctly resolves the path to android/app/kickhive_keystore.jks
+                storeFile = project.file(storeFileProperty) 
+                storePassword = localProperties.getProperty("storePassword")
+                keyAlias = localProperties.getProperty("keyAlias")
+                keyPassword = localProperties.getProperty("keyPassword")
+            } else {
+                logger.error("ERROR: storeFile property missing or empty in key.properties.")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Ensure release code is signed with your private key
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            
+            // *** FIX for "failed to strip debug symbols from native libraries" error ***
+            isJniDebuggable = false 
         }
     }
 }
@@ -42,4 +77,5 @@ android {
 flutter {
     source = "../.."
 }
+// This line is needed if you are using Google services (like Firebase) in your app
 apply(plugin = "com.google.gms.google-services")

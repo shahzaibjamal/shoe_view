@@ -64,7 +64,7 @@ class ShoeListItem extends StatelessWidget {
               ),
               Text(
                 textAlign: TextAlign.center,
-                '${shoe.shoeDetail}\nID: ${shoe.itemId} | #${shoe.shipmentId}\nEUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \nPrice: Rs.${shoe.sellingPrice.toStringAsFixed(2)}',
+                '${shoe.shoeDetail}\nID: ${shoe.itemId} | #${shoe.shipmentId}\nEUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \nPrice: Rs.${shoe.sellingPrice.toStringAsFixed(0)}/-',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -113,7 +113,7 @@ class ShoeListItem extends StatelessWidget {
             ),
             subtitle: Text(
               'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}\n'
-              'EUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \nPrice: Rs.${shoe.sellingPrice.toStringAsFixed(2)}',
+              'EUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \nPrice: Rs.${shoe.sellingPrice.toStringAsFixed(0)}/-',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ),

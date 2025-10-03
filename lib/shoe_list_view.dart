@@ -37,6 +37,7 @@ class _ShoeListViewState extends State<ShoeListView> {
   bool _isLoadingExternalData = false;
   String _searchQuery = ''; // Tracks the text in the search bar
   List<Shoe> _filteredShoes = []; // Stores the result of the filtering step
+  List<Shoe> streamShoes = [];
 
   // New: Stores data manually fetched from a different source (like a different collection or query)
   List<Shoe> _manuallyFetchedShoes = [];
@@ -492,7 +493,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                   }
 
                   // 1. Merge Stream Data and Manually Fetched Data
-                  final streamShoes = snapshot.data ?? [];
+                  streamShoes = snapshot.data ?? [];
                   // Combine both lists and ensure uniqueness using a Set if itemIds are unique
                   final allShoesSet = <String, Shoe>{};
                   if (_manuallyFetchedShoes.isEmpty) {
@@ -614,6 +615,7 @@ class _ShoeListViewState extends State<ShoeListView> {
                             return ShoeFormDialogContent(
                               shoe: shoe,
                               firebaseService: FirebaseService(),
+                              existingShoes: streamShoes,
                             );
                           },
                         ),
@@ -633,7 +635,7 @@ class _ShoeListViewState extends State<ShoeListView> {
         onPressed: () => showDialog(
           context: context,
           builder: (BuildContext context) {
-            return ShoeFormDialogContent(firebaseService: FirebaseService());
+            return ShoeFormDialogContent(firebaseService: FirebaseService(), existingShoes: streamShoes,);
           },
         ),
         tooltip: 'Add New Shoe',
