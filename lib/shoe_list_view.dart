@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:math'; // Added for price comparison logic
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
 import 'package:shoe_view/error_dialog.dart';
+import 'package:shoe_view/in_app_purchase.dart';
 import 'package:shoe_view/list_header.dart';
 import 'package:shoe_view/shoe_form_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
@@ -68,200 +71,6 @@ class _ShoeListViewState extends State<ShoeListView> {
     });
   }
 
-  // Helper function for safe parsing
-  double _safeDoubleParse(String? text) {
-    if (text == null || text.isEmpty) return 0.0;
-    return double.tryParse(text) ?? 0.0;
-  }
-
-  /// The shoe must match ALL filter requirements derived from the query tokens.
-  String _formatSizeForComparison(dynamic size) {
-    if (size == null) return '';
-    // Convert to string, trim, and remove trailing .0 if it's a whole number
-    return size.toString().trim().replaceAll(RegExp(r'\.0$'), '');
-  }
-
-  /// The shoe must match ALL filter requirements derived from the query tokens.
-  bool _doesShoeMatchSmartQuery(Shoe shoe) {
-    final rawQuery = _searchQuery;
-    if (rawQuery.isEmpty) return true;
-
-    // 1. Tokenize the query and EXCLUDE 'lim' commands
-    final queryTokens = rawQuery
-        .toLowerCase()
-        .split(RegExp(r'\s+')) // Split by one or more spaces
-        .where((s) => s.isNotEmpty && !s.startsWith('lim'))
-        .toList();
-
-    if (queryTokens.isEmpty) return true;
-
-    bool allFiltersMatch = true;
-    bool isPriceFilterActive = false;
-
-    // Regex for price tokens and any text/size tokens
-    final priceRegex = RegExp(r'^([<>=~])(\d+\.?\d*)$');
-
-    // --- 2. Process tokens for individual/instant checks (Shipment ID, Size OR, Pure Size, Text) ---
-    for (final token in queryTokens) {
-      final priceMatch = priceRegex.firstMatch(token);
-
-      if (priceMatch != null) {
-        // Price filter token: Mark price filter active, continue to process other tokens
-        isPriceFilterActive = true;
-        continue;
-      }
-      // Shipment ID Filter (e.g., #12345): Must match or fail
-      else if (token.startsWith('#')) {
-        final idQuery = token.substring(1).trim();
-        // Convert integer shipmentId to string for comparison
-        if (!shoe.shipmentId.toString().contains(idQuery)) {
-          allFiltersMatch = false;
-          break; // Failed Shipment ID filter
-        }
-      }
-      // Size OR Filter (e.g., 42|43): Must match any size in the OR list or fail
-      else if (token.contains('|')) {
-        final rawSizeCriteria = token
-            .split('|')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
-
-        // MODIFIED: Expand criteria to include the next +0.5 size for every input
-        final Set<String> targetSizes =
-            {}; // Use Set to automatically handle duplicates
-
-        for (final sizeStr in rawSizeCriteria) {
-          // 1. Add the exact input size (formatted for comparison)
-          targetSizes.add(_formatSizeForComparison(sizeStr));
-
-          // 2. Calculate and add the next half size (e.g., 44.5 input includes 45)
-          final inputSize = double.tryParse(sizeStr);
-          if (inputSize != null) {
-            final nextHalfSize = inputSize + 0.5;
-            targetSizes.add(_formatSizeForComparison(nextHalfSize));
-          }
-        }
-
-        // Use helper for clean shoe sizes
-        final shoeSizeEur = _formatSizeForComparison(shoe.sizeEur);
-        final shoeSizeUk = _formatSizeForComparison(shoe.sizeUk);
-
-        // Check if either shoe size is in the list of expanded target sizes
-        bool matchesSizeOr = targetSizes.any(
-          (targetStr) => shoeSizeEur == targetStr || shoeSizeUk == targetStr,
-        );
-
-        if (!matchesSizeOr) {
-          allFiltersMatch = false;
-          break; // Failed Size OR filter
-        }
-      }
-      // Pure Number / Text Filter: Token must match EITHER exact size OR text detail
-      else {
-        final isPureNumber = RegExp(r'^\d+(\.\d+)?$').hasMatch(token);
-
-        if (isPureNumber) {
-          // Treat as exact size search (e.g., "42" or "42.5")
-          final sizeStr = token;
-
-          // MODIFIED: Auto-include the next half size for any numeric input
-          final Set<String> targetSizeStrings = {};
-
-          // 1. Add the exact input size (formatted for comparison)
-          targetSizeStrings.add(_formatSizeForComparison(sizeStr));
-
-          // 2. Calculate and add the next half size
-          final inputSize = double.tryParse(sizeStr);
-          if (inputSize != null) {
-            final nextHalfSize = inputSize + 0.5;
-            targetSizeStrings.add(_formatSizeForComparison(nextHalfSize));
-          }
-
-          // Get the shoe sizes as strings for comparison (maintaining safety)
-          final shoeSizeEurStr = _formatSizeForComparison(shoe.sizeEur);
-          final shoeSizeUkStr = _formatSizeForComparison(shoe.sizeUk);
-
-          // Check for exact match (e.g. "44.5") OR next half-size match (e.g. "45") in either EUR or UK
-          final matchesSize = targetSizeStrings.any(
-            (targetStr) =>
-                shoeSizeEurStr == targetStr || shoeSizeUkStr == targetStr,
-          );
-
-          if (!matchesSize) {
-            allFiltersMatch = false;
-            break; // Failed Pure Number Size filter
-          }
-        } else {
-          // Treat as standard text search (e.g., "adidas")
-          if (!shoe.shoeDetail.toLowerCase().contains(token)) {
-            allFiltersMatch = false;
-            break; // Failed Text filter
-          }
-        }
-      }
-    }
-
-    // If any non-price filter failed in the first pass, return false immediately
-    if (allFiltersMatch == false) {
-      return false;
-    }
-
-    // --- 3. Evaluate Combined Price Filter (if active) ---
-    if (isPriceFilterActive) {
-      double? lowerBound;
-      double? upperBound;
-      double? exactPrice;
-
-      for (final token in queryTokens) {
-        final match = priceRegex.firstMatch(token);
-        if (match == null) continue; // Skip non-price tokens
-
-        final operator = match.group(1); // <, >, =, or ~
-        final valueStr = match.group(2);
-        final value = _safeDoubleParse(valueStr);
-
-        if (operator == '=') {
-          exactPrice = value;
-        } else if (operator == '<') {
-          upperBound = upperBound == null ? value : min(upperBound, value);
-        } else if (operator == '>') {
-          lowerBound = lowerBound == null ? value : max(lowerBound, value);
-        } else if (operator == '~') {
-          // Range filter (~1500 means 1000 to 2000, i.e., +/- 500)
-          const range = 500.0;
-          lowerBound = lowerBound == null
-              ? value - range
-              : max(lowerBound, value - range);
-          upperBound = upperBound == null
-              ? value + range
-              : min(upperBound, value + range);
-        }
-      }
-
-      final price = shoe.sellingPrice;
-
-      if (exactPrice != null) {
-        // Exact match check with tolerance
-        return (price - exactPrice).abs() < _epsilon;
-      }
-
-      // Check bounds with tolerance for floating point safety
-      if (lowerBound != null && price < lowerBound - _epsilon) {
-        return false;
-      }
-
-      if (upperBound != null && price > upperBound + _epsilon) {
-        return false;
-      }
-      // If it got this far, it passed the price filter.
-      return true;
-    }
-
-    // If we reach here, and all individual filters passed (and no price filter was active), we match.
-    return true;
-  }
-
   // --- FIX: Logic to refresh/add data from an external source ---
   void _onRefreshData() {
     setState(() {
@@ -300,6 +109,14 @@ class _ShoeListViewState extends State<ShoeListView> {
           );
         });
   }
+
+  void _openInApp() {
+    AppLogger.log('onrefresh');
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => SubscriptionUpgradePage(firebaseService: _firebaseService,)),
+    );
+  }
+
   // --- END FIX for _onRefreshData ---
 
   void _deleteShoe(Shoe shoe) async {
@@ -410,7 +227,6 @@ class _ShoeListViewState extends State<ShoeListView> {
     final buffer = StringBuffer();
     final gap = ' '; // base gap after numbering
     final tab = '     '; // base gap after numbering
-    print(shoeList.length);
     if (shoeList.length > 1) {
       buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
     }
@@ -463,6 +279,7 @@ class _ShoeListViewState extends State<ShoeListView> {
               onCopyDataPressed: _copyAll,
               onShareDataPressed: _onShareAll,
               onRefreshDataPressed: _onRefreshData, // Now calls the new logic
+              onInAppButtonPressed: _openInApp, // Now calls the new logic
             ),
             // NEW: Conditional loading indicator for manual refresh
             if (_isLoadingExternalData) const LinearProgressIndicator(),
@@ -520,78 +337,9 @@ class _ShoeListViewState extends State<ShoeListView> {
                   // --- 2. Filter Logic (Applies all criteria EXCEPT 'lim' command) ---
                   _filteredShoes = combinedShoes.where((shoe) {
                     // This function already excludes 'lim' tokens for the match check
-                    return _doesShoeMatchSmartQuery(shoe);
+                    return ShoeQueryUtils.doesShoeMatchSmartQuery(shoe, _searchController.text.toLowerCase());
                   }).toList();
-
-                  // --- 3. Client-Side Sorting Logic (applied to the filtered list) ---
-                  // Start with the filtered list
-                  List<Shoe> displayedShoes = List<Shoe>.from(_filteredShoes);
-
-                  displayedShoes.sort((a, b) {
-                    // First: sort by shipmentId (always ascending)
-                    final shipmentA = int.tryParse(a.shipmentId) ?? 0;
-                    final shipmentB = int.tryParse(b.shipmentId) ?? 0;
-                    int comparison = shipmentA.compareTo(shipmentB);
-
-                    // If shipmentId is equal, sort by selected field
-                    if (comparison == 0) {
-                      if (_sortField == 'size') {
-                        final sizeA = double.tryParse(a.sizeEur) ?? 0.0;
-                        final sizeB = double.tryParse(b.sizeEur) ?? 0.0;
-                        comparison = sizeA.compareTo(sizeB);
-                      } else if (_sortField == 'sellingPrice') {
-                        comparison = a.sellingPrice.compareTo(b.sellingPrice);
-                      } else if (_sortField == 'ItemId') {
-                        comparison = a.itemId.compareTo(b.itemId);
-                      }
-
-                      // Apply ascending/descending to secondary field only
-                      if (!_sortAscending) {
-                        comparison = -comparison;
-                      }
-                    }
-
-                    return comparison;
-                  });
-
-                  // --- 4. Limiting and Randomization Logic (Applied AFTER Filtering & Sorting) ---
-                  final rawQuery = _searchController.text.toLowerCase();
-                  final limRegex = RegExp(r'lim([<>]|~)(\d+)');
-                  final limMatch = limRegex.firstMatch(rawQuery);
-
-                  if (limMatch != null) {
-                    final operator = limMatch.group(1);
-                    final limitValue =
-                        int.tryParse(limMatch.group(2) ?? '0') ?? 0;
-
-                    if (limitValue > 0) {
-                      if (operator == '<') {
-                        // lim<N: Show only the top N shoes (Limit)
-                        displayedShoes = displayedShoes
-                            .take(limitValue)
-                            .toList();
-                      } else if (operator == '>') {
-                        // lim>N: Show shoes starting from the N+1-th position (Offset/Skip)
-                        if (displayedShoes.length > limitValue) {
-                          displayedShoes = displayedShoes
-                              .skip(limitValue)
-                              .toList();
-                        } else {
-                          displayedShoes =
-                              []; // Show none if offset is too large
-                        }
-                      } else if (operator == '~') {
-                        // lim~N: Randomly select N shoes
-                        final random = Random();
-                        displayedShoes = List<Shoe>.from(displayedShoes)
-                          ..shuffle(random)
-                          ..take(limitValue)
-                          ..toList();
-                      }
-                    }
-                  }
-                  // -----------------------------------------------------------------
-
+                  List<Shoe> displayedShoes = ShoeQueryUtils.sortAndLimitShoes(shoes: List<Shoe>.from(_filteredShoes), rawQuery: _searchController.text.toLowerCase(), sortField: _sortField, sortAscending: _sortAscending);
                   // Check if filtering/limiting resulted in an empty list
                   if (displayedShoes.isEmpty && _searchQuery.isNotEmpty) {
                     return Center(
@@ -635,7 +383,10 @@ class _ShoeListViewState extends State<ShoeListView> {
         onPressed: () => showDialog(
           context: context,
           builder: (BuildContext context) {
-            return ShoeFormDialogContent(firebaseService: FirebaseService(), existingShoes: streamShoes,);
+            return ShoeFormDialogContent(
+              firebaseService: FirebaseService(),
+              existingShoes: streamShoes,
+            );
           },
         ),
         tooltip: 'Add New Shoe',

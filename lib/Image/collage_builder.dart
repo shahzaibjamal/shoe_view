@@ -77,34 +77,31 @@ class _CollageBuilderState extends State<CollageBuilder> {
                           color: Colors.grey[200],
                           child: ShoeNetworkImage(
                             imageUrl: shoe.remoteImageUrl,
-                            fit: BoxFit.cover
-                            // fit: BoxFit.values.firstWhere(
-                            //   (e) => e != BoxFit.none,
-                            //   orElse: () => BoxFit.none,
-                            // ),
+                            fit: BoxFit.cover,
                           ),
                         ),
-                        Positioned(
-                          left: 5,
-                          bottom: 5,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                        if (imagesToDisplay.length > 1)
+                          Positioned(
+                            left: 5,
+                            bottom: 5,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   );

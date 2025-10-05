@@ -12,6 +12,7 @@ class ListHeader extends StatelessWidget {
   final VoidCallback onCopyDataPressed;
   final VoidCallback onShareDataPressed;
   final VoidCallback onRefreshDataPressed;
+  final VoidCallback onInAppButtonPressed;
 
   const ListHeader({
     super.key,
@@ -24,7 +25,8 @@ class ListHeader extends StatelessWidget {
     required this.onSortDirectionToggled,
     required this.onCopyDataPressed, // Added new required parameter
     required this.onShareDataPressed,
-     required this.onRefreshDataPressed, // Added new required parameter
+    required this.onRefreshDataPressed,
+    required this.onInAppButtonPressed, // Added new required parameter
   });
 
   @override
@@ -86,6 +88,11 @@ class ListHeader extends StatelessWidget {
             children: [
               // --- NEW COPY BUTTON ---
               IconButton(
+                icon: const Icon(Icons.diamond, color: Colors.white),
+                onPressed: () => onInAppButtonPressed(),
+                tooltip: 'Refresh currently displayed shoes details',
+              ),
+              IconButton(
                 icon: const Icon(Icons.refresh, color: Colors.white),
                 onPressed: () => onRefreshDataPressed(),
                 tooltip: 'Refresh currently displayed shoes details',
@@ -137,6 +144,17 @@ class ListHeader extends StatelessWidget {
                         'Size',
                         style: TextStyle(
                           color: sortField == 'size'
+                              ? Colors.amberAccent
+                              : Colors.white,
+                        ),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'sold',
+                      child: Text(
+                        'Sold',
+                        style: TextStyle(
+                          color: sortField == 'sold'
                               ? Colors.amberAccent
                               : Colors.white,
                         ),

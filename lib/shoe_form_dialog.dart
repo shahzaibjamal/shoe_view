@@ -568,7 +568,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
               TextFormField(
                 controller: _shipmentIdController,
                 // Shipment ID is often alphanumeric, but keeping number type based on original context
-                keyboardType: TextInputType.text,
+                keyboardType: TextInputType.number,
                 maxLength: 3,
                 enabled: !_isEditing && !_isLoading,
                 validator: (value) => (value == null || value.trim().isEmpty)

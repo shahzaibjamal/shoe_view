@@ -1,84 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-// Note: You must add the in_app_purchase package to your pubspec.yaml
-// import 'package:in_app_purchase/in_app_purchase.dart'; 
-// import 'package:provider/provider.dart'; 
-// import 'package:shoe_view/app_status_notifier.dart';
-
-// --- Conceptual Imports (Assume these are available) ---
-class InAppPurchase {
-  static final InAppPurchase instance = InAppPurchase._internal();
-  factory InAppPurchase() => instance;
-  InAppPurchase._internal();
-
-  Future<bool> isAvailable() async => true; // Mocked check
-  Stream<List<PurchaseDetails>> get purchaseStream => Stream.empty(); // Mocked stream
-  Future<ProductDetailsResponse> queryProductDetails(Set<String> productIds) async {
-    // Mock response with dummy data matching your new tiered model
-    final List<ProductDetails> mockProducts = [
-      ProductDetails(
-        id: 'tier_bronze_monthly', // $1 Tier
-        title: 'Bronze Access',
-        description: 'Store up to 50 shoes and share data 10 times per day.',
-        price: '\$1.00',
-        rawPrice: 1.00,
-        currencyCode: 'USD',
-        // Example of an introductory offer for the lowest tier
-        introductoryPrice: '\$0.50 for the first month',
-      ),
-      ProductDetails(
-        id: 'tier_silver_monthly', // $2 Tier
-        title: 'Silver Access',
-        description: 'Store up to 100 shoes and share data 20 times per day.',
-        price: '\$2.00',
-        rawPrice: 2.00,
-        currencyCode: 'USD',
-      ),
-      ProductDetails(
-        id: 'tier_gold_monthly', // $3 Tier
-        title: 'Gold Access (Best Value)',
-        description: 'Store up to 500 shoes and unlock UNLIMITED sharing.',
-        price: '\$3.00',
-        rawPrice: 3.00,
-        currencyCode: 'USD',
-        // Example of a purchase offer to encourage existing users to upgrade
-        introductoryPrice: 'Upgrade now and save 10% on the first month.',
-      ),
-    ];
-    return ProductDetailsResponse(
-      productDetails: mockProducts,
-      notFoundIDs: [],
-    );
-  }
-  // Mocked method to initiate purchase
-  Future<void> buyNonConsumable({required PurchaseParam purchaseParam}) async {
-    // In a real app, this launches the native billing UI
-  }
-  void completePurchase(PurchaseDetails purchaseDetails) {}
-}
-class ProductDetailsResponse {
-  final List<ProductDetails> productDetails;
-  final List<String> notFoundIDs;
-  ProductDetailsResponse({required this.productDetails, required this.notFoundIDs});
-}
-class ProductDetails {
-  final String id;
-  final String title;
-  final String description;
-  final String price;
-  final double rawPrice;
-  final String currencyCode;
-  final String? introductoryPrice; // Mocked field for offers
-  ProductDetails({required this.id, required this.title, required this.description, required this.price, required this.rawPrice, required this.currencyCode, this.introductoryPrice});
-}
-class PurchaseDetails {}
-class PurchaseParam {
-  final ProductDetails productDetails;
-  PurchaseParam({required this.productDetails});
-}
-
-// ----------------------------------------------------
-
+// IMPORTANT: You must add the 'package_info_plus' dependency to your pubspec.yaml
+import 'package:package_info_plus/package_info_plus.dart'; 
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:provider/provider.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/app_status_notifier.dart';
+import 'package:shoe_view/firebase_service.dart';
 
 // Defined Subscription IDs (MUST match Play Console/App Store IDs)
 const Set<String> _kProductIds = {
@@ -88,19 +16,23 @@ const Set<String> _kProductIds = {
 };
 
 class SubscriptionUpgradePage extends StatefulWidget {
-  const SubscriptionUpgradePage({super.key});
+  final FirebaseService firebaseService;
+
+  const SubscriptionUpgradePage({super.key, required this.firebaseService});
 
   @override
-  State<SubscriptionUpgradePage> createState() => _SubscriptionUpgradePageState();
+  State<SubscriptionUpgradePage> createState() =>
+      _SubscriptionUpgradePageState();
 }
 
 class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
-  // Use the conceptual InAppPurchase class above
-  final InAppPurchase _iap = InAppPurchase.instance; 
+  final InAppPurchase _iap = InAppPurchase.instance;
   bool _isAvailable = false;
   List<ProductDetails> _products = [];
   bool _loading = true;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
+  // State variable to store the dynamically fetched App ID
+  String? _appPackageName; 
 
   @override
   void initState() {
@@ -115,20 +47,38 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
   }
 
   void _initializeIAP() async {
+    // 1. Fetch the platform-specific App ID (Package Name/Bundle ID)
+    try {
+      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      _appPackageName = packageInfo.packageName;
+      AppLogger.log('App Package Name initialized: $_appPackageName');
+    } catch (e) {
+      AppLogger.log('FATAL: Could not retrieve package info: $e');
+      _showSnackbar('Initialization failed. Check package_info_plus setup.');
+      // Stop initialization if we can't get the package name for secure verification
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+      return;
+    }
+
     _isAvailable = await _iap.isAvailable();
 
     if (_isAvailable) {
       await _loadProducts();
-      // Only set up the listener if IAP is available
       final purchaseUpdated = _iap.purchaseStream;
-      _subscription = purchaseUpdated.listen((purchaseDetailsList) {
-        _listenToPurchaseUpdated(purchaseDetailsList);
-      }, onDone: () {
-        _subscription?.cancel();
-      }, onError: (error) {
-        // Handle error, maybe show a toast
-        _showSnackbar('IAP Stream Error: $error');
-      });
+      _subscription = purchaseUpdated.listen(
+        (purchaseDetailsList) {
+          _listenToPurchaseUpdated(purchaseDetailsList);
+        },
+        onDone: () {
+          _subscription?.cancel();
+        },
+        onError: (error) {
+          AppLogger.log('IAP Stream Error: $error');
+          _showSnackbar('A purchasing error occurred.');
+        },
+      );
     } else {
       setState(() {
         _loading = false;
@@ -141,21 +91,25 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
       _loading = true;
     });
 
-    final ProductDetailsResponse response =
-        await _iap.queryProductDetails(_kProductIds);
+    final ProductDetailsResponse response = await _iap.queryProductDetails(
+      _kProductIds,
+    );
 
     if (mounted) {
       if (response.error != null) {
-        _showSnackbar('Failed to load products: ${response.error}');
-      }
-      
-      // Handle products not found (crucial for debugging IDs)
-      if (response.notFoundIDs.isNotEmpty) {
-        debugPrint('Products Not Found: ${response.notFoundIDs.join(', ')}');
+        AppLogger.log('Failed to load products: ${response.error}');
+        _showSnackbar('Failed to load subscription details.');
       }
 
+      if (response.notFoundIDs.isNotEmpty) {
+        AppLogger.log('Products Not Found: ${response.notFoundIDs.join(', ')}');
+      }
+
+      final sortedProducts = response.productDetails;
+      sortedProducts.sort((a, b) => a.rawPrice.compareTo(b.rawPrice));
+
       setState(() {
-        _products = response.productDetails;
+        _products = sortedProducts;
         _loading = false;
       });
     }
@@ -166,47 +120,77 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
       if (purchase.status == PurchaseStatus.pending) {
         _showSnackbar('Purchase Pending...');
       } else if (purchase.status == PurchaseStatus.error) {
-        _showSnackbar('Purchase Error: ${purchase.error}');
-        // Optional: Call _iap.consumePurchase(purchase) or _iap.completePurchase(purchase) 
-        // depending on the type of error and IAP configuration.
+        AppLogger.log('Purchase Error: ${purchase.error}');
+        _showSnackbar('Purchase Failed: ${purchase.error?.message}');
       } else if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        
-        // **IMPORTANT SECURITY STEP**
-        // 1. Send the purchase token (purchase.verificationData.serverVerificationData) 
-        // to your Firebase Cloud Function (or other secure backend).
-        // 2. Your backend MUST verify the token with Google Play/Apple servers.
-        // 3. Upon successful verification, your backend updates the user's tier 
-        //    (currentTier, expiryDate) in Firestore.
         _verifyAndDeliverProduct(purchase);
-        
-        // 4. Acknowledge/Complete the purchase to Google Play
-        // The purchase will remain in a PENDING state until this is called (for non-consumables).
-        _iap.completePurchase(purchase); 
+
+        /******************REMOVE THIS IF server verification*****************/
+        // Note: For secure server verification, the server should handle the 
+        // acknowledgement/completion logic. However, since we are only simulating 
+        // the server call here, we still need this for local testing.
+        if (purchase.pendingCompletePurchase) {
+          _iap.completePurchase(purchase);
+        }
       }
     }
   }
 
-  // Placeholder for calling your secure backend logic
+  // FIXED: Calling your secure backend logic with the required package name
   void _verifyAndDeliverProduct(PurchaseDetails purchase) async {
-    // Get the product ID to determine which tier was purchased
-    final productId = purchase.productID; 
-    
-    // 1. Call Firebase Cloud Function (Conceptual)
-    // await firebaseService.callVerificationFunction(purchase); 
-    
-    // 2. On Success: Update the local state (AppStatusNotifier)
-    // final notifier = Provider.of<AppStatusNotifier>(context, listen: false);
-    // if (productId == 'tier_gold_monthly') {
-    //    notifier.updateTier('gold');
-    // } else if (productId == 'tier_silver_monthly') {
-    //    notifier.updateTier('silver');
-    // } else if (productId == 'tier_bronze_monthly') {
-    //    notifier.updateTier('bronze');
-    // }
+    AppLogger.log('Verifying and delivering product: ${purchase.productID}');
 
-    _showSnackbar('Success! Your tier is being activated securely.');
-    Navigator.of(context).pop(); // Close the purchase screen
+    if (_appPackageName == null) {
+      AppLogger.log('Verification failed: App Package Name is missing.');
+      _showSnackbar('Verification failed: App identity not found.');
+      return;
+    }
+
+    // 1. Extract the required verification data from 'purchase'.
+    final finalReceiptToken = purchase.verificationData.serverVerificationData;
+    final purchasedProductId = purchase.productID;
+
+    // <<< THIS IS THE CRITICAL SPOT >>>
+    // We now pass the dynamically retrieved app identity.
+    final response = await widget.firebaseService.verifyInAppPurchase(
+      productId: purchasedProductId,
+      purchaseToken: finalReceiptToken,
+    );
+
+    if (response['status'] == 'success') {
+      AppLogger.log('Verification successful. Tier: ${response['tier']}');
+      // Update local state based on server response (e.g., using Provider)
+      // Provider.of<AppStatusNotifier>(context, listen: false).setUserTier(response['tier']); 
+      _showSnackbar('Success! Your tier is being activated securely.');
+    } else {
+      AppLogger.log('Server verification failed: ${response['message']}');
+      _showSnackbar('Verification failed. Please check your connection.');
+    }
+
+    if (mounted) {
+      Future.delayed(const Duration(seconds: 1), () {
+        // Only pop if verification was successful OR if the UI needs to be dismissed regardless.
+        // Navigator.of(context).pop();
+      });
+    }
+  }
+
+  // New function to handle unsubscription/management
+  void _unsubscribe() {
+    AppLogger.log('Unsubscribe/Manage initiated.');
+    _showSnackbar('Redirecting to the store to manage your subscription. This requires the "url_launcher" package.');
+    
+    // In a real app, you would use package:url_launcher here:
+    // 
+    // Android (Google Play):
+    // const String androidUrl = 'https://play.google.com/store/account/subscriptions';
+    // 
+    // iOS (App Store):
+    // const String iosUrl = 'https://apps.apple.com/account/subscriptions';
+    //
+    // For now, we'll just log the action.
+    AppLogger.log('ACTION REQUIRED: Implement platform-specific deep-linking to the subscription management page.');
   }
 
   void _buySubscription(ProductDetails product) {
@@ -214,17 +198,17 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
       _showSnackbar('In-App Purchases are not available on this device.');
       return;
     }
-    
-    // Start the purchase flow
+
     final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
-    // Note: Use buyNonConsumable for subscriptions as they are non-consumable
+
     _iap.buyNonConsumable(purchaseParam: purchaseParam);
+    AppLogger.log('Purchase initiated for product: ${product.id}');
   }
 
   void _showSnackbar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 4)),
       );
     }
   }
@@ -254,22 +238,61 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
                   children: [
                     const Text(
                       'Unlock unlimited features and premium tools by upgrading your account.',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    
-                    // Display Products (using ProductCard widget below)
-                    ..._products.map((product) => _ProductCard(
-                        product: product,
-                        onBuy: _buySubscription,
-                        // Highlight the highest tier (Gold)
-                        isHighlighted: product.id.contains('gold'), 
-                    )).toList(),
-                    
+
+                    if (_products.isEmpty)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 40.0),
+                          child: Text(
+                            'No products found. Check your product IDs and platform configuration.',
+                            style: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else
+                      // Iterate through products and generate a list of full-width cards
+                      ..._products.map((product) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: _ProductCard(
+                            product: product,
+                            onBuy: _buySubscription,
+                            isHighlighted: product.id.contains('gold'),
+                          ),
+                        );
+                      }).toList(),
+
+                    // --------------------------------------------------
                     const SizedBox(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            _iap.restorePurchases();
+                            _showSnackbar('Restoring purchases...');
+                          },
+                          child: const Text('Restore Purchases'),
+                        ),
+                        // NEW: Button to manage or unsubscribe
+                        TextButton(
+                          onPressed: _unsubscribe,
+                          child: const Text('Manage Subscription'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     const Text(
-                      'Note: All plans are auto-renewing monthly subscriptions.',
+                      'Note: All plans are auto-renewing monthly subscriptions. Subscriptions are managed via the App Store or Google Play.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
@@ -280,7 +303,6 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
 }
 
 // --- Helper Widget for displaying a single product card ---
-
 class _ProductCard extends StatelessWidget {
   final ProductDetails product;
   final Function(ProductDetails) onBuy;
@@ -298,9 +320,10 @@ class _ProductCard extends StatelessWidget {
       elevation: isHighlighted ? 8 : 4,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: isHighlighted ? const BorderSide(color: Colors.amber, width: 3) : BorderSide.none,
+        side: isHighlighted
+            ? const BorderSide(color: Colors.blueAccent, width: 3)
+            : BorderSide.none,
       ),
-      margin: const EdgeInsets.only(bottom: 20),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -308,53 +331,52 @@ class _ProductCard extends StatelessWidget {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic, // Aligns text baselines
               children: [
-                Text(
-                  product.title,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: isHighlighted ? Colors.blueAccent : Colors.black87,
+                Flexible(
+                  child: Text(
+                    product.title,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isHighlighted ? Colors.blueAccent : Colors.black87,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 10),
                 Text(
                   product.price,
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.w900,
                     color: isHighlighted ? Colors.blueAccent : Colors.black,
                   ),
                 ),
               ],
             ),
-            if (product.introductoryPrice != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text(
-                  'Offer: ${product.introductoryPrice!}',
-                  style: const TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 10),
+            const Divider(height: 20, thickness: 1),
             Text(
               product.description,
-              style: const TextStyle(fontSize: 14, color: Colors.black54),
+              style: const TextStyle(fontSize: 15, color: Colors.black54),
             ),
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton.icon(
                 onPressed: () => onBuy(product),
-                icon: const Icon(Icons.arrow_upward),
+                icon: const Icon(Icons.star),
                 label: Text(
                   'Subscribe Now - ${product.price}',
                   style: const TextStyle(fontSize: 16),
                 ),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                  backgroundColor: isHighlighted ? Colors.amber : Colors.blueGrey,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 12,
+                  ),
+                  backgroundColor: isHighlighted
+                      ? Colors.blueAccent.shade700
+                      : Colors.grey.shade700,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

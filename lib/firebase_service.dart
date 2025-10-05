@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:shoe_view/Helpers/app_info.dart';
 import 'shoe_model.dart'; // Assuming this contains the Shoe class with itemId
 
 /// A service class to handle all interactions with Firebase Firestore and Storage.
@@ -97,99 +98,12 @@ class FirebaseService {
     }
   }
 
-  // --- Create/Update Operations ---
-
-  /// Saves or updates the shoe data in Firestore and uploads a new image if provided.
-  /// This function now uses the **shoe.itemId** as the Firestore document ID.
-  Future<void> saveShoe(Shoe shoe, {File? localImageFile}) async {
-    // 1. Validate the primary key
-    if (shoe.documentId.isEmpty) {
-      debugPrint('Error: Cannot save shoe with invalid Document ID.');
-      return;
-    }
-
-    String remoteUrl = shoe.remoteImageUrl;
-
-    // 2. Image Upload (if a new local file is provided)
-    if (localImageFile != null) {
-      final uploadedUrl = await uploadImage(localImageFile, shoe.documentId);
-      if (uploadedUrl != null) {
-        remoteUrl = uploadedUrl;
-      }
-    }
-
-    // 3. Prepare data for Firestore
-    final dataToSave = shoe
-        .copyWith(
-          remoteImageUrl: remoteUrl,
-          localImagePath: '', // Clear local path after (or attempt at) upload
-        )
-        .toMap();
-
-    // 4. Determine the document reference using the **documentId**
-    final docId = shoe.documentId.toString();
-    final docRef = _firestore
-        .collection('users')
-        .doc(_userId)
-        .collection('shoes')
-        .doc(docId); // Document ID is now based on documentId
-
-    // 5. Use Set with merge: true to handle both creation and update (upsert)
-    // This simplifies the logic by removing the need for an existence check.
-    await docRef.set(dataToSave, SetOptions(merge: true));
-    debugPrint(
-      'Shoe data saved successfully for Document ID: ${shoe.documentId} (Doc ID: $docId)',
-    );
-  }
-
-  // --- Delete Operation ---
-
-  /// Deletes the image from Cloud Storage and the document from Firestore.
-  /// Now uses the **shoe.documentId** for the document reference.
-  Future<void> deleteShoe(Shoe shoe) async {
-    if (shoe.documentId.isEmpty) {
-      debugPrint('Error: Cannot delete shoe without a valid Document ID.');
-      return;
-    }
-
-    final docId = shoe.documentId;
-
-    // 1. Delete Firestore document
-    await _firestore
-        .collection('users')
-        .doc(_userId)
-        .collection('shoes')
-        .doc(docId) // Document ID is based on documentId
-        .delete();
-
-    // 2. Delete storage image (only if a remote URL exists)
-    if (_isNetworkImage(shoe.remoteImageUrl)) {
-      try {
-        final storageRef = _storage.refFromURL(shoe.remoteImageUrl);
-        await storageRef.delete();
-        debugPrint('Image deleted from storage: ${shoe.remoteImageUrl}');
-      } catch (e) {
-        // Log, but do not block deletion if the storage object is already gone
-        debugPrint('Error deleting image from storage (may not exist): $e');
-      }
-    }
-    debugPrint(
-      'Shoe document deleted successfully for Document ID: ${shoe.documentId} (Doc ID: $docId)',
-    );
-  }
-
-  /// Utility to check if a path is a network URL.
-  bool _isNetworkImage(String path) {
-    return path.startsWith('http');
-  }
-
   Future<dynamic> updateShoe(Shoe shoe, String? base64Image) async {
     try {
       final callable = FirebaseFunctions.instance.httpsCallable('updateShoe');
       final result = await callable.call({
         'shoeData': shoe.toMap(),
         'imageBase64': base64Image,
-        'userId': _userId,
       });
       print('${result.data}');
       return result.data;
@@ -201,12 +115,12 @@ class FirebaseService {
 
   Future<dynamic> deleteShoeFromCloud(Shoe shoe) async {
     final callable = FirebaseFunctions.instance.httpsCallable('deleteShoe');
+
     print('${shoe.documentId} ${shoe.remoteImageUrl}');
     await callable
         .call({
           'documentId': shoe.documentId,
           'remoteImageUrl': shoe.remoteImageUrl,
-          'userId': _userId,
         })
         .then((value) {
           // Handle success
@@ -218,5 +132,35 @@ class FirebaseService {
           return 'Error';
         });
     return 'Success';
+  }
+
+  // NOTE: This assumes you have access to the full 'PurchaseDetails' object
+  // or at least the three required strings: packageName, productId, and purchaseToken.
+
+  Future<dynamic> verifyInAppPurchase({
+    required String productId, // Pass the purchased product ID
+    required String purchaseToken, // The serverVerificationData string
+  }) async {
+    final callable = FirebaseFunctions.instance.httpsCallable(
+      'processInAppPurchase',
+    );
+    final packageName = await AppInfoUtility.getAppPackageName();
+    final payload = {
+      'serverReceipt': {
+        'packageName': packageName,
+        'productId': productId,
+        'purchaseToken': purchaseToken,
+      },
+    };
+
+    try {
+      final result = await callable.call(payload);
+      print(result.data);
+      return result.data;
+    } catch (error) {
+      print('Error during purchase verification: $error');
+      // Depending on your error handling, you might return 'Error' or rethrow
+      return 'Error';
+    }
   }
 }
