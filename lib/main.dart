@@ -217,9 +217,12 @@ class _AuthScreenState extends State<AuthScreen> {
     final shoeResponse = ShoeResponse.fromJson(rawData);
 
     AppLogger.log(
-      'isTrial - ${shoeResponse.isTrial} isAuthorized - ${shoeResponse.isAuthorized} trialStartedMillis - ${shoeResponse.trialStartedMillis} lastLoginMillis - ${shoeResponse.lastLoginMillis}',
+      'dailyWritesUsed - ${shoeResponse.dailyWritesUsed} dailySharesUsed - ${shoeResponse.dailySharesUsed} trialStartedMillis - ${shoeResponse.trialStartedMillis} lastLoginMillis - ${shoeResponse.lastLoginMillis}',
     );
     context.read<AppStatusNotifier>().updateTrial(shoeResponse.isTrial);
+    context.read<AppStatusNotifier>().updateDailyShares(shoeResponse.dailySharesUsed);
+    context.read<AppStatusNotifier>().updateDailyWrites(shoeResponse.dailyWritesUsed);
+    context.read<AppStatusNotifier>().updateTier(shoeResponse.tier);
     if (!shoeResponse.isAuthorized) {
       setState(() {
         _error = 'User is not authorized to access the shoe data.';

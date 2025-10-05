@@ -138,13 +138,10 @@ class FirebaseService {
 
   Future<dynamic> incrementShares() async {
     try {
-      AppLogger.log('Increment shares 1');
       final callable = FirebaseFunctions.instance.httpsCallable(
         'incrementUserShares',
       );
-      AppLogger.log('Increment shares 2');
       final result = await callable.call({});
-      AppLogger.log('Increment shares 3');
       AppLogger.log(' result  ${result.data}');
       return result.data;
     } catch (error) {

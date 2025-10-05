@@ -130,9 +130,6 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
         // Note: For secure server verification, the server should handle the 
         // acknowledgement/completion logic. However, since we are only simulating 
         // the server call here, we still need this for local testing.
-        if (purchase.pendingCompletePurchase) {
-          _iap.completePurchase(purchase);
-        }
       }
     }
   }
@@ -162,6 +159,9 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
       AppLogger.log('Verification successful. Tier: ${response['tier']}');
       // Update local state based on server response (e.g., using Provider)
       // Provider.of<AppStatusNotifier>(context, listen: false).setUserTier(response['tier']); 
+        if (purchase.pendingCompletePurchase) {
+          _iap.completePurchase(purchase);
+        }
       _showSnackbar('Success! Your tier is being activated securely.');
     } else {
       AppLogger.log('Server verification failed: ${response['message']}');

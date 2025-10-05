@@ -5,6 +5,7 @@ import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
 import 'package:shoe_view/error_dialog.dart';
 import 'package:shoe_view/in_app_purchase.dart';
+import 'package:shoe_view/in_app_purchase_manager.dart';
 import 'package:shoe_view/list_header.dart';
 import 'package:shoe_view/shoe_form_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
@@ -25,8 +26,8 @@ class ShoeListView extends StatefulWidget {
   State<ShoeListView> createState() => _ShoeListViewState();
 }
 
-class _ShoeListViewState extends State<ShoeListView> {
-
+class _ShoeListViewState extends State<ShoeListView>
+    with WidgetsBindingObserver {
   // Initialize the Firebase service
   final FirebaseService _firebaseService = FirebaseService();
 
@@ -38,6 +39,8 @@ class _ShoeListViewState extends State<ShoeListView> {
   List<Shoe> _filteredShoes = []; // Stores the result of the filtering step
   List<Shoe> _displayedShoes = []; // Stores the result of the filtering step
   List<Shoe> streamShoes = [];
+  InAppPurchaseManager get _inAppPurchaseManager =>
+      InAppPurchaseManager(_firebaseService);
 
   // New: Stores data manually fetched from a different source (like a different collection or query)
   List<Shoe> _manuallyFetchedShoes = [];
@@ -49,15 +52,27 @@ class _ShoeListViewState extends State<ShoeListView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 1. Add listener for real-time search filtering as the user types
     _searchController.addListener(_onSearchChanged);
+    _inAppPurchaseManager.queryActivePurchases();
   }
 
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 🔁 App has resumed — do your logic here
+      AppLogger.log("App resumed — refreshing subscription status");
+      _inAppPurchaseManager.queryActivePurchases();
+    }
   }
 
   // Method to update the search state
@@ -110,7 +125,10 @@ class _ShoeListViewState extends State<ShoeListView> {
   void _openInApp() {
     AppLogger.log('onrefresh');
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => SubscriptionUpgradePage(firebaseService: _firebaseService,)),
+      MaterialPageRoute(
+        builder: (context) =>
+            SubscriptionUpgradePage(firebaseService: _firebaseService),
+      ),
     );
   }
 
@@ -207,11 +225,11 @@ class _ShoeListViewState extends State<ShoeListView> {
 
   // --- Copy All Data to Clipboard ---
   void _copyAll() {
-    Clipboard.setData(ClipboardData(text: _copyData(_filteredShoes)));
+    Clipboard.setData(ClipboardData(text: _copyData(_displayedShoes)));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Shoes details copied to clipboard! ${_filteredShoes.length}',
+          'Shoes details copied to clipboard! ${_displayedShoes.length}',
         ),
       ),
     );
@@ -331,9 +349,17 @@ class _ShoeListViewState extends State<ShoeListView> {
                   // --- 2. Filter Logic (Applies all criteria EXCEPT 'lim' command) ---
                   _filteredShoes = combinedShoes.where((shoe) {
                     // This function already excludes 'lim' tokens for the match check
-                    return ShoeQueryUtils.doesShoeMatchSmartQuery(shoe, _searchController.text.toLowerCase());
+                    return ShoeQueryUtils.doesShoeMatchSmartQuery(
+                      shoe,
+                      _searchController.text.toLowerCase(),
+                    );
                   }).toList();
-                  _displayedShoes = ShoeQueryUtils.sortAndLimitShoes(shoes: List<Shoe>.from(_filteredShoes), rawQuery: _searchController.text.toLowerCase(), sortField: _sortField, sortAscending: _sortAscending);
+                  _displayedShoes = ShoeQueryUtils.sortAndLimitShoes(
+                    shoes: List<Shoe>.from(_filteredShoes),
+                    rawQuery: _searchController.text.toLowerCase(),
+                    sortField: _sortField,
+                    sortAscending: _sortAscending,
+                  );
                   // Check if filtering/limiting resulted in an empty list
                   if (_displayedShoes.isEmpty && _searchQuery.isNotEmpty) {
                     return Center(

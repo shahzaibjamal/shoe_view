@@ -3,9 +3,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Image/shoe_network_image.dart';
+import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/error_dialog.dart';
 import 'package:shoe_view/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
@@ -123,7 +125,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
         Padding(
           padding: const EdgeInsets.only(bottom: 8.0),
           child: ElevatedButton(
-            onPressed: _isSaving ? null : _captureAndShareCollage,
+            onPressed: _canShareCollage,
             child: _isSaving
                 ? const SizedBox(
                     width: 20,
@@ -140,6 +142,28 @@ class _CollageBuilderState extends State<CollageBuilder> {
     );
   }
 
+  void _canShareCollage() {
+    if (_isSaving) {
+      return;
+    } else {
+      
+      final count = context.read<AppStatusNotifier>().dailyShares;
+      AppLogger.log('daily count ${count}');
+      if (context.read<AppStatusNotifier>().dailyShares >= 2) {
+        showDialog(
+          context: context,
+          builder: (context) => ErrorDialog(
+            title: 'Something went wrong. Please try again later.',
+            message: 'Daily Share limit reached',
+            onDismissed: () => {},
+          ),
+        );
+      } else {
+        _captureAndShareCollage();
+      }
+    }
+  }
+
   int _calculateGridSize(int count) {
     if (count <= 1) return 1;
     if (count <= 4) return 2;
@@ -151,9 +175,10 @@ class _CollageBuilderState extends State<CollageBuilder> {
     setState(() => _isSaving = true);
 
     try {
-      AppLogger.log('Increment shares');
       final response = await widget.firebaseService.incrementShares();
       if (response['status'] == 'success') {
+        final dailyShares = response['dailySharesUsed'];
+        context.read<AppStatusNotifier>().updateDailyShares(dailyShares);
         final boundary =
             _collageKey.currentContext!.findRenderObject()
                 as RenderRepaintBoundary;
