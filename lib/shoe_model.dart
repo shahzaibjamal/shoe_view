@@ -38,7 +38,6 @@ class Shoe {
   factory Shoe.fromMap(Map<String, dynamic> map) {
     // Safely parse values with fallbacks
     final itemId = int.tryParse(map['ItemID']?.toString() ?? '') ?? 0;
-    print(map['DocumentID']);
     final documentId = map['DocumentID']?.toString() ?? '';
     final shipmentId = map['ShipmentID']?.toString() ?? '';
     final shoeDetail = map['ShoeDetail']?.toString() ?? '';

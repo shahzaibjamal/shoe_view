@@ -4,14 +4,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Image/shoe_network_image.dart';
+import 'package:shoe_view/error_dialog.dart';
+import 'package:shoe_view/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
 
 class CollageBuilder extends StatefulWidget {
   final List<Shoe> shoes;
   final String text;
+  final FirebaseService firebaseService;
 
-  const CollageBuilder({super.key, required this.shoes, required this.text});
+  const CollageBuilder({
+    super.key,
+    required this.firebaseService,
+    required this.shoes,
+    required this.text,
+  });
 
   @override
   State<CollageBuilder> createState() => _CollageBuilderState();
@@ -142,21 +151,33 @@ class _CollageBuilderState extends State<CollageBuilder> {
     setState(() => _isSaving = true);
 
     try {
-      final boundary =
-          _collageKey.currentContext!.findRenderObject()
-              as RenderRepaintBoundary;
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final pngBytes = byteData!.buffer.asUint8List();
+      AppLogger.log('Increment shares');
+      final response = await widget.firebaseService.incrementShares();
+      if (response['status'] == 'success') {
+        final boundary =
+            _collageKey.currentContext!.findRenderObject()
+                as RenderRepaintBoundary;
+        final image = await boundary.toImage(pixelRatio: 3.0);
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        final pngBytes = byteData!.buffer.asUint8List();
 
-      final tempDir = await getTemporaryDirectory();
-      final file = await File('${tempDir.path}/collage.png').create();
-      await file.writeAsBytes(pngBytes);
-
-      await SharePlus.instance.share(
-        ShareParams(text: widget.text, files: [XFile(file.path)]),
-      );
-      if (mounted) Navigator.of(context).pop();
+        final tempDir = await getTemporaryDirectory();
+        final file = await File('${tempDir.path}/collage.png').create();
+        await file.writeAsBytes(pngBytes);
+        await SharePlus.instance.share(
+          ShareParams(text: widget.text, files: [XFile(file.path)]),
+        );
+        if (mounted) Navigator.of(context).pop();
+      } else {
+        showDialog(
+          context: context,
+          builder: (context) => ErrorDialog(
+            title: 'Something went wrong. Please try again later.',
+            message: response['message'],
+            onDismissed: () => {},
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('Error capturing or sharing collage: $e');
       if (mounted) {

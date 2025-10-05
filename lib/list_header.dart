@@ -161,6 +161,17 @@ class ListHeader extends StatelessWidget {
                       ),
                     ),
                     DropdownMenuItem(
+                      value: 'repaired',
+                      child: Text(
+                        'Repaired',
+                        style: TextStyle(
+                          color: sortField == 'repaired'
+                              ? Colors.amberAccent
+                              : Colors.white,
+                        ),
+                      ),
+                    ),
+                    DropdownMenuItem(
                       value: 'sellingPrice',
                       child: Text(
                         'Price',

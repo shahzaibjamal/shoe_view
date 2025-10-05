@@ -151,6 +151,18 @@ class ShoeQueryUtils {
   }) {
     List<Shoe> displayedShoes = List<Shoe>.from(shoes);
 
+    if (sortField.toLowerCase().contains('sold')) {
+      displayedShoes = displayedShoes.where((a) => a.status == 'Sold').toList();
+    } else if (sortField.toLowerCase().contains('repaired')) {
+      displayedShoes = displayedShoes
+          .where((a) => a.status == 'Repaired')
+          .toList();
+    } else {
+      // Default: show only Available
+      displayedShoes = displayedShoes
+          .where((a) => a.status == 'Available')
+          .toList();
+    }
     // --- 1. Sorting ---
     displayedShoes.sort((a, b) {
       final shipmentA = int.tryParse(a.shipmentId) ?? 0;

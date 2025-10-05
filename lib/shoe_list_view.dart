@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math'; // Added for price comparison logic
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
@@ -28,8 +26,6 @@ class ShoeListView extends StatefulWidget {
 }
 
 class _ShoeListViewState extends State<ShoeListView> {
-  // Define a small tolerance for robust floating point comparison at boundaries
-  static const double _epsilon = 1e-9;
 
   // Initialize the Firebase service
   final FirebaseService _firebaseService = FirebaseService();
@@ -40,6 +36,7 @@ class _ShoeListViewState extends State<ShoeListView> {
   bool _isLoadingExternalData = false;
   String _searchQuery = ''; // Tracks the text in the search bar
   List<Shoe> _filteredShoes = []; // Stores the result of the filtering step
+  List<Shoe> _displayedShoes = []; // Stores the result of the filtering step
   List<Shoe> streamShoes = [];
 
   // New: Stores data manually fetched from a different source (like a different collection or query)
@@ -165,15 +162,15 @@ class _ShoeListViewState extends State<ShoeListView> {
   }
 
   void _onShareShoe(Shoe shoe) {
-    _ShareData([shoe]);
+    _shareData([shoe]);
   }
 
   // --- Share All Data as Collage ---
   void _onShareAll() {
-    _ShareData(_filteredShoes);
+    _shareData(_displayedShoes);
   }
 
-  void _ShareData(List<Shoe> shoesToShare) {
+  void _shareData(List<Shoe> shoesToShare) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -188,6 +185,7 @@ class _ShoeListViewState extends State<ShoeListView> {
             padding: const EdgeInsets.all(12.0),
             child: SizedBox.fromSize(
               child: CollageBuilder(
+                firebaseService: _firebaseService,
                 shoes: shoesToShare,
                 text: _copyData(shoesToShare),
               ),
@@ -196,10 +194,6 @@ class _ShoeListViewState extends State<ShoeListView> {
         );
       },
     );
-  }
-
-  void _checkForTrialExpiration() {
-    // Place trial expiration logic here if needed
   }
 
   void _onCopyShoe(Shoe shoe) {
@@ -236,13 +230,13 @@ class _ShoeListViewState extends State<ShoeListView> {
       final numbering = '${i + 1}.';
       final indent = ' ' * (numbering.length + gap.length);
 
-      buffer.writeln('${numbering}${gap}${shoe.shoeDetail}');
+      buffer.writeln('$numbering$gap${shoe.shoeDetail}');
       buffer.writeln(
-        '${indent}${tab}Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}',
+        '$indent${tab}Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}',
       );
-      buffer.writeln('${indent}${tab}Price: Rs.${shoe.sellingPrice}/-');
-      buffer.writeln('${indent}${tab}Instagram: ${shoe.instagramLink}');
-      buffer.writeln('${indent}${tab}TikTok: ${shoe.tiktokLink}');
+      buffer.writeln('$indent${tab}Price: Rs.${shoe.sellingPrice}/-');
+      buffer.writeln('$indent${tab}Instagram: ${shoe.instagramLink}');
+      buffer.writeln('$indent${tab}TikTok: ${shoe.tiktokLink}');
       buffer.writeln(); // blank line for separation
     }
     buffer.writeln('Tap to claim 📦');
@@ -339,9 +333,9 @@ class _ShoeListViewState extends State<ShoeListView> {
                     // This function already excludes 'lim' tokens for the match check
                     return ShoeQueryUtils.doesShoeMatchSmartQuery(shoe, _searchController.text.toLowerCase());
                   }).toList();
-                  List<Shoe> displayedShoes = ShoeQueryUtils.sortAndLimitShoes(shoes: List<Shoe>.from(_filteredShoes), rawQuery: _searchController.text.toLowerCase(), sortField: _sortField, sortAscending: _sortAscending);
+                  _displayedShoes = ShoeQueryUtils.sortAndLimitShoes(shoes: List<Shoe>.from(_filteredShoes), rawQuery: _searchController.text.toLowerCase(), sortField: _sortField, sortAscending: _sortAscending);
                   // Check if filtering/limiting resulted in an empty list
-                  if (displayedShoes.isEmpty && _searchQuery.isNotEmpty) {
+                  if (_displayedShoes.isEmpty && _searchQuery.isNotEmpty) {
                     return Center(
                       child: Text('No shoes found matching "$_searchQuery".'),
                     );
@@ -349,10 +343,10 @@ class _ShoeListViewState extends State<ShoeListView> {
 
                   // --- Display Data ---
                   return ListView.builder(
-                    itemCount: displayedShoes.length,
+                    itemCount: _displayedShoes.length,
                     itemBuilder: (context, index) {
                       final shoe =
-                          displayedShoes[index]; // Use the final limited/sorted list
+                          _displayedShoes[index]; // Use the final limited/sorted list
                       return ShoeListItem(
                         shoe: shoe,
                         onCopyDataPressed: _onCopyShoe,

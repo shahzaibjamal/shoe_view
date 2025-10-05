@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:shoe_view/Helpers/app_info.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
 import 'shoe_model.dart'; // Assuming this contains the Shoe class with itemId
 
 /// A service class to handle all interactions with Firebase Firestore and Storage.
@@ -66,7 +67,6 @@ class FirebaseService {
             debugPrint('Error mapping shoe: $e');
           }
         }
-        print('Received: $data');
         // You can now use the data as a Map or List
       } else {
         print('Error: ${response.statusCode}');
@@ -77,27 +77,6 @@ class FirebaseService {
     return shoes;
   }
 
-  // --- Image Upload ---
-
-  /// Uploads the given [file] to Firebase Storage.
-  Future<String?> uploadImage(File file, String documentId) async {
-    try {
-      // Create a unique path using user ID, shoe ID, and a timestamp for uniqueness
-      final uploadPath =
-          'shoes/$_userId/${documentId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final storageRef = _storage.ref().child(uploadPath);
-      final metadata = SettableMetadata(contentType: 'image/jpeg');
-
-      final uploadTask = storageRef.putFile(file, metadata);
-      final snapshot = await uploadTask.whenComplete(() {});
-
-      return await snapshot.ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('Error uploading image to storage: $e');
-      return null;
-    }
-  }
-
   Future<dynamic> updateShoe(Shoe shoe, String? base64Image) async {
     try {
       final callable = FirebaseFunctions.instance.httpsCallable('updateShoe');
@@ -105,7 +84,6 @@ class FirebaseService {
         'shoeData': shoe.toMap(),
         'imageBase64': base64Image,
       });
-      print('${result.data}');
       return result.data;
     } catch (error) {
       print('Error updating shoe: $error');
@@ -116,7 +94,6 @@ class FirebaseService {
   Future<dynamic> deleteShoeFromCloud(Shoe shoe) async {
     final callable = FirebaseFunctions.instance.httpsCallable('deleteShoe');
 
-    print('${shoe.documentId} ${shoe.remoteImageUrl}');
     await callable
         .call({
           'documentId': shoe.documentId,
@@ -124,7 +101,6 @@ class FirebaseService {
         })
         .then((value) {
           // Handle success
-          print(value.data);
           return value.data;
         })
         .catchError((error) {
@@ -133,9 +109,6 @@ class FirebaseService {
         });
     return 'Success';
   }
-
-  // NOTE: This assumes you have access to the full 'PurchaseDetails' object
-  // or at least the three required strings: packageName, productId, and purchaseToken.
 
   Future<dynamic> verifyInAppPurchase({
     required String productId, // Pass the purchased product ID
@@ -155,11 +128,27 @@ class FirebaseService {
 
     try {
       final result = await callable.call(payload);
-      print(result.data);
       return result.data;
     } catch (error) {
       print('Error during purchase verification: $error');
       // Depending on your error handling, you might return 'Error' or rethrow
+      return 'Error';
+    }
+  }
+
+  Future<dynamic> incrementShares() async {
+    try {
+      AppLogger.log('Increment shares 1');
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'incrementUserShares',
+      );
+      AppLogger.log('Increment shares 2');
+      final result = await callable.call({});
+      AppLogger.log('Increment shares 3');
+      AppLogger.log(' result  ${result.data}');
+      return result.data;
+    } catch (error) {
+      print('Error updating shoe: $error');
       return 'Error';
     }
   }
