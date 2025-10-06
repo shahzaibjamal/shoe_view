@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
 import 'package:shoe_view/error_dialog.dart';
-import 'package:shoe_view/in_app_purchase.dart';
-import 'package:shoe_view/in_app_purchase_manager.dart';
+import 'package:shoe_view/Subscription/subscription_upgrade_page.dart';
+import 'package:shoe_view/Subscription/subscription_manager.dart';
 import 'package:shoe_view/list_header.dart';
 import 'package:shoe_view/shoe_form_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
@@ -16,12 +17,7 @@ import 'firebase_service.dart';
 
 class ShoeListView extends StatefulWidget {
   // The list of shoes to display immediately while the stream connects
-  final List<Shoe> initialShoes;
-
-  const ShoeListView({
-    super.key,
-    this.initialShoes = const [], // Set a default to maintain optional usage
-  });
+  const ShoeListView({super.key});
 
   @override
   State<ShoeListView> createState() => _ShoeListViewState();
@@ -30,7 +26,6 @@ class ShoeListView extends StatefulWidget {
 class _ShoeListViewState extends State<ShoeListView>
     with WidgetsBindingObserver {
   // Initialize the Firebase service
-  final FirebaseService _firebaseService = FirebaseService();
 
   // --- State Variables for Sorting & Searching ---
   String _sortField = 'ItemId'; // Options: 'ItemId', 'size', 'sellingPrice'
@@ -38,11 +33,8 @@ class _ShoeListViewState extends State<ShoeListView>
   bool _isLoadingExternalData = false;
   String _searchQuery = ''; // Tracks the text in the search bar
   List<Shoe> _filteredShoes = []; // Stores the result of the filtering step
-  List<Shoe> _displayedShoes = []; // Stores the result of the filtering step
+  List<Shoe> _displayedShoes = []; // Stores the result of the display step
   List<Shoe> streamShoes = [];
-  InAppPurchaseManager get _inAppPurchaseManager =>
-      InAppPurchaseManager(_firebaseService, context);
-
   // New: Stores data manually fetched from a different source (like a different collection or query)
   List<Shoe> _manuallyFetchedShoes = [];
 
@@ -56,7 +48,8 @@ class _ShoeListViewState extends State<ShoeListView>
     WidgetsBinding.instance.addObserver(this);
     // 1. Add listener for real-time search filtering as the user types
     _searchController.addListener(_onSearchChanged);
-    _inAppPurchaseManager.queryActivePurchases();
+    final subscriptionManager = context.read<SubscriptionManager>();
+    subscriptionManager.queryActivePurchases();
   }
 
   @override
@@ -74,10 +67,13 @@ class _ShoeListViewState extends State<ShoeListView>
       final prefs = await SharedPreferences.getInstance();
       final lastCheck = prefs.getInt('lastSubscriptionCheck') ?? 0;
       final now = DateTime.now().millisecondsSinceEpoch;
-      AppLogger.log("App resumed — refreshing subscription status ${now} - ${lastCheck} = ${now - lastCheck} > ${600000} ");
-      
+      AppLogger.log(
+        "App resumed — refreshing subscription status ${now} - ${lastCheck} = ${now - lastCheck} > ${600000} ",
+      );
+
+      final subscriptionManager = context.read<SubscriptionManager>();
       if (now - lastCheck > 10 * 60 * 1000) {
-        _inAppPurchaseManager.queryActivePurchases();
+        subscriptionManager.queryActivePurchases();
         prefs.setInt('lastSubscriptionCheck', now);
       }
     }
@@ -97,7 +93,8 @@ class _ShoeListViewState extends State<ShoeListView>
       _isLoadingExternalData = true;
     });
     // 1. Fetch data from the external source/query defined in FirebaseService.
-    _firebaseService
+    final firebaseService = context.read<FirebaseService>();
+    firebaseService
         .fetchData()
         .then((newShoes) {
           // 2. Update the state with the new data. This is crucial as it triggers
@@ -130,15 +127,18 @@ class _ShoeListViewState extends State<ShoeListView>
         });
   }
 
-  void _openInApp() {
-    AppLogger.log('onrefresh');
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>
-            SubscriptionUpgradePage(firebaseService: _firebaseService),
+void _openInApp() {
+  final subscriptionManager = context.read<SubscriptionManager>();
+
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => ChangeNotifierProvider.value(
+        value: subscriptionManager,
+        child: SubscriptionUpgradePage(),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // --- END FIX for _onRefreshData ---
 
@@ -170,8 +170,8 @@ class _ShoeListViewState extends State<ShoeListView>
 
     if (confirmed) {
       // Delete the document and the image from Firebase
-      // await _firebaseService.deleteShoe(shoe);
-      final response = await _firebaseService.deleteShoeFromCloud(shoe);
+      final firebaseService = context.read<FirebaseService>();
+      final response = await firebaseService.deleteShoeFromCloud(shoe);
       if (response['success'] == false) {
         showDialog(
           context: context,
@@ -182,7 +182,6 @@ class _ShoeListViewState extends State<ShoeListView>
           ),
         );
       }
-
       // The StreamBuilder handles the UI update automatically
     }
   }
@@ -197,6 +196,7 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   void _shareData(List<Shoe> shoesToShare) {
+    final firebaseService = context.read<FirebaseService>();
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -211,7 +211,7 @@ class _ShoeListViewState extends State<ShoeListView>
             padding: const EdgeInsets.all(12.0),
             child: SizedBox.fromSize(
               child: CollageBuilder(
-                firebaseService: _firebaseService,
+                firebaseService: firebaseService,
                 shoes: shoesToShare,
                 text: _copyData(shoesToShare),
               ),
@@ -274,6 +274,7 @@ class _ShoeListViewState extends State<ShoeListView>
   Widget build(BuildContext context) {
     // --- MODIFIED: Calculate 20% of the screen height for the custom header ---
     final double headerHeight = MediaQuery.of(context).size.height * 0.16;
+    final firebaseService = context.read<FirebaseService>();
     // *** No AppBar is used, only Scaffold body ***
     return Scaffold(
       body: SafeArea(
@@ -307,8 +308,7 @@ class _ShoeListViewState extends State<ShoeListView>
             Expanded(
               child: StreamBuilder<List<Shoe>>(
                 // Use the list provided in the constructor as initial data
-                initialData: widget.initialShoes,
-                stream: _firebaseService.streamShoes(),
+                stream: firebaseService.streamShoes(),
                 builder: (context, snapshot) {
                   // --- Connection State Handling ---
                   if (snapshot.connectionState == ConnectionState.waiting &&
@@ -390,7 +390,7 @@ class _ShoeListViewState extends State<ShoeListView>
                           builder: (BuildContext context) {
                             return ShoeFormDialogContent(
                               shoe: shoe,
-                              firebaseService: FirebaseService(),
+                              firebaseService: context.read<FirebaseService>(),
                               existingShoes: streamShoes,
                             );
                           },

@@ -2,8 +2,9 @@
 
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
         <application
-        android:label="shoe_view"
+        android:label="Shoe View"
         android:name="${applicationName}"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher">
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"

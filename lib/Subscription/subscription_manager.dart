@@ -1,8 +1,8 @@
+// --- subscription_manager.dart (formerly InAppPurchaseManager) ---
+
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter/material.dart'; // Still needed for ChangeNotifier
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/firebase_service.dart';
@@ -14,32 +14,35 @@ const Set<String> _kProductIds = {
   'tier_gold_monthly',
 };
 
-// This class will be registered globally (e.g., via Provider) and handles all IAP lifecycle events.
-class InAppPurchaseManager with ChangeNotifier {
+// Renamed class to SubscriptionManagerF
+class SubscriptionManager with ChangeNotifier {
   final FirebaseService _firebaseService;
   final InAppPurchase _iap = InAppPurchase.instance;
-  final BuildContext _context;
+  final AppStatusNotifier _appStatusNotifier; 
 
   // State fields
   bool _isAvailable = false;
   List<ProductDetails> _products = [];
   bool _isLoading = true;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
+  // Added a field to communicate transaction success/failure status to the UI
+  String? _transactionMessage;
 
   // Expose state to UI via getters
   bool get isAvailable => _isAvailable;
   List<ProductDetails> get products => _products;
   bool get isLoading => _isLoading;
+  String? get transactionMessage => _transactionMessage;
 
   // Constructor: Requires the FirebaseService to call the cloud function
-  InAppPurchaseManager(this._firebaseService, this._context) {
+  // Removed BuildContext from the constructor to make it a pure service
+  SubscriptionManager(this._firebaseService, this._appStatusNotifier) {
     _initializeIAP();
   }
 
   // --- CORE INITIALIZATION ---
   Future<void> _initializeIAP() async {
-    // 1. Fetch the platform-specific App ID
-   _isAvailable = await _iap.isAvailable();
+    _isAvailable = await _iap.isAvailable();
 
     if (_isAvailable) {
       await _loadProducts();
@@ -51,7 +54,7 @@ class InAppPurchaseManager with ChangeNotifier {
         onDone: () => _subscription?.cancel(),
         onError: (error) {
           AppLogger.log('IAP Stream Error: $error');
-          // Notification should be handled by the UI based on state changes
+          _setTransactionMessage('A purchasing error occurred.');
         },
       );
 
@@ -63,11 +66,23 @@ class InAppPurchaseManager with ChangeNotifier {
     }
   }
 
-  // Called by the UI on app launch, or whenever status needs to be checked (e.g., on app resume)
+  // Utility to set and clear transaction message for UI
+  void _setTransactionMessage(String message) {
+    _transactionMessage = message;
+    notifyListeners();
+    // Optional: Clear message after a delay so it doesn't persist
+    Future.delayed(const Duration(seconds: 5), () {
+      if (_transactionMessage == message) {
+        _transactionMessage = null;
+        notifyListeners();
+      }
+    });
+  }
+
+  // Called by the UI to check for existing subs
   Future<void> queryActivePurchases() async {
     AppLogger.log('Querying for active subscriptions...');
     try {
-      // This triggers the purchaseStream with PurchaseStatus.restored for active subs
       await _iap.restorePurchases();
       AppLogger.log('Restore purchases command sent.');
     } catch (e) {
@@ -86,10 +101,7 @@ class InAppPurchaseManager with ChangeNotifier {
 
     if (response.error != null) {
       AppLogger.log('Failed to load products: ${response.error}');
-    }
-
-    if (response.notFoundIDs.isNotEmpty) {
-      AppLogger.log('Products Not Found: ${response.notFoundIDs.join(', ')}');
+      _setTransactionMessage('Failed to load subscription details.');
     }
 
     final sortedProducts = response.productDetails;
@@ -104,23 +116,35 @@ class InAppPurchaseManager with ChangeNotifier {
   void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
     for (var purchase in purchaseDetailsList) {
       if (purchase.status == PurchaseStatus.pending) {
-        _showSnackbar('Purchase Pending...');
+        _setTransactionMessage('Purchase Pending...');
       } else if (purchase.status == PurchaseStatus.error) {
         AppLogger.log('Purchase Error: ${purchase.error}');
-        _showSnackbar('Purchase Failed: ${purchase.error?.message}');
+        _setTransactionMessage('Purchase Failed: ${purchase.error?.message}');
       } else if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        // Verify with backend
-        _verifyAndDeliverProduct(purchase);
+        // Deliver product requires context to update AppStatusNotifier,
+        // so we make this method accept the context provided by the UI.
+        // For the global service, we rely on the UI to call the contextual method.
+        AppLogger.log('Purchase requires verification: ${purchase.status}');
+        // We cannot call _verifyAndDeliverProduct here as it needs BuildContext.
+        // We MUST pass the PurchaseDetails to a contextual method called by the view.
+        // However, to simplify the external interface, we'll keep the internal verification logic here
+        // but acknowledge the need for context during the AppStatusNotifier update.
+        // Since the manager is registered via Provider, we can't completely remove all
+        // context-related logic if it must update AppStatusNotifier.
+
+        // Since the requirement is to remove context, we must ONLY do Firebase verification here.
+        // The AppStatusNotifier update MUST be delegated to a UI method.
+        // This is a compromise: we verify here, and let the UI handle the AppStatusNotifier update.
+        _verifyPurchase(purchase);
       } else {
         AppLogger.log('Purchase status: ${purchase.status}');
       }
     }
   }
 
-  Future<void> _verifyAndDeliverProduct(PurchaseDetails purchase) async {
-    AppLogger.log('Verifying and delivering product: ${purchase.productID}...');
-
+  // New method: ONLY performs Firebase verification and returns the result
+  Future<Map<String, dynamic>> _verifyPurchase(PurchaseDetails purchase) async {
     final finalReceiptToken = purchase.verificationData.serverVerificationData;
     final purchasedProductId = purchase.productID;
 
@@ -130,32 +154,33 @@ class InAppPurchaseManager with ChangeNotifier {
     );
 
     if (response['status'] == 'success') {
-      AppLogger.log('Verification successful. Tier: ${response['tier']}');
-      _showSnackbar('Success! Your tier is being activated securely.');
+      AppLogger.log('Verification successful for ${purchase.productID}');
       final sharesUsed = response['dailySharesUsed'];
       final sharesLimit = response['dailySharesLimit'];
-      AppLogger.log(
-        'Verification successful. Tier: ${response['tier']} shares : ${sharesUsed}/${sharesLimit}',
-      );
-      _context.read<AppStatusNotifier>().updateDailyShares(sharesUsed);
-      _context.read<AppStatusNotifier>().updateDailySharesLimit(sharesLimit);
+      final tier = response['tier'];
+      AppLogger.log('Verification successful. Tier:$tier shares : $sharesUsed/$sharesLimit');
+      _appStatusNotifier.updateDailyShares(sharesUsed);
+      _appStatusNotifier.updateDailySharesLimit(sharesLimit);
+      _appStatusNotifier.updateTier(tier);
 
-      // Acknowledge purchase to the store
+      // CRITICAL: Acknowledge purchase to the store
       if (purchase.pendingCompletePurchase) {
         _iap.completePurchase(purchase);
       }
-      // IMPORTANT: You should update your AppStatusNotifier or user state here
-      // e.g., Provider.of<AppStatusNotifier>(context, listen: false).setUserTier(response['tier']);
+      _setTransactionMessage('Success! Your purchase is being applied.');
     } else {
       AppLogger.log('Server verification failed: ${response['message']}');
-      _showSnackbar('Verification failed. Please check your connection.');
+      _setTransactionMessage('Verification failed. Please try again.');
     }
+    return response;
   }
 
   // Exposed method for the UI to call when a button is pressed
   void buySubscription(ProductDetails product) {
     if (!_isAvailable) {
-      _showSnackbar('In-App Purchases are not available on this device.');
+      _setTransactionMessage(
+        'In-App Purchases are not available on this device.',
+      );
       return;
     }
 
@@ -167,21 +192,14 @@ class InAppPurchaseManager with ChangeNotifier {
   // Exposed method for managing subscription (requires url_launcher)
   void manageSubscription() {
     AppLogger.log('Unsubscribe/Manage initiated.');
-    _showSnackbar('Redirecting to the store to manage your subscription.');
-    // Implement platform-specific deep-linking using package:url_launcher here
+    _setTransactionMessage(
+      'Redirecting to the store to manage your subscription.',
+    );
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
     super.dispose();
-  }
-
-  // --- UTILITY: Simplified Snackbar for Service ---
-  // NOTE: This assumes you have access to a global or context-independent way
-  // to show SnackBar, often handled via a Navigator key or a dedicated MessageService.
-  // For this example, we'll keep the log and assume the UI handles feedback.
-  void _showSnackbar(String message) {
-    AppLogger.log('IAP Manager Alert: $message');
   }
 }

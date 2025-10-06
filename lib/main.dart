@@ -9,6 +9,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/Helpers/shoe_response.dart';
+import 'package:shoe_view/firebase_service.dart';
+import 'package:shoe_view/home_gate.dart';
 import 'shoe_list_view.dart';
 import 'app_status_notifier.dart';
 import 'package:provider/provider.dart';
@@ -78,6 +80,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _signedIn = false;
   String? _email;
   late final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  final FirebaseService _firebaseService = FirebaseService();
 
   @override
   void initState() {
@@ -213,12 +216,8 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _callCheckUserAuthorization(String email, String idToken) async {
     final isTest = false;
     _loading = isTest;
-    final result = await FirebaseFunctions.instance
-        .httpsCallable('checkUserAuthorization')
-        .call({'email': email, 'idToken': idToken, 'isTest': isTest});
-    // Assuming 'result' is the raw map from your Firebase function call
-    final rawData = result.data as Map<String, dynamic>;
-    final shoeResponse = ShoeResponse.fromJson(rawData);
+    final result = await _firebaseService.checkUserAuthorization(email: email, idToken: idToken);
+    final shoeResponse = ShoeResponse.fromJson(result);
 
     AppLogger.log(
       'dailyWritesUsed - ${shoeResponse.dailyWritesUsed} dailySharesUsed - ${shoeResponse.dailySharesUsed} trialStartedMillis - ${shoeResponse.trialStartedMillis} lastLoginMillis - ${shoeResponse.lastLoginMillis}',
@@ -253,7 +252,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void _navigateToHome() {
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => ShoeListView(initialShoes: [])),
+        MaterialPageRoute(builder: (_) => HomeGate(firebaseService: _firebaseService)),
       );
     }
   }

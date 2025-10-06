@@ -23,6 +23,22 @@ class FirebaseService {
     return uid ?? 'default_canvas_user';
   }
 
+  // Method signature from your AuthScreen, moved here for centralization
+  Future<Map<String, dynamic>> checkUserAuthorization({
+    required String email,
+    required String idToken,
+    bool isTest = false,
+  }) async {
+    final result = await FirebaseFunctions.instance
+        .httpsCallable('checkUserAuthorization')
+        .call({
+      'email': email,
+      'idToken': idToken,
+      'isTest': isTest,
+    });
+    return result.data as Map<String, dynamic>;
+  }
+
   // --- Read/Stream Operations ---
 
   /// Returns a real-time stream of Shoe lists for the current authenticated user.
