@@ -5,7 +5,9 @@ class ShoeResponse {
   final int trialStartedMillis;
   final int lastLoginMillis;
   final int dailySharesUsed;
+  final int dailySharesLimit;
   final int dailyWritesUsed;
+  final int dailyWritesLimit;
 
   ShoeResponse({
     required this.isAuthorized,
@@ -14,7 +16,9 @@ class ShoeResponse {
     required this.trialStartedMillis,
     required this.lastLoginMillis,
     required this.dailySharesUsed,
+    required this.dailySharesLimit,
     required this.dailyWritesUsed,
+    required this.dailyWritesLimit,
   });
 
   factory ShoeResponse.fromJson(Map<String, dynamic> json) {
@@ -25,7 +29,9 @@ class ShoeResponse {
       trialStartedMillis: json['trialStarted'] ?? 0,
       lastLoginMillis: json['lastLoginTime'] ?? 0,
       dailySharesUsed: json['dailySharesUsed'] ?? 0,
+      dailySharesLimit: json['dailySharesLimit'] ?? 0,
       dailyWritesUsed: json['dailyWritesUsed'] ?? 0,
+      dailyWritesLimit: json['dailyWritesLimit'] ?? 0,
     );
   }
 }

@@ -4,16 +4,21 @@ import 'package:flutter/foundation.dart'; // Import this for kReleaseMode
 import 'package:firebase_core/firebase_core.dart' as fcore;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
-import 'package:shoe_view/shoe_response.dart';
+import 'package:shoe_view/Helpers/shoe_response.dart';
 import 'shoe_list_view.dart';
 import 'app_status_notifier.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MobileAds.instance.initialize();
+  MobileAds.instance.updateRequestConfiguration(
+    RequestConfiguration(testDeviceIds: ['14F56A9612119919309484C5137CFCC8']),
+  );
   await fcore.Firebase.initializeApp();
   const String debugToken = '88E15778-3EEC-4586-AB37-2F44D5F39CA3';
 
@@ -220,8 +225,18 @@ class _AuthScreenState extends State<AuthScreen> {
       'dailyWritesUsed - ${shoeResponse.dailyWritesUsed} dailySharesUsed - ${shoeResponse.dailySharesUsed} trialStartedMillis - ${shoeResponse.trialStartedMillis} lastLoginMillis - ${shoeResponse.lastLoginMillis}',
     );
     context.read<AppStatusNotifier>().updateTrial(shoeResponse.isTrial);
-    context.read<AppStatusNotifier>().updateDailyShares(shoeResponse.dailySharesUsed);
-    context.read<AppStatusNotifier>().updateDailyWrites(shoeResponse.dailyWritesUsed);
+    context.read<AppStatusNotifier>().updateDailyShares(
+      shoeResponse.dailySharesUsed,
+    );
+    context.read<AppStatusNotifier>().updateDailySharesLimit(
+      shoeResponse.dailySharesLimit,
+    );
+    context.read<AppStatusNotifier>().updateDailyWrites(
+      shoeResponse.dailyWritesUsed,
+    );
+    context.read<AppStatusNotifier>().updateDailyWritesLimit(
+      shoeResponse.dailyWritesLimit,
+    );
     context.read<AppStatusNotifier>().updateTier(shoeResponse.tier);
     if (!shoeResponse.isAuthorized) {
       setState(() {
