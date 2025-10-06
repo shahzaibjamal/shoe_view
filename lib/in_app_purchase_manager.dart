@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/firebase_service.dart';
 
 // Defined Subscription IDs (MUST match Play Console/App Store IDs)
@@ -16,12 +18,12 @@ const Set<String> _kProductIds = {
 class InAppPurchaseManager with ChangeNotifier {
   final FirebaseService _firebaseService;
   final InAppPurchase _iap = InAppPurchase.instance;
+  final BuildContext _context;
 
   // State fields
   bool _isAvailable = false;
   List<ProductDetails> _products = [];
   bool _isLoading = true;
-  String? _appPackageName;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
 
   // Expose state to UI via getters
@@ -30,27 +32,14 @@ class InAppPurchaseManager with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   // Constructor: Requires the FirebaseService to call the cloud function
-  InAppPurchaseManager(this._firebaseService) {
-    AppLogger.log('InAppPurchaseManager initialized.');
+  InAppPurchaseManager(this._firebaseService, this._context) {
     _initializeIAP();
   }
 
   // --- CORE INITIALIZATION ---
   Future<void> _initializeIAP() async {
     // 1. Fetch the platform-specific App ID
-    try {
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      _appPackageName = packageInfo.packageName;
-      AppLogger.log('App Package Name initialized: $_appPackageName');
-    } catch (e) {
-      AppLogger.log('FATAL: Could not retrieve package info: $e');
-      _showSnackbar('Initialization failed. Check package_info_plus setup.');
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    _isAvailable = await _iap.isAvailable();
+   _isAvailable = await _iap.isAvailable();
 
     if (_isAvailable) {
       await _loadProducts();
@@ -123,19 +112,14 @@ class InAppPurchaseManager with ChangeNotifier {
           purchase.status == PurchaseStatus.restored) {
         // Verify with backend
         _verifyAndDeliverProduct(purchase);
-
+      } else {
+        AppLogger.log('Purchase status: ${purchase.status}');
       }
     }
   }
 
   Future<void> _verifyAndDeliverProduct(PurchaseDetails purchase) async {
     AppLogger.log('Verifying and delivering product: ${purchase.productID}...');
-
-    if (_appPackageName == null) {
-      AppLogger.log('Verification failed: App Package Name is missing.');
-      _showSnackbar('Verification failed: App identity not found.');
-      return;
-    }
 
     final finalReceiptToken = purchase.verificationData.serverVerificationData;
     final purchasedProductId = purchase.productID;
@@ -148,10 +132,18 @@ class InAppPurchaseManager with ChangeNotifier {
     if (response['status'] == 'success') {
       AppLogger.log('Verification successful. Tier: ${response['tier']}');
       _showSnackbar('Success! Your tier is being activated securely.');
-        // Acknowledge purchase to the store
-        if (purchase.pendingCompletePurchase) {
-          _iap.completePurchase(purchase);
-        }
+      final sharesUsed = response['dailySharesUsed'];
+      final sharesLimit = response['dailySharesLimit'];
+      AppLogger.log(
+        'Verification successful. Tier: ${response['tier']} shares : ${sharesUsed}/${sharesLimit}',
+      );
+      _context.read<AppStatusNotifier>().updateDailyShares(sharesUsed);
+      _context.read<AppStatusNotifier>().updateDailySharesLimit(sharesLimit);
+
+      // Acknowledge purchase to the store
+      if (purchase.pendingCompletePurchase) {
+        _iap.completePurchase(purchase);
+      }
       // IMPORTANT: You should update your AppStatusNotifier or user state here
       // e.g., Provider.of<AppStatusNotifier>(context, listen: false).setUserTier(response['tier']);
     } else {

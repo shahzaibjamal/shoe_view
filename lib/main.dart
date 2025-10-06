@@ -143,7 +143,7 @@ class _AuthScreenState extends State<AuthScreen> {
         final String email = firebaseUser?.email ?? user.email;
         // Get Firebase ID token
         final String? idToken = await firebaseUser?.getIdToken();
-        AppLogger.log('Firebase ID token: $idToken');
+
         setState(() {
           _signedIn = true;
           _email = email;
@@ -216,7 +216,6 @@ class _AuthScreenState extends State<AuthScreen> {
     final result = await FirebaseFunctions.instance
         .httpsCallable('checkUserAuthorization')
         .call({'email': email, 'idToken': idToken, 'isTest': isTest});
-    AppLogger.log('checkUserAuthorization response: ${result.data}');
     // Assuming 'result' is the raw map from your Firebase function call
     final rawData = result.data as Map<String, dynamic>;
     final shoeResponse = ShoeResponse.fromJson(rawData);

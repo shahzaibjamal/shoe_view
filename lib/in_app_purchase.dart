@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 // IMPORTANT: You must add the 'package_info_plus' dependency to your pubspec.yaml
-import 'package:package_info_plus/package_info_plus.dart'; 
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
@@ -31,8 +31,6 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
   List<ProductDetails> _products = [];
   bool _loading = true;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
-  // State variable to store the dynamically fetched App ID
-  String? _appPackageName; 
 
   @override
   void initState() {
@@ -47,21 +45,6 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
   }
 
   void _initializeIAP() async {
-    // 1. Fetch the platform-specific App ID (Package Name/Bundle ID)
-    try {
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      _appPackageName = packageInfo.packageName;
-      AppLogger.log('App Package Name initialized: $_appPackageName');
-    } catch (e) {
-      AppLogger.log('FATAL: Could not retrieve package info: $e');
-      _showSnackbar('Initialization failed. Check package_info_plus setup.');
-      // Stop initialization if we can't get the package name for secure verification
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-      return;
-    }
-
     _isAvailable = await _iap.isAvailable();
 
     if (_isAvailable) {
@@ -127,8 +110,8 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
         _verifyAndDeliverProduct(purchase);
 
         /******************REMOVE THIS IF server verification*****************/
-        // Note: For secure server verification, the server should handle the 
-        // acknowledgement/completion logic. However, since we are only simulating 
+        // Note: For secure server verification, the server should handle the
+        // acknowledgement/completion logic. However, since we are only simulating
         // the server call here, we still need this for local testing.
       }
     }
@@ -137,12 +120,6 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
   // FIXED: Calling your secure backend logic with the required package name
   void _verifyAndDeliverProduct(PurchaseDetails purchase) async {
     AppLogger.log('Verifying and delivering product: ${purchase.productID}');
-
-    if (_appPackageName == null) {
-      AppLogger.log('Verification failed: App Package Name is missing.');
-      _showSnackbar('Verification failed: App identity not found.');
-      return;
-    }
 
     // 1. Extract the required verification data from 'purchase'.
     final finalReceiptToken = purchase.verificationData.serverVerificationData;
@@ -156,41 +133,51 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
     );
 
     if (response['status'] == 'success') {
-      AppLogger.log('Verification successful. Tier: ${response['tier']}');
+      final sharesUsed = response['dailySharesUsed'];
+      final sharesLimit = response['dailySharesLimit'];
+      final tier = response['tier'];
+      AppLogger.log('Verification successful. Tier:$tier shares : $sharesUsed/$sharesLimit');
+      context.read<AppStatusNotifier>().updateDailyShares(sharesUsed);
+      context.read<AppStatusNotifier>().updateDailySharesLimit(sharesLimit);
+
       // Update local state based on server response (e.g., using Provider)
-      // Provider.of<AppStatusNotifier>(context, listen: false).setUserTier(response['tier']); 
-        if (purchase.pendingCompletePurchase) {
-          _iap.completePurchase(purchase);
-        }
+      Provider.of<AppStatusNotifier>(context, listen: false).updateTier(tier);
+      if (purchase.pendingCompletePurchase) {
+        _iap.completePurchase(purchase);
+      }
       _showSnackbar('Success! Your tier is being activated securely.');
     } else {
       AppLogger.log('Server verification failed: ${response['message']}');
       _showSnackbar('Verification failed. Please check your connection.');
     }
 
-    if (mounted) {
-      Future.delayed(const Duration(seconds: 1), () {
-        // Only pop if verification was successful OR if the UI needs to be dismissed regardless.
-        // Navigator.of(context).pop();
-      });
-    }
+    // if (mounted) {
+    //   Future.delayed(const Duration(seconds: 1), () {
+    //     // Only pop if verification was successful OR if the UI needs to be dismissed regardless.
+    //     // Navigator.of(context).pop();
+    //   });
+    // }
   }
 
   // New function to handle unsubscription/management
   void _unsubscribe() {
     AppLogger.log('Unsubscribe/Manage initiated.');
-    _showSnackbar('Redirecting to the store to manage your subscription. This requires the "url_launcher" package.');
-    
+    _showSnackbar(
+      'Redirecting to the store to manage your subscription. This requires the "url_launcher" package.',
+    );
+
     // In a real app, you would use package:url_launcher here:
-    // 
+    //
     // Android (Google Play):
     // const String androidUrl = 'https://play.google.com/store/account/subscriptions';
-    // 
+    //
     // iOS (App Store):
     // const String iosUrl = 'https://apps.apple.com/account/subscriptions';
     //
     // For now, we'll just log the action.
-    AppLogger.log('ACTION REQUIRED: Implement platform-specific deep-linking to the subscription management page.');
+    AppLogger.log(
+      'ACTION REQUIRED: Implement platform-specific deep-linking to the subscription management page.',
+    );
   }
 
   void _buySubscription(ProductDetails product) {
@@ -223,81 +210,80 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : !_isAvailable
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: Text(
-                      'In-App Purchasing is not supported or configured correctly on this device.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.redAccent, fontSize: 16),
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Text(
+                  'In-App Purchasing is not supported or configured correctly on this device.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.redAccent, fontSize: 16),
+                ),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                const Text(
+                  'Unlock unlimited features and premium tools by upgrading your account.',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+
+                if (_products.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 40.0),
+                      child: Text(
+                        'No products found. Check your product IDs and platform configuration.',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(16.0),
+                  )
+                else
+                  // Iterate through products and generate a list of full-width cards
+                  ..._products.map((product) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: _ProductCard(
+                        product: product,
+                        onBuy: _buySubscription,
+                        isHighlighted: product.id.contains('gold'),
+                      ),
+                    );
+                  }).toList(),
+
+                // --------------------------------------------------
+                const SizedBox(height: 30),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    const Text(
-                      'Unlock unlimited features and premium tools by upgrading your account.',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                      textAlign: TextAlign.center,
+                    TextButton(
+                      onPressed: () {
+                        _iap.restorePurchases();
+                        _showSnackbar('Restoring purchases...');
+                      },
+                      child: const Text('Restore Purchases'),
                     ),
-                    const SizedBox(height: 20),
-
-                    if (_products.isEmpty)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.only(top: 40.0),
-                          child: Text(
-                            'No products found. Check your product IDs and platform configuration.',
-                            style: TextStyle(
-                              fontStyle: FontStyle.italic,
-                              color: Colors.grey,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                    else
-                      // Iterate through products and generate a list of full-width cards
-                      ..._products.map((product) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
-                          child: _ProductCard(
-                            product: product,
-                            onBuy: _buySubscription,
-                            isHighlighted: product.id.contains('gold'),
-                          ),
-                        );
-                      }).toList(),
-
-                    // --------------------------------------------------
-                    const SizedBox(height: 30),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            _iap.restorePurchases();
-                            _showSnackbar('Restoring purchases...');
-                          },
-                          child: const Text('Restore Purchases'),
-                        ),
-                        // NEW: Button to manage or unsubscribe
-                        TextButton(
-                          onPressed: _unsubscribe,
-                          child: const Text('Manage Subscription'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Note: All plans are auto-renewing monthly subscriptions. Subscriptions are managed via the App Store or Google Play.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    // NEW: Button to manage or unsubscribe
+                    TextButton(
+                      onPressed: _unsubscribe,
+                      child: const Text('Manage Subscription'),
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Note: All plans are auto-renewing monthly subscriptions. Subscriptions are managed via the App Store or Google Play.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
@@ -40,7 +41,7 @@ class _ShoeListViewState extends State<ShoeListView>
   List<Shoe> _displayedShoes = []; // Stores the result of the filtering step
   List<Shoe> streamShoes = [];
   InAppPurchaseManager get _inAppPurchaseManager =>
-      InAppPurchaseManager(_firebaseService);
+      InAppPurchaseManager(_firebaseService, context);
 
   // New: Stores data manually fetched from a different source (like a different collection or query)
   List<Shoe> _manuallyFetchedShoes = [];
@@ -67,11 +68,18 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
       // 🔁 App has resumed — do your logic here
-      AppLogger.log("App resumed — refreshing subscription status");
-      _inAppPurchaseManager.queryActivePurchases();
+      final prefs = await SharedPreferences.getInstance();
+      final lastCheck = prefs.getInt('lastSubscriptionCheck') ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      AppLogger.log("App resumed — refreshing subscription status ${now} - ${lastCheck} = ${now - lastCheck} > ${600000} ");
+      
+      if (now - lastCheck > 10 * 60 * 1000) {
+        _inAppPurchaseManager.queryActivePurchases();
+        prefs.setInt('lastSubscriptionCheck', now);
+      }
     }
   }
 
