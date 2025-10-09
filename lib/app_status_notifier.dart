@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 class AppStatusNotifier extends ChangeNotifier {
+  bool _isTest = false; // Default state
   bool _isTrial = true; // Default state
   int _dailyShares = 0; // Default state
   int _dailySharesLimit = 0; // Default state
@@ -9,6 +10,7 @@ class AppStatusNotifier extends ChangeNotifier {
   int _tier = 0; // Default state
 
   bool get isTrial => _isTrial;
+  bool get isTest => _isTest;
   int get dailyShares => _dailyShares;
   int get dailySharesLimit => _dailySharesLimit;
   int get dailyWrites => _dailyWrites;
@@ -17,6 +19,11 @@ class AppStatusNotifier extends ChangeNotifier {
 
   void updateTrial(bool trial) {
     _isTrial = trial;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateTest(bool test) {
+    _isTest = test;
     notifyListeners(); // Notify all listeners to rebuild
   }
 

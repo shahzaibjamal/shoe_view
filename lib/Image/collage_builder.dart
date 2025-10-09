@@ -186,8 +186,16 @@ class _CollageBuilderState extends State<CollageBuilder> {
     final testAdUnit = "ca-app-pub-3940256099942544/5224354917";
     final releaseAdUnit = "ca-app-pub-3489872370282662/3859555894";
     isAdLoading.value = true;
+    // Start timeout fallback
+    Future.delayed(const Duration(seconds: 5), () {
+      if (isAdLoading.value) {
+        AppLogger.log('Ad load timeout — enabling fallback.');
+        isAdLoading.value = false;
+      }
+    });
+
     RewardedAd.load(
-      adUnitId:  kReleaseMode ? releaseAdUnit : testAdUnit,
+      adUnitId: kReleaseMode ? releaseAdUnit : testAdUnit,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (RewardedAd ad) {
@@ -228,12 +236,15 @@ class _CollageBuilderState extends State<CollageBuilder> {
   }
 
   Future<void> _validateShareCollage({bool isRewarded = false}) async {
+    bool isTest = context.read<AppStatusNotifier>().isTest;
     setState(() => _isSaving = true);
-    if (isRewarded) {
+    if (isRewarded || isTest) {
       _shareCollage();
     } else {
       try {
-        final response = await widget.firebaseService.incrementShares();
+        final response = await widget.firebaseService.incrementShares(
+          isTest: isTest,
+        );
         if (response['status'] == 'success') {
           final sharesUsed = response['dailySharesUsed'];
           final sharesLimit = response['dailySharesLimit'];

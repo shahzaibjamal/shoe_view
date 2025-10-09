@@ -31,11 +31,7 @@ class FirebaseService {
   }) async {
     final result = await FirebaseFunctions.instance
         .httpsCallable('checkUserAuthorization')
-        .call({
-      'email': email,
-      'idToken': idToken,
-      'isTest': isTest,
-    });
+        .call({'email': email, 'idToken': idToken, 'isTest': isTest});
     return result.data as Map<String, dynamic>;
   }
 
@@ -93,12 +89,17 @@ class FirebaseService {
     return shoes;
   }
 
-  Future<dynamic> updateShoe(Shoe shoe, String? base64Image) async {
+  Future<dynamic> updateShoe(
+    Shoe shoe,
+    String? base64Image, {
+    bool isTest = false,
+  }) async {
     try {
       final callable = FirebaseFunctions.instance.httpsCallable('updateShoe');
       final result = await callable.call({
         'shoeData': shoe.toMap(),
         'imageBase64': base64Image,
+        'isTest': isTest,
       });
       return result.data;
     } catch (error) {
@@ -107,13 +108,14 @@ class FirebaseService {
     }
   }
 
-  Future<dynamic> deleteShoeFromCloud(Shoe shoe) async {
+  Future<dynamic> deleteShoeFromCloud(Shoe shoe, {bool isTest = false}) async {
     final callable = FirebaseFunctions.instance.httpsCallable('deleteShoe');
 
     await callable
         .call({
           'documentId': shoe.documentId,
           'remoteImageUrl': shoe.remoteImageUrl,
+          'isTest': isTest,
         })
         .then((value) {
           // Handle success
@@ -152,12 +154,13 @@ class FirebaseService {
     }
   }
 
-  Future<dynamic> incrementShares() async {
+  Future<dynamic> incrementShares({bool isTest = false}) async {
     try {
       final callable = FirebaseFunctions.instance.httpsCallable(
         'incrementUserShares',
       );
-      final result = await callable.call({});
+
+      final result = await callable.call({'isTest': isTest});
       AppLogger.log(' result  ${result.data}');
       return result.data;
     } catch (error) {

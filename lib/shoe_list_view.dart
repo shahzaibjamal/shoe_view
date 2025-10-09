@@ -16,7 +16,6 @@ import 'shoe_model.dart';
 import 'firebase_service.dart';
 
 class ShoeListView extends StatefulWidget {
-  // The list of shoes to display immediately while the stream connects
   const ShoeListView({super.key});
 
   @override
@@ -25,31 +24,34 @@ class ShoeListView extends StatefulWidget {
 
 class _ShoeListViewState extends State<ShoeListView>
     with WidgetsBindingObserver {
-  // Initialize the Firebase service
-
-  // --- State Variables for Sorting & Searching ---
-  String _sortField = 'ItemId'; // Options: 'ItemId', 'size', 'sellingPrice'
+  // ... (Existing State Variables)
+  String _sortField = 'ItemId'; 
   bool _sortAscending = true;
   bool _isLoadingExternalData = false;
-  String _searchQuery = ''; // Tracks the text in the search bar
-  List<Shoe> _filteredShoes = []; // Stores the result of the filtering step
-  List<Shoe> _displayedShoes = []; // Stores the result of the display step
+  String _searchQuery = '';
+  List<Shoe> _filteredShoes = [];
+  List<Shoe> _displayedShoes = [];
   List<Shoe> streamShoes = [];
-  // New: Stores data manually fetched from a different source (like a different collection or query)
   List<Shoe> _manuallyFetchedShoes = [];
 
-  final TextEditingController _searchController =
-      TextEditingController(); // Controller for search input
+  final TextEditingController _searchController = TextEditingController();
+  // ---------------------------------------
+
+  // 🎯 NEW: Scroll Controller and Visibility State
+  final ScrollController _scrollController = ScrollController();
+  bool _isFabVisible = true;
   // ---------------------------------------
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // 1. Add listener for real-time search filtering as the user types
     _searchController.addListener(_onSearchChanged);
     final subscriptionManager = context.read<SubscriptionManager>();
     subscriptionManager.queryActivePurchases();
+
+    // 🎯 NEW: Add Scroll Listener
+    _scrollController.addListener(_scrollListener);
   }
 
   @override
@@ -57,51 +59,68 @@ class _ShoeListViewState extends State<ShoeListView>
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
+    
+    // 🎯 NEW: Dispose Scroll Controller and remove listener
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    
     super.dispose();
+  }
+  
+  // 🎯 NEW: Logic to show/hide the FloatingActionButton
+  double _lastScrollPosition = 0;
+  void _scrollListener() {
+    // 1. Check if the user is scrolling up or down
+    final currentPosition = _scrollController.offset;
+    final scrollingDown = currentPosition > _lastScrollPosition;
+
+    // 2. Determine visibility based on direction and if scrolling is active
+    final bool shouldBeVisible = !scrollingDown || currentPosition < 10.0; 
+    
+    // Check if the state needs to change
+    if (_isFabVisible != shouldBeVisible) {
+      setState(() {
+        _isFabVisible = shouldBeVisible;
+      });
+    }
+
+    _lastScrollPosition = currentPosition;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (state == AppLifecycleState.resumed) {
-      // 🔁 App has resumed — do your logic here
-      final prefs = await SharedPreferences.getInstance();
-      final lastCheck = prefs.getInt('lastSubscriptionCheck') ?? 0;
-      final now = DateTime.now().millisecondsSinceEpoch;
-      AppLogger.log(
-        "App resumed — refreshing subscription status ${now} - ${lastCheck} = ${now - lastCheck} > ${600000} ",
-      );
+     if (state == AppLifecycleState.resumed) {
+       // ... (Subscription Check Logic)
+       final prefs = await SharedPreferences.getInstance();
+       final lastCheck = prefs.getInt('lastSubscriptionCheck') ?? 0;
+       final now = DateTime.now().millisecondsSinceEpoch;
+       AppLogger.log(
+         "App resumed — refreshing subscription status ${now} - ${lastCheck} = ${now - lastCheck} > ${600000} ",
+       );
 
-      final subscriptionManager = context.read<SubscriptionManager>();
-      if (now - lastCheck > 10 * 60 * 1000) {
-        subscriptionManager.queryActivePurchases();
-        prefs.setInt('lastSubscriptionCheck', now);
-      }
-    }
+       final subscriptionManager = context.read<SubscriptionManager>();
+       if (now - lastCheck > 10 * 60 * 1000) {
+         subscriptionManager.queryActivePurchases();
+         prefs.setInt('lastSubscriptionCheck', now);
+       }
+     }
   }
 
-  // Method to update the search state
   void _onSearchChanged() {
-    // Update the search query state immediately on text change
     setState(() {
       _searchQuery = _searchController.text.toLowerCase().trim();
     });
   }
 
-  // --- FIX: Logic to refresh/add data from an external source ---
   void _onRefreshData() {
     setState(() {
       _isLoadingExternalData = true;
     });
-    // 1. Fetch data from the external source/query defined in FirebaseService.
     final firebaseService = context.read<FirebaseService>();
     firebaseService
         .fetchData()
         .then((newShoes) {
-          // 2. Update the state with the new data. This is crucial as it triggers
-          // the StreamBuilder to rebuild and merge the lists.
           setState(() {
-            // Here, we ADD the new shoes to the existing external list.
-            // Use a Set to ensure only unique shoes are added (optional, but safer)
             final combinedShoes = <Shoe>{..._manuallyFetchedShoes, ...newShoes};
             _manuallyFetchedShoes = combinedShoes.toList();
             _isLoadingExternalData = false;
@@ -127,49 +146,45 @@ class _ShoeListViewState extends State<ShoeListView>
         });
   }
 
-void _openInApp() {
-  final subscriptionManager = context.read<SubscriptionManager>();
+  void _openInApp() {
+    final subscriptionManager = context.read<SubscriptionManager>();
 
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (context) => ChangeNotifierProvider.value(
-        value: subscriptionManager,
-        child: SubscriptionUpgradePage(),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChangeNotifierProvider.value(
+          value: subscriptionManager,
+          child: const SubscriptionUpgradePage(), // Added const
+        ),
       ),
-    ),
-  );
-}
-
-  // --- END FIX for _onRefreshData ---
+    );
+  }
 
   void _deleteShoe(Shoe shoe) async {
-    final confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Delete Shoe'),
-            content: Text(
-              'Are you sure you want to delete "${shoe.shoeDetail}" (ID: ${shoe.itemId})? This action is permanent.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+    // ... (Deletion logic remains unchanged)
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Shoe'),
+        content: Text(
+          'Are you sure you want to delete "${shoe.shoeDetail}" (ID: ${shoe.itemId})? This action is permanent.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
           ),
-        ) ??
-        false;
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    ) ?? false;
 
     if (confirmed) {
-      // Delete the document and the image from Firebase
       final firebaseService = context.read<FirebaseService>();
       final response = await firebaseService.deleteShoeFromCloud(shoe);
       if (response['success'] == false) {
@@ -182,7 +197,6 @@ void _openInApp() {
           ),
         );
       }
-      // The StreamBuilder handles the UI update automatically
     }
   }
 
@@ -190,7 +204,6 @@ void _openInApp() {
     _shareData([shoe]);
   }
 
-  // --- Share All Data as Collage ---
   void _onShareAll() {
     _shareData(_displayedShoes);
   }
@@ -201,7 +214,6 @@ void _openInApp() {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          // Set contentPadding to zero to remove default padding
           contentPadding: EdgeInsets.zero,
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.8,
@@ -231,7 +243,6 @@ void _openInApp() {
     );
   }
 
-  // --- Copy All Data to Clipboard ---
   void _copyAll() {
     Clipboard.setData(ClipboardData(text: _copyData(_displayedShoes)));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -244,25 +255,25 @@ void _openInApp() {
   }
 
   String _copyData(List<Shoe> shoeList) {
+    const tab = '    '; // Define tab locally or import it
     final buffer = StringBuffer();
-    final gap = ' '; // base gap after numbering
-    final tab = '     '; // base gap after numbering
+    const gap = ' ';
     if (shoeList.length > 1) {
       buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
     }
 
     for (int i = 0; i < shoeList.length; i++) {
       final shoe = shoeList[i];
-      final numbering = '${i + 1}.';
+      final numbering = shoeList.length > 1 ? '${i + 1}.' : '';
       final indent = ' ' * (numbering.length + gap.length);
 
       buffer.writeln('$numbering$gap${shoe.shoeDetail}');
       buffer.writeln(
         '$indent${tab}Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}',
       );
-      buffer.writeln('$indent${tab}Price: Rs.${shoe.sellingPrice}/-');
-      buffer.writeln('$indent${tab}Instagram: ${shoe.instagramLink}');
-      buffer.writeln('$indent${tab}TikTok: ${shoe.tiktokLink}');
+      buffer.writeln('${indent}Price: Rs.${shoe.sellingPrice}/-');
+      buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
+      buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       buffer.writeln(); // blank line for separation
     }
     buffer.writeln('Tap to claim 📦');
@@ -272,13 +283,11 @@ void _openInApp() {
 
   @override
   Widget build(BuildContext context) {
-    // --- MODIFIED: Calculate 20% of the screen height for the custom header ---
     final double headerHeight = MediaQuery.of(context).size.height * 0.16;
     final firebaseService = context.read<FirebaseService>();
-    // *** No AppBar is used, only Scaffold body ***
+    
     return Scaffold(
       body: SafeArea(
-        // Use SafeArea to avoid status bar overlap
         child: Column(
           children: [
             ListHeader(
@@ -299,18 +308,15 @@ void _openInApp() {
               },
               onCopyDataPressed: _copyAll,
               onShareDataPressed: _onShareAll,
-              onRefreshDataPressed: _onRefreshData, // Now calls the new logic
-              onInAppButtonPressed: _openInApp, // Now calls the new logic
+              onRefreshDataPressed: _onRefreshData,
+              onInAppButtonPressed: _openInApp,
             ),
-            // NEW: Conditional loading indicator for manual refresh
             if (_isLoadingExternalData) const LinearProgressIndicator(),
-            // Main Content Area (takes remaining space)
             Expanded(
               child: StreamBuilder<List<Shoe>>(
-                // Use the list provided in the constructor as initial data
                 stream: firebaseService.streamShoes(),
                 builder: (context, snapshot) {
-                  // --- Connection State Handling ---
+                  // ... (StreamBuilder logic for data processing)
                   if (snapshot.connectionState == ConnectionState.waiting &&
                       !snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
@@ -329,9 +335,7 @@ void _openInApp() {
                     );
                   }
 
-                  // 1. Merge Stream Data and Manually Fetched Data
                   streamShoes = snapshot.data ?? [];
-                  // Combine both lists and ensure uniqueness using a Set if itemIds are unique
                   final allShoesSet = <String, Shoe>{};
                   if (_manuallyFetchedShoes.isEmpty) {
                     for (var shoe in streamShoes) {
@@ -345,7 +349,6 @@ void _openInApp() {
 
                   final combinedShoes = allShoesSet.values.toList();
 
-                  // --- Data State Handling ---
                   if (combinedShoes.isEmpty) {
                     return const Center(
                       child: Text(
@@ -354,33 +357,32 @@ void _openInApp() {
                     );
                   }
 
-                  // --- 2. Filter Logic (Applies all criteria EXCEPT 'lim' command) ---
                   _filteredShoes = combinedShoes.where((shoe) {
-                    // This function already excludes 'lim' tokens for the match check
                     return ShoeQueryUtils.doesShoeMatchSmartQuery(
                       shoe,
                       _searchController.text.toLowerCase(),
                     );
                   }).toList();
+                  
                   _displayedShoes = ShoeQueryUtils.sortAndLimitShoes(
                     shoes: List<Shoe>.from(_filteredShoes),
                     rawQuery: _searchController.text.toLowerCase(),
                     sortField: _sortField,
                     sortAscending: _sortAscending,
                   );
-                  // Check if filtering/limiting resulted in an empty list
+                  
                   if (_displayedShoes.isEmpty && _searchQuery.isNotEmpty) {
                     return Center(
                       child: Text('No shoes found matching "$_searchQuery".'),
                     );
                   }
 
-                  // --- Display Data ---
+                  // 🎯 FIX: Attach the ScrollController here
                   return ListView.builder(
+                    controller: _scrollController, // <-- ATTACH CONTROLLER
                     itemCount: _displayedShoes.length,
                     itemBuilder: (context, index) {
-                      final shoe =
-                          _displayedShoes[index]; // Use the final limited/sorted list
+                      final shoe = _displayedShoes[index];
                       return ShoeListItem(
                         shoe: shoe,
                         onCopyDataPressed: _onCopyShoe,
@@ -390,7 +392,7 @@ void _openInApp() {
                           builder: (BuildContext context) {
                             return ShoeFormDialogContent(
                               shoe: shoe,
-                              firebaseService: context.read<FirebaseService>(),
+                              firebaseService: firebaseService,
                               existingShoes: streamShoes,
                             );
                           },
@@ -407,18 +409,26 @@ void _openInApp() {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return ShoeFormDialogContent(
-              firebaseService: FirebaseService(),
-              existingShoes: streamShoes,
-            );
-          },
+      // 🎯 FIX: Wrap the FAB with an AnimatedOpacity
+      floatingActionButton: AnimatedOpacity(
+        opacity: _isFabVisible ? 1.0 : 0.0, // Control visibility
+        duration: const Duration(milliseconds: 300), // Smooth animation
+        child: FloatingActionButton(
+          onPressed: () => showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              // NOTE: It is best practice to use context.read<FirebaseService>() here
+              // instead of creating a new FirebaseService() instance.
+              return ShoeFormDialogContent(
+                // Use context.read for dependency
+                firebaseService: firebaseService, 
+                existingShoes: streamShoes,
+              );
+            },
+          ),
+          tooltip: 'Add New Shoe',
+          child: const Icon(Icons.add),
         ),
-        tooltip: 'Add New Shoe',
-        child: const Icon(Icons.add),
       ),
     );
   }
