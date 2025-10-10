@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 /// A utility class or function to handle retrieving the dynamic app information.
 class AppInfoUtility {
@@ -16,5 +19,19 @@ class AppInfoUtility {
       // For verification, it's better to crash or prevent the purchase if this fails.
       return 'com.shoe.view';
     }
+  }
+
+  static Future<String?> getDeviceId() async {
+    final deviceInfo = DeviceInfoPlugin();
+
+    if (Platform.isAndroid) {
+      final androidInfo = await deviceInfo.androidInfo;
+      return androidInfo
+          .id; // or androidInfo.androidId (deprecated but still usable)
+    } else if (Platform.isIOS) {
+      final iosInfo = await deviceInfo.iosInfo;
+      return iosInfo.identifierForVendor;
+    }
+    return null;
   }
 }

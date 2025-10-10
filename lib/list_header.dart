@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shoe_view/Helpers/app_info.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/app_status_notifier.dart'; // or use Riverpod if preferred
 
 class ListHeader extends StatefulWidget {
@@ -37,6 +39,13 @@ class ListHeader extends StatefulWidget {
 class _ListHeaderState extends State<ListHeader> {
   int _tapCount = 0;
   DateTime? _lastTapTime;
+  bool _isValidDevice = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDevice();
+  }
 
   void _handleTapSequence() {
     final now = DateTime.now();
@@ -54,6 +63,14 @@ class _ListHeaderState extends State<ListHeader> {
       context.read<AppStatusNotifier>().updateTest(!isTest);
       _tapCount = 0;
     }
+  }
+
+  void _checkDevice() async {
+    final deviceId = await AppInfoUtility.getDeviceId();
+    final validDevices = ['TP1A.220624.014'];
+    setState(() {
+      _isValidDevice = validDevices.contains(deviceId);
+    });
   }
 
   @override
@@ -125,15 +142,21 @@ class _ListHeaderState extends State<ListHeader> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.white),
+                      onPressed: widget.onInAppButtonPressed,
+                      tooltip: 'Settings',
+                    ),
+                    IconButton(
                       icon: const Icon(Icons.diamond, color: Colors.white),
                       onPressed: widget.onInAppButtonPressed,
                       tooltip: 'In-app action',
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, color: Colors.white),
-                      onPressed: widget.onRefreshDataPressed,
-                      tooltip: 'Refresh data',
-                    ),
+                    if (_isValidDevice)
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        onPressed: widget.onRefreshDataPressed,
+                        tooltip: 'Refresh data',
+                      ),
                     IconButton(
                       icon: const Icon(Icons.content_copy, color: Colors.white),
                       onPressed: widget.onCopyDataPressed,
@@ -144,12 +167,7 @@ class _ListHeaderState extends State<ListHeader> {
                       onPressed: widget.onShareDataPressed,
                       tooltip: 'Share data',
                     ),
-                    const SizedBox(width: 16),
-                    const Text(
-                      'Sort By:',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 0),
                     DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: widget.sortField,

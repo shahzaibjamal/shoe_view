@@ -54,6 +54,7 @@ dependencies:
   in_app_purchase: ^3.2.3
   google_mobile_ads: ^6.0.0
   shared_preferences: ^2.5.3
+  device_info_plus: ^10.0.0
 
 dev_dependencies:
   flutter_test:
@@ -71,7 +72,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
+  assets:
+    - assets/google.png
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
