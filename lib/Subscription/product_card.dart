@@ -6,7 +6,7 @@ class ProductCard extends StatelessWidget {
   final ProductDetails product;
   final Function(ProductDetails) onBuy;
   final bool isHighlighted;
-  const ProductCard({
+  const ProductCard({super.key, 
     required this.product,
     required this.onBuy,
     this.isHighlighted = false,

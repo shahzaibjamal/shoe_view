@@ -25,7 +25,7 @@ class ShoeListView extends StatefulWidget {
 class _ShoeListViewState extends State<ShoeListView>
     with WidgetsBindingObserver {
   // ... (Existing State Variables)
-  String _sortField = 'ItemId'; 
+  String _sortField = 'ItemId';
   bool _sortAscending = true;
   bool _isLoadingExternalData = false;
   String _searchQuery = '';
@@ -59,14 +59,14 @@ class _ShoeListViewState extends State<ShoeListView>
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     WidgetsBinding.instance.removeObserver(this);
-    
+
     // 🎯 NEW: Dispose Scroll Controller and remove listener
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
-    
+
     super.dispose();
   }
-  
+
   // 🎯 NEW: Logic to show/hide the FloatingActionButton
   double _lastScrollPosition = 0;
   void _scrollListener() {
@@ -75,8 +75,8 @@ class _ShoeListViewState extends State<ShoeListView>
     final scrollingDown = currentPosition > _lastScrollPosition;
 
     // 2. Determine visibility based on direction and if scrolling is active
-    final bool shouldBeVisible = !scrollingDown || currentPosition < 10.0; 
-    
+    final bool shouldBeVisible = !scrollingDown || currentPosition < 10.0;
+
     // Check if the state needs to change
     if (_isFabVisible != shouldBeVisible) {
       setState(() {
@@ -89,21 +89,21 @@ class _ShoeListViewState extends State<ShoeListView>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-     if (state == AppLifecycleState.resumed) {
-       // ... (Subscription Check Logic)
-       final prefs = await SharedPreferences.getInstance();
-       final lastCheck = prefs.getInt('lastSubscriptionCheck') ?? 0;
-       final now = DateTime.now().millisecondsSinceEpoch;
-       AppLogger.log(
-         "App resumed — refreshing subscription status ${now} - ${lastCheck} = ${now - lastCheck} > ${600000} ",
-       );
+    if (state == AppLifecycleState.resumed) {
+      // ... (Subscription Check Logic)
+      final prefs = await SharedPreferences.getInstance();
+      final lastCheck = prefs.getInt('lastSubscriptionCheck') ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      AppLogger.log(
+        "App resumed — refreshing subscription status $now - $lastCheck = ${now - lastCheck} > ${600000} ",
+      );
 
-       final subscriptionManager = context.read<SubscriptionManager>();
-       if (now - lastCheck > 10 * 60 * 1000) {
-         subscriptionManager.queryActivePurchases();
-         prefs.setInt('lastSubscriptionCheck', now);
-       }
-     }
+      final subscriptionManager = context.read<SubscriptionManager>();
+      if (now - lastCheck > 10 * 60 * 1000) {
+        subscriptionManager.queryActivePurchases();
+        prefs.setInt('lastSubscriptionCheck', now);
+      }
+    }
   }
 
   void _onSearchChanged() {
@@ -161,28 +161,30 @@ class _ShoeListViewState extends State<ShoeListView>
 
   void _deleteShoe(Shoe shoe) async {
     // ... (Deletion logic remains unchanged)
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Shoe'),
-        content: Text(
-          'Are you sure you want to delete "${shoe.shoeDetail}" (ID: ${shoe.itemId})? This action is permanent.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete Shoe'),
+            content: Text(
+              'Are you sure you want to delete "${shoe.shoeDetail}" (ID: ${shoe.itemId})? This action is permanent.',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
 
     if (confirmed) {
       final firebaseService = context.read<FirebaseService>();
@@ -285,7 +287,7 @@ class _ShoeListViewState extends State<ShoeListView>
   Widget build(BuildContext context) {
     final double headerHeight = MediaQuery.of(context).size.height * 0.16;
     final firebaseService = context.read<FirebaseService>();
-    
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -363,14 +365,14 @@ class _ShoeListViewState extends State<ShoeListView>
                       _searchController.text.toLowerCase(),
                     );
                   }).toList();
-                  
+
                   _displayedShoes = ShoeQueryUtils.sortAndLimitShoes(
                     shoes: List<Shoe>.from(_filteredShoes),
                     rawQuery: _searchController.text.toLowerCase(),
                     sortField: _sortField,
                     sortAscending: _sortAscending,
                   );
-                  
+
                   if (_displayedShoes.isEmpty && _searchQuery.isNotEmpty) {
                     return Center(
                       child: Text('No shoes found matching "$_searchQuery".'),
@@ -421,7 +423,7 @@ class _ShoeListViewState extends State<ShoeListView>
               // instead of creating a new FirebaseService() instance.
               return ShoeFormDialogContent(
                 // Use context.read for dependency
-                firebaseService: firebaseService, 
+                firebaseService: firebaseService,
                 existingShoes: streamShoes,
               );
             },

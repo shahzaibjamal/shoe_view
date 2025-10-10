@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
 
 @immutable
 class Shoe {
@@ -53,23 +54,24 @@ class Shoe {
 
     String instagram = '';
     String tiktok = '';
-    // if (links != null && links.isNotEmpty) {
-    //   final linkMap = links.first as Map<String, dynamic>?;
-    //   if (linkMap != null) {
-    //     instagram = linkMap['instagram']?.toString() ?? '';
-    //     tiktok = linkMap['tiktok']?.toString() ?? '';
-    //   }
-    // }
-    if (links != null) {
-      for (var link in links) {
-        final linkStr = link.toString();
-        if (linkStr.contains('instagram.com')) {
-          instagram = linkStr;
-        } else if (linkStr.contains('tiktok.com')) {
-          tiktok = linkStr;
-        }
+    if (links != null && links.isNotEmpty) {
+      final linkMap = links.first as Map<String, dynamic>?;
+      if (linkMap != null) {
+        instagram = linkMap['instagram']?.toString() ?? '';
+        tiktok = linkMap['tiktok']?.toString() ?? '';
       }
     }
+    
+    // if (links != null) {
+    //   for (var link in links) {
+    //     final linkStr = link.toString();
+    //     if (linkStr.contains('instagram.com')) {
+    //       instagram = linkStr;
+    //     } else if (linkStr.contains('tiktok.com')) {
+    //       tiktok = linkStr;
+    //     }
+    //   }
+    // }
 
     return Shoe(
       documentId: documentId,

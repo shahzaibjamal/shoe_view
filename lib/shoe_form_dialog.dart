@@ -4,6 +4,7 @@ import 'package:flutter/services.dart'; // Added for input formatters
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+// ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart'; // Needed for firstWhereOrNull in validation
 
 import 'package:shoe_view/error_dialog.dart';
@@ -213,7 +214,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 600,
+      maxWidth: 300,
     );
     if (picked != null) {
       setState(() {
@@ -318,12 +319,6 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   int _safeIntParse(String? text) {
     if (text == null || text.isEmpty) return 0;
     return int.tryParse(text) ?? 0;
-  }
-
-  // NOTE: _safeDoubleParse is no longer used in _saveShoe but kept as a helper
-  double _safeDoubleParse(String? text) {
-    if (text == null || text.isEmpty) return 0.0;
-    return double.tryParse(text) ?? 0.0;
   }
 
   // Custom validation for Instagram/TikTok links
@@ -480,9 +475,11 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     // Priority 1: Remote URL (from Firestore)
     if (remoteImageUrl.isNotEmpty) {
       // Assuming Image.network is used as a stand-in for ShoeNetworkImage
+
       return Image.network(
         remoteImageUrl,
         width: width,
+        cacheWidth: 512, // width constraint
         height: height,
         fit: BoxFit.cover,
         loadingBuilder: (context, child, loadingProgress) {

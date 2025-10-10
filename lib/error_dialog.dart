@@ -68,13 +68,13 @@ class ErrorDialog extends StatelessWidget {
                 valueListenable: isLoadingNotifier ?? ValueNotifier(false),
                 builder: (context, isLoading, _) {
                   return TextButton(
-                    child: isLoading ? Text('Loading...') : Text('Yes'),
                     onPressed: isLoading
                         ? null
                         : () {
                             Navigator.of(context).pop();
                             onYesPressed!();
                           },
+                    child: isLoading ? Text('Loading...') : Text('Yes'),
                   );
                 },
               ),

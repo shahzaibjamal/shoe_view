@@ -120,7 +120,7 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
                                 isHighlighted: product.id.contains('gold'),
                               ),
                             );
-                          }).toList(),
+                          }),
 
                         const SizedBox(height: 30),
                         Row(

@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'dart:math';
 
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 import 'package:shoe_view/shoe_model.dart';
 
 class ShoeQueryUtils {
@@ -222,5 +225,16 @@ class ShoeQueryUtils {
   static String _formatSizeForComparison(dynamic size) {
     if (size == null) return '';
     return size.toString().trim().replaceAll(RegExp(r'\.0$'), '');
+  }
+
+  static String normalizeGoogleImageUrl(String url, {int width = 300}) {
+    final regex = RegExp(
+      r'(=w\d+)$',
+    ); // matches '=w' followed by digits at the end
+    if (regex.hasMatch(url)) {
+      return url.replaceAll(regex, '=w$width');
+    } else {
+      return '$url=w$width';
+    }
   }
 }
