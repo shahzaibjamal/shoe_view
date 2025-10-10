@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/services.dart';
 import 'package:shoe_view/Image/shoe_network_image.dart';
 
 import 'shoe_model.dart';

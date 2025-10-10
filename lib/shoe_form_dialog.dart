@@ -284,7 +284,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
               Expanded(
                 child: CupertinoPicker.builder(
                   scrollController: FixedExtentScrollController(
-                    initialItem: sizeList.indexOf(selectedSize) == -1
+                    initialItem: !sizeList.contains(selectedSize)
                         ? 0
                         : sizeList.indexOf(selectedSize),
                   ),

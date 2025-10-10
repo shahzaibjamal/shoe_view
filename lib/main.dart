@@ -167,7 +167,7 @@ class _AuthScreenState extends State<AuthScreen> {
      _error = null;
     });
     
-    final googleAuth = await user.authentication;
+    final googleAuth = user.authentication;
     final credential = GoogleAuthProvider.credential(
      idToken: googleAuth.idToken,
      accessToken: googleAuth.idToken,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class VersionFooter extends StatefulWidget {
+  const VersionFooter({super.key});
+
   @override
   _VersionFooterState createState() => _VersionFooterState();
 }

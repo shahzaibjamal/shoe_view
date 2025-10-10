@@ -8,7 +8,7 @@ class ShoeNetworkImage extends StatelessWidget {
   final double width;
   final BoxFit fit;
 
-  const ShoeNetworkImage({
+  const ShoeNetworkImage({super.key, 
     required this.imageUrl,
     this.height = 100,
     this.width = 100,
