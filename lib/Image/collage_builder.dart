@@ -36,6 +36,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
   bool _isSaving = false;
   // Use a nullable ad to manage its state clearly
   RewardedAd? _rewardedAd;
+  File? _logoFile;
   final ValueNotifier<bool> isAdLoading = ValueNotifier(
     true,
   ); // Still useful for dialog state
@@ -44,116 +45,149 @@ class _CollageBuilderState extends State<CollageBuilder> {
   void initState() {
     // 🎯 Call load in initState as before
     loadRewardedAd();
+    _loadLogo();
     super.initState();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final imagesToDisplay = widget.shoes.take(_maxImages).toList();
-    final imageCount = imagesToDisplay.length;
-    if (imageCount == 0) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Text('No shoes selected to build collage.'),
-        ),
-      );
+  Future<void> _loadLogo() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final logoPath = File('${dir.path}/logo.jpg');
+    if (await logoPath.exists()) {
+      setState(() => _logoFile = logoPath);
     }
+  }
 
-    final int crossAxisCount = _calculateGridSize(imageCount);
-    final int rowCount = (imageCount / crossAxisCount).ceil();
-    const double spacing = 4.0;
-    const double itemSize = 100.0;
+@override
+Widget build(BuildContext context) {
+  final imagesToDisplay = widget.shoes.take(_maxImages).toList();
+  final imageCount = imagesToDisplay.length;
 
-    final double collageWidth =
-        (crossAxisCount * itemSize) + ((crossAxisCount - 1) * spacing);
-    final double collageHeight =
-        (rowCount * itemSize) + ((rowCount - 1) * spacing);
+  AppLogger.log('Length - $imageCount');
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Center(
-          child: RepaintBoundary(
-            key: _collageKey,
-            child: SizedBox(
-              width: collageWidth,
-              height: collageHeight,
-              child: GridView.builder(
-                padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: spacing,
-                  mainAxisSpacing: spacing,
-                  childAspectRatio: 1.0,
-                ),
-                itemCount: imageCount,
-                itemBuilder: (context, index) {
-                  final shoe = imagesToDisplay[index];
-                  return SizedBox(
-                    width: itemSize,
-                    height: itemSize,
-                    child: Stack(
-                      alignment: Alignment.bottomLeft,
-                      children: [
-                        Container(
-                          color: Colors.grey[200],
-                          child: ShoeNetworkImage(
-                            imageUrl: shoe.remoteImageUrl,
-                            fit: BoxFit.cover,
+  if (imageCount == 0) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24.0),
+        child: Text('No shoes selected to build collage.'),
+      ),
+    );
+  }
+
+  final int crossAxisCount = _calculateGridSize(imageCount);
+  final int rowCount = (imageCount / crossAxisCount).ceil();
+  const double spacing = 4.0;
+  const double itemSize = 100.0;
+
+  final double collageWidth =
+      (crossAxisCount * itemSize) + ((crossAxisCount - 1) * spacing);
+  final double collageHeight =
+      (rowCount * itemSize) + ((rowCount - 1) * spacing);
+
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Center(
+        child: Stack(
+          children: [
+            RepaintBoundary(
+              key: _collageKey,
+              child: SizedBox(
+                width: collageWidth,
+                height: collageHeight,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: spacing,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: imageCount,
+                  itemBuilder: (context, index) {
+                    final shoe = imagesToDisplay[index];
+                    return SizedBox(
+                      width: itemSize,
+                      height: itemSize,
+                      child: Stack(
+                        alignment: Alignment.bottomLeft,
+                        children: [
+                          Container(
+                            color: Colors.grey[200],
+                            child: ShoeNetworkImage(
+                              imageUrl: shoe.remoteImageUrl,
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                        ),
-                        if (imagesToDisplay.length > 1)
-                          Positioned(
-                            left: 5,
-                            bottom: 5,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '${index + 1}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                          if (imageCount > 1)
+                            Positioned(
+                              left: 5,
+                              bottom: 5,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: ElevatedButton(
-            onPressed: _canShareCollage,
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            if (_logoFile != null)
+              Positioned.fill(
+                child: Align(
+                  alignment: imageCount == 1
+                      ? Alignment.topLeft
+                      : Alignment.center,
+                  child: Padding(
+                    padding: EdgeInsets.all(imageCount == 1 ? 8.0 : 12.0),
+                    child: Image.file(
+                      _logoFile!,
+                      width: imageCount == 1 ? 40 : 60,
+                      height: imageCount == 1 ? 40 : 60,
                     ),
-                  )
-                : const Text('Share to WhatsApp'),
-          ),
+                  ),
+                ),
+              ),
+          ],
         ),
-      ],
-    );
-  }
+      ),
+      const SizedBox(height: 12),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: ElevatedButton(
+          onPressed: _canShareCollage,
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Share to WhatsApp'),
+        ),
+      ),
+    ],
+  );
+}
 
   // 🎯 NEW: Dispose the ad properly
   @override

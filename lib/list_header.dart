@@ -15,6 +15,7 @@ class ListHeader extends StatefulWidget {
   final VoidCallback onShareDataPressed;
   final VoidCallback onRefreshDataPressed;
   final VoidCallback onInAppButtonPressed;
+  final VoidCallback onSettingsButtonPressed;
 
   const ListHeader({
     super.key,
@@ -29,6 +30,7 @@ class ListHeader extends StatefulWidget {
     required this.onShareDataPressed,
     required this.onRefreshDataPressed,
     required this.onInAppButtonPressed,
+    required this.onSettingsButtonPressed,
   });
 
   @override
@@ -142,7 +144,7 @@ class _ListHeaderState extends State<ListHeader> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.settings, color: Colors.white),
-                      onPressed: widget.onInAppButtonPressed,
+                      onPressed: widget.onSettingsButtonPressed,
                       tooltip: 'Settings',
                     ),
                     IconButton(

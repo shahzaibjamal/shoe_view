@@ -9,6 +9,7 @@ import 'package:shoe_view/error_dialog.dart';
 import 'package:shoe_view/Subscription/subscription_upgrade_page.dart';
 import 'package:shoe_view/Subscription/subscription_manager.dart';
 import 'package:shoe_view/list_header.dart';
+import 'package:shoe_view/settings_dialog.dart';
 import 'package:shoe_view/shoe_form_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
 
@@ -156,6 +157,15 @@ class _ShoeListViewState extends State<ShoeListView>
           child: const SubscriptionUpgradePage(), // Added const
         ),
       ),
+    );
+  }
+
+  void _openSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SettingsDialog();
+      },
     );
   }
 
@@ -312,6 +322,7 @@ class _ShoeListViewState extends State<ShoeListView>
               onShareDataPressed: _onShareAll,
               onRefreshDataPressed: _onRefreshData,
               onInAppButtonPressed: _openInApp,
+              onSettingsButtonPressed: _openSettingsDialog,
             ),
             if (_isLoadingExternalData) const LinearProgressIndicator(),
             Expanded(
