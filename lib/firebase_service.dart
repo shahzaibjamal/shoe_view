@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart'; // Needed for debugPrint in non-Flutter environments
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:shoe_view/Helpers/app_info.dart';
@@ -12,7 +11,6 @@ import 'shoe_model.dart'; // Assuming this contains the Shoe class with itemId
 /// A service class to handle all interactions with Firebase Firestore and Storage.
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Uses the currently authenticated user ID or a default for canvas testing.
@@ -107,7 +105,7 @@ class FirebaseService {
     }
   }
 
-  Future<dynamic> deleteShoeFromCloud(Shoe shoe, {bool isTest = false}) async {
+  Future<dynamic> deleteShoe(Shoe shoe, {bool isTest = false}) async {
     final callable = FirebaseFunctions.instance.httpsCallable('deleteShoe');
 
     await callable
@@ -125,6 +123,21 @@ class FirebaseService {
           return 'Error';
         });
     return 'Success';
+  }
+
+  Future<dynamic> deleteUserData() async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'deleteUserData',
+      );
+
+      final result = await callable.call({});
+      AppLogger.log(' result  ${result.data}');
+      return result.data;
+    } catch (error) {
+      print('Error updating shoe: $error');
+      return 'Error';
+    }
   }
 
   Future<dynamic> verifyInAppPurchase({

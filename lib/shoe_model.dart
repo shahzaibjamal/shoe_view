@@ -7,10 +7,12 @@ class Shoe {
   final int itemId;
   final String shipmentId;
   final String shoeDetail;
-  final String sizeEur;
-  final String sizeUk;
+  final List<String>? sizeEur;
+  final List<String>? sizeUk;
   final String status;
   final double sellingPrice;
+  final double condition;
+  final int quantity;
   final String instagramLink;
   final String tiktokLink;
   final String localImagePath; // Path to local image file
@@ -26,6 +28,8 @@ class Shoe {
     required this.sizeEur,
     required this.sizeUk,
     required this.sellingPrice,
+    required this.condition,
+    required this.quantity,
     required this.instagramLink,
     required this.tiktokLink,
     required this.status,
@@ -42,15 +46,27 @@ class Shoe {
     final documentId = map['DocumentID']?.toString() ?? '';
     final shipmentId = map['ShipmentID']?.toString() ?? '';
     final shoeDetail = map['ShoeDetail']?.toString() ?? '';
-    final sizeEur = map['Size']?.toString() ?? '';
-    final sizeUk = map['SizeUK']?.toString() ?? '';
-    final sellingPrice =
+    final sizeEurRaw = map['Size'];
+    final sizeUkRaw = map['SizeUK'];
+
+    final sizeEur = (sizeEurRaw is List)
+        ? sizeEurRaw.map((e) => e.toString()).toList()
+        : sizeEurRaw != null ? [sizeEurRaw.toString()] : <String>[];
+
+    final sizeUk = (sizeUkRaw is List)
+        ? sizeUkRaw.map((e) => e.toString()).toList()
+        : sizeUkRaw != null ? [sizeUkRaw.toString()] : <String>[];
+        
+            final sellingPrice =
         double.tryParse(map['SellingPrice']?.toString() ?? '') ?? 0.0;
+    final condition =
+        double.tryParse(map['Condition']?.toString() ?? '') ?? 0.0;
     final remoteImageUrl = map['RemoteImageURL']?.toString() ?? '';
     final isUploaded = map['IsUploaded'] as bool? ?? false;
     final isConfirmed = map['IsConfirmed'] as bool? ?? false;
     final status = map['Status']?.toString() ?? '';
     final links = map['Links'] as List<dynamic>?;
+    final quantity = map['Quantity'] as int? ?? 1;
 
     String instagram = '';
     String tiktok = '';
@@ -61,7 +77,7 @@ class Shoe {
         tiktok = linkMap['tiktok']?.toString() ?? '';
       }
     }
-    
+
     // if (links != null) {
     //   for (var link in links) {
     //     final linkStr = link.toString();
@@ -81,12 +97,14 @@ class Shoe {
       sizeEur: sizeEur,
       sizeUk: sizeUk,
       sellingPrice: sellingPrice,
+      condition: condition,
       instagramLink: instagram,
       tiktokLink: tiktok,
       remoteImageUrl: remoteImageUrl,
       isUploaded: isUploaded,
       isConfirmed: isConfirmed,
       status: status,
+      quantity: quantity,
     );
   }
 
@@ -100,6 +118,7 @@ class Shoe {
       'Size': sizeEur,
       'SizeUK': sizeUk,
       'SellingPrice': sellingPrice,
+      'Condition': condition,
       'RemoteImageURL': remoteImageUrl,
       'Links': [
         {'instagram': instagramLink, 'tiktok': tiktokLink},
@@ -107,6 +126,7 @@ class Shoe {
       'IsUploaded': isUploaded,
       'IsConfirmed': isConfirmed,
       'Status': status,
+      'Quantity': quantity,
     };
   }
 
@@ -116,9 +136,11 @@ class Shoe {
       itemId = 0,
       shipmentId = '',
       shoeDetail = '',
-      sizeEur = '',
-      sizeUk = '',
+      sizeEur = const [],
+      sizeUk = const [],
       sellingPrice = 0.0,
+      condition = 0.0,
+      quantity = 0,
       instagramLink = '',
       tiktokLink = '',
       localImagePath = '',
@@ -133,9 +155,11 @@ class Shoe {
     int? itemId,
     String? shipmentId,
     String? shoeDetail,
-    String? sizeEur,
-    String? sizeUk,
+    List<String>? sizeEur,
+    List<String>? sizeUk,
     double? sellingPrice,
+    double? condition,
+    int? quantity,
     String? instagramLink,
     String? tiktokLink,
     String? localImagePath,
@@ -152,6 +176,8 @@ class Shoe {
       sizeEur: sizeEur ?? this.sizeEur,
       sizeUk: sizeUk ?? this.sizeUk,
       sellingPrice: sellingPrice ?? this.sellingPrice,
+      condition: condition ?? this.condition,
+      quantity: quantity ?? this.quantity,
       instagramLink: instagramLink ?? this.instagramLink,
       tiktokLink: tiktokLink ?? this.tiktokLink,
       localImagePath: localImagePath ?? this.localImagePath,
@@ -167,21 +193,27 @@ class Shoe {
     final itemId = int.tryParse(map['Item ID']?.toString() ?? '') ?? 0;
     final shipmentId = map['Shipment ID']?.toString() ?? '';
     final shoeDetail = map['Shoe Detail']?.toString() ?? '';
-    final sizeEur = map['Size']?.toString() ?? '';
-    final sizeUk = map['Size UK']?.toString() ?? '';
+    final sizeEur = (map['sizeEur'] as List<dynamic>?)
+        ?.map((e) => e.toString())
+        .toList();
+    final sizeUk = (map['sizeUk'] as List<dynamic>?)
+        ?.map((e) => e.toString())
+        .toList();
     final status = map['Status']?.toString() ?? '';
     final sellingPrice =
         double.tryParse(map['Selling Price']?.toString() ?? '') ?? 0.0;
+    final condition =
+        double.tryParse(map['Condition']?.toString() ?? '') ?? 0.0;
     String imageUrl = map['MediaThumbnail']?.toString() ?? '';
 
-/******************************************************/
+    /******************************************************/
     final desiredWidth = 600;
     final uri = Uri.parse(imageUrl);
     final queryParameters = Map<String, String>.from(uri.queryParameters);
     queryParameters['sz'] = 'w$desiredWidth';
     final newUri = uri.replace(queryParameters: queryParameters);
     imageUrl = newUri.toString();
-/******************************************************/
+    /******************************************************/
     final isUploaded = map['Uploaded'] as bool? ?? false;
     final isConfirmed = map['Video Created'] as bool? ?? false;
     final links = map['Links'] as List<dynamic>?;
@@ -201,13 +233,15 @@ class Shoe {
     }
 
     return Shoe(
-      documentId:'',
+      documentId: '',
       itemId: itemId,
       shipmentId: shipmentId,
       shoeDetail: shoeDetail,
       sizeEur: sizeEur,
       sizeUk: sizeUk,
       sellingPrice: sellingPrice,
+      condition: condition,
+      quantity: 1,
       instagramLink: instagram,
       tiktokLink: tiktok,
       remoteImageUrl: imageUrl,

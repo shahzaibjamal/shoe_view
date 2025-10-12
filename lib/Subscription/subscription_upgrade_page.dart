@@ -1,7 +1,6 @@
 // --- in_app_purchase_view.dart (formerly SubscriptionUpgradePage) ---
 
 import 'package:flutter/material.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Subscription/product_card.dart';
 import 'package:shoe_view/Subscription/subscription_manager.dart';

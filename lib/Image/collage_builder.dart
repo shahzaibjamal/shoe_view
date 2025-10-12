@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +50,13 @@ class _CollageBuilderState extends State<CollageBuilder> {
     super.initState();
   }
 
+  // 🎯 Dispose the ad properly
+  @override
+  void dispose() {
+    _rewardedAd?.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadLogo() async {
     final dir = await getApplicationDocumentsDirectory();
     final logoPath = File('${dir.path}/logo.jpg');
@@ -57,165 +65,274 @@ class _CollageBuilderState extends State<CollageBuilder> {
     }
   }
 
-@override
-Widget build(BuildContext context) {
-  final imagesToDisplay = widget.shoes.take(_maxImages).toList();
-  final imageCount = imagesToDisplay.length;
+  // ------------------------------------------------
+  // 🎯 CORRECTED BUILD METHOD TO FIX OVERFLOW
+  // ------------------------------------------------
+  @override
+  Widget build(BuildContext context) {
+    final imagesToDisplay = widget.shoes.take(_maxImages).toList();
+    final imageCount = imagesToDisplay.length;
 
-  AppLogger.log('Length - $imageCount');
+    AppLogger.log('Length - $imageCount');
 
-  if (imageCount == 0) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24.0),
-        child: Text('No shoes selected to build collage.'),
+    if (imageCount == 0) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Text('No shoes selected to build collage.'),
+        ),
+      );
+    }
+
+    final int crossAxisCount = _calculateGridSize(imageCount);
+    final int actualRowCount = (imageCount / crossAxisCount).ceil();
+
+    const double spacing = 4.0;
+    const double screenHorizontalPadding = 40.0; // 20.0 on each side
+
+    // 🎯 Get the width available for the collage
+    final double totalAvailableWidth =
+        MediaQuery.of(context).size.width - screenHorizontalPadding;
+
+    // 🎯 Use the new function to calculate itemSize dynamically
+    final double itemSize = _calculateItemSizeFromWidth(
+      totalAvailableWidth,
+      crossAxisCount,
+    );
+
+    // These dimension calculations define the fixed size of the RepaintBoundary.
+    // The collageWidth should now be very close to the availableWidth, minimizing exterior margins.
+    final double collageWidth =
+        (crossAxisCount * itemSize) + ((crossAxisCount - 1) * spacing);
+    final double collageHeight =
+        (actualRowCount * itemSize) +
+        (actualRowCount > 0 ? (actualRowCount - 1) * spacing : 0.0);
+
+    final bool isOddSquareGrid =
+        (crossAxisCount == actualRowCount) && (crossAxisCount % 2 != 0);
+    final double logoSize = isOddSquareGrid ? 40.0 : 60.0;
+    final double logoTopPosition;
+    if (isOddSquareGrid) {
+      // Top-aligned position: Small margin from the top edge (e.g., 5.0)
+      logoTopPosition = 0.0;
+      // Center horizontally
+    } else {
+      // Centered position (for all other grids, including 2x2, 4x4, and non-squares)
+      logoTopPosition = (collageHeight - logoSize) / 2;
+    }
+    final double logoLeftPosition =
+        (collageWidth - logoSize) / 2; // Center horizontally
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Center(
+          child: RepaintBoundary(
+            key: _collageKey,
+            child: SizedBox(
+              width: collageWidth,
+              height: collageHeight,
+              child: Stack(
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(actualRowCount, (rowIndex) {
+                      final start = rowIndex * crossAxisCount;
+                      final end = min(start + crossAxisCount, imageCount);
+                      final rowImages = imagesToDisplay.sublist(start, end);
+
+                      return Padding(
+                        // Vertical Spacing
+                        padding: EdgeInsets.only(
+                          top: rowIndex == 0 ? 0.0 : spacing,
+                        ),
+                        // 🎯 FIX: Wrap Row in SizedBox to strictly enforce collageWidth
+                        child: SizedBox(
+                          width: collageWidth,
+                          child: Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.start, // Align to start
+                            mainAxisSize: MainAxisSize.max, // Take full width
+                            children: List.generate(crossAxisCount, (colIndex) {
+                              // Check if this cell actually contains an image
+                              if (colIndex < rowImages.length) {
+                                final shoe = rowImages[colIndex];
+                                final index = start + colIndex;
+
+                                return Padding(
+                                  // Horizontal Spacing: Only apply padding to the LEFT of items after the first one
+                                  padding: EdgeInsets.only(
+                                    left: colIndex == 0 ? 0.0 : spacing,
+                                  ),
+                                  child: _buildShoeTile(
+                                    shoe,
+                                    index,
+                                    itemSize,
+                                    imageCount,
+                                  ),
+                                );
+                              } else {
+                                // If this is an empty cell (in the last partial row)
+                                return Padding(
+                                  // Apply the same padding logic for empty cells to maintain spacing integrity
+                                  padding: EdgeInsets.only(
+                                    left: colIndex == 0 ? 0.0 : spacing,
+                                  ),
+                                  child: SizedBox(
+                                    width: itemSize,
+                                    height: itemSize,
+                                  ),
+                                );
+                              }
+                            }),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+
+                  // Logo Centering is correct with the precise collageHeight
+                  if (_logoFile != null)
+                    Positioned(
+                      left: logoLeftPosition, // Centered horizontally
+
+                      top: logoTopPosition,
+                      child: Image.file(
+                        _logoFile!,
+                        width: logoSize,
+                        height: logoSize,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: ElevatedButton(
+            onPressed: _canShareCollage,
+            child: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text('Share to WhatsApp'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShoeTile(Shoe shoe, int index, double itemSize, int imageCount) {
+    // Extracted tile content for cleaner code
+    return SizedBox(
+      width: itemSize,
+      height: itemSize,
+      child: Stack(
+        alignment: Alignment.bottomLeft,
+        children: [
+          Container(
+            color: Colors.grey[200],
+            child: ShoeNetworkImage(
+              imageUrl: shoe.remoteImageUrl,
+              fit: BoxFit.cover,
+            ),
+          ),
+          if (imageCount > 1)
+            Positioned(
+              left: 5,
+              bottom: 5,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  final int crossAxisCount = _calculateGridSize(imageCount);
-  final int rowCount = (imageCount / crossAxisCount).ceil();
-  const double spacing = 4.0;
-  const double itemSize = 100.0;
+  double _calculateItemSizeFromWidth(
+    double availableWidth,
+    int crossAxisCount,
+  ) {
+    const double spacing = 4.0;
 
-  final double collageWidth =
-      (crossAxisCount * itemSize) + ((crossAxisCount - 1) * spacing);
-  final double collageHeight =
-      (rowCount * itemSize) + ((rowCount - 1) * spacing);
+    // Determine the maximum requested size based on the grid structure
+    double requestedCap;
+    if (crossAxisCount == 1) {
+      requestedCap = 100.0;
+    } else if (crossAxisCount == 2) {
+      requestedCap = 90.0;
+    } else if (crossAxisCount == 3) {
+      requestedCap = 80.0;
+    } else {
+      // crossAxisCount == 4
+      requestedCap = 70.0;
+    }
 
-  return Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Center(
-        child: Stack(
-          children: [
-            RepaintBoundary(
-              key: _collageKey,
-              child: SizedBox(
-                width: collageWidth,
-                height: collageHeight,
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  padding: EdgeInsets.zero,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: spacing,
-                    mainAxisSpacing: spacing,
-                    childAspectRatio: 1.0,
-                  ),
-                  itemCount: imageCount,
-                  itemBuilder: (context, index) {
-                    final shoe = imagesToDisplay[index];
-                    return SizedBox(
-                      width: itemSize,
-                      height: itemSize,
-                      child: Stack(
-                        alignment: Alignment.bottomLeft,
-                        children: [
-                          Container(
-                            color: Colors.grey[200],
-                            child: ShoeNetworkImage(
-                              imageUrl: shoe.remoteImageUrl,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          if (imageCount > 1)
-                            Positioned(
-                              left: 5,
-                              bottom: 5,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            if (_logoFile != null)
-              Positioned.fill(
-                child: Align(
-                  alignment: imageCount == 1
-                      ? Alignment.topLeft
-                      : Alignment.center,
-                  child: Padding(
-                    padding: EdgeInsets.all(imageCount == 1 ? 8.0 : 12.0),
-                    child: Image.file(
-                      _logoFile!,
-                      width: imageCount == 1 ? 40 : 60,
-                      height: imageCount == 1 ? 40 : 60,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 12),
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8.0),
-        child: ElevatedButton(
-          onPressed: _canShareCollage,
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Text('Share to WhatsApp'),
-        ),
-      ),
-    ],
-  );
-}
+    // Calculate the maximum possible item size that fits within the available width
+    // MaxItemSize = (AvailableWidth - Total_Spacing) / crossAxisCount
+    final double totalSpacing = (crossAxisCount - 1) * spacing;
+    final double calculatedItemSize =
+        (availableWidth - totalSpacing) / crossAxisCount;
 
-  // 🎯 NEW: Dispose the ad properly
-  @override
-  void dispose() {
-    _rewardedAd?.dispose();
-    super.dispose();
+    // Use the smaller of the two: the calculated size or your requested cap
+    return min(calculatedItemSize, requestedCap);
   }
 
-  // 🎯 REVISED: Better UX flow for the share button logic
+  int _calculateGridSize(int count) {
+    if (count <= 1) return 1;
+
+    int bestCols = 1;
+    double bestScore = double.infinity;
+
+    for (int cols = 1; cols <= 4; cols++) {
+      int rows = (count / cols).ceil();
+      if (rows > 4) continue;
+
+      double score = (cols - rows).abs() + ((cols * rows) - count) * 0.1;
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestCols = cols;
+      }
+    }
+
+    return bestCols;
+  }
+
   void _canShareCollage() {
     if (_isSaving) {
-      return; // Prevent multiple presses while saving/sharing
+      return;
     }
 
     final sharesUsed = context.read<AppStatusNotifier>().dailyShares;
     final sharesLimit = context.read<AppStatusNotifier>().dailySharesLimit;
 
-    // 1. Direct share if limit is not reached
     if (sharesUsed < sharesLimit) {
       _validateShareCollage();
       return;
     }
 
-    // 2. Limit reached: show reward dialog
     showDialog(
       context: context,
       builder: (context) {
-        // The dialog title and message depend on whether the ad is ready
         final bool isAdReady = _rewardedAd != null && !isAdLoading.value;
 
         return ErrorDialog(
@@ -223,34 +340,21 @@ Widget build(BuildContext context) {
           message: isAdReady
               ? 'Watch a short ad to share for free, or upgrade your plan.'
               : 'The reward ad is loading. Please wait a moment or try the premium plan.',
-          // Only enable the reward button if the ad is ready
           onYesPressed: isAdReady ? _showRewardedAd : null,
-          onDismissed: () => {/* Optional logging/cleanup */},
-          // Pass the ValueNotifier to manage the "loading" state of the button itself
+          onDismissed: () => {},
           isLoadingNotifier: isAdLoading,
         );
       },
     );
   }
 
-  int _calculateGridSize(int count) {
-    if (count <= 1) return 1;
-    if (count <= 4) return 2;
-    if (count <= 9) return 3;
-    return 4;
-  }
-
-  // 🎯 REVISED: Load ad logic with proper ad management
   void loadRewardedAd() {
     const testAdUnit = "ca-app-pub-3940256099942544/5224354917";
     const releaseAdUnit = "ca-app-pub-3489872370282662/3859555894";
 
-    // Set loading state true, and preload the next ad unit.
     isAdLoading.value = true;
-    _rewardedAd?.dispose(); // Dispose any old ad instance
+    _rewardedAd?.dispose();
     _rewardedAd = null;
-
-    // Optional: Start timeout fallback, but the isAdReady check is usually sufficient
 
     RewardedAd.load(
       adUnitId: kReleaseMode ? releaseAdUnit : testAdUnit,
@@ -264,20 +368,16 @@ Widget build(BuildContext context) {
         onAdFailedToLoad: (LoadAdError error) {
           debugPrint('Ad failed to load with error: $error');
           _rewardedAd = null;
-          isAdLoading.value =
-              false; // Set to false to indicate load attempt finished
+          isAdLoading.value = false;
         },
       ),
     );
   }
 
-  // 🎯 REVISED: Simplified ad showing logic
   void _showRewardedAd() {
-    // Dismiss the ErrorDialog first to clean up the UI
     if (mounted) Navigator.of(context).pop();
 
     if (_rewardedAd == null) {
-      // This case should be rare if the dialog check is correct, but safe to handle.
       AppLogger.log('Ad is null when trying to show.');
       return;
     }
@@ -287,14 +387,13 @@ Widget build(BuildContext context) {
           AppLogger.log('$ad showed.'),
       onAdDismissedFullScreenContent: (RewardedAd ad) {
         AppLogger.log('$ad dismissed.');
-        ad.dispose(); // IMPORTANT: Dispose the ad after it's shown
-        loadRewardedAd(); // Load the next ad immediately for good UX
+        ad.dispose();
+        loadRewardedAd();
       },
       onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
         AppLogger.log('$ad failed to show: $error');
         ad.dispose();
         loadRewardedAd();
-        // Show user error message that the ad couldn't play
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Could not play the ad. Please try again.'),
@@ -311,37 +410,31 @@ Widget build(BuildContext context) {
     );
   }
 
-  // 🎯 REVISED: Move _isSaving state change to *before* image capture
   Future<void> _validateShareCollage({bool isRewarded = false}) async {
+
+        if (mounted) {
+      setState(() => _isSaving = true);
+    }
     bool isTest = context.read<AppStatusNotifier>().isTest;
 
     if (isRewarded || isTest) {
-      // If reward or test, skip Firebase increment, go straight to image capture
-      // 🎯 Set state to show saving indicator *before* image capture
-      setState(() => _isSaving = true);
-      // Image capture and Share will handle the rest
       _shareCollage();
       return;
     }
 
-    // --- Standard Firebase Increment Path ---
     try {
       final response = await widget.firebaseService.incrementShares(
         isTest: isTest,
       );
 
       if (response['status'] == 'success') {
-        // Update local notifier immediately (fast local operation)
         final sharesUsed = response['dailySharesUsed'];
         final sharesLimit = response['dailySharesLimit'];
         context.read<AppStatusNotifier>().updateDailyShares(sharesUsed);
         context.read<AppStatusNotifier>().updateDailySharesLimit(sharesLimit);
 
-        // 🎯 Now that Firebase is done, start the slow UI part (image capture)
-        setState(() => _isSaving = true);
         _shareCollage();
       } else {
-        // Handle server/network error gracefully without setting _isSaving=true
         showDialog(
           context: context,
           builder: (context) => ErrorDialog(
@@ -352,7 +445,6 @@ Widget build(BuildContext context) {
         );
       }
     } catch (e) {
-      // Handle client-side errors
       debugPrint('Error incrementing shares or sharing: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -360,7 +452,6 @@ Widget build(BuildContext context) {
         );
       }
     } finally {
-      // Ensure the button resets on success or error
       if (mounted) setState(() => _isSaving = false);
     }
   }

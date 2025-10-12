@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
+import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/error_dialog.dart';
 import 'package:shoe_view/Subscription/subscription_upgrade_page.dart';
 import 'package:shoe_view/Subscription/subscription_manager.dart';
@@ -161,10 +162,11 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   void _openSettingsDialog() {
+    final firebaseService = context.read<FirebaseService>();
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return SettingsDialog();
+        return SettingsDialog(firebaseService: firebaseService);
       },
     );
   }
@@ -198,7 +200,7 @@ class _ShoeListViewState extends State<ShoeListView>
 
     if (confirmed) {
       final firebaseService = context.read<FirebaseService>();
-      final response = await firebaseService.deleteShoeFromCloud(shoe);
+      final response = await firebaseService.deleteShoe(shoe);
       if (response['success'] == false) {
         showDialog(
           context: context,
@@ -267,23 +269,23 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   String _copyData(List<Shoe> shoeList) {
-    const tab = '    '; // Define tab locally or import it
     final buffer = StringBuffer();
-    const gap = ' ';
+    final gap = shoeList.length > 1 ? '    ' : '';
     if (shoeList.length > 1) {
       buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
     }
 
     for (int i = 0; i < shoeList.length; i++) {
       final shoe = shoeList[i];
-      final numbering = shoeList.length > 1 ? '${i + 1}.' : '';
-      final indent = ' ' * (numbering.length + gap.length);
+      final numbering = shoeList.length > 1 ? '${i + 1}. ' : '';
+      final indent = ' ' * (numbering.length) + gap;
 
-      buffer.writeln('$numbering$gap${shoe.shoeDetail}');
-      buffer.writeln(
-        '$indent${tab}Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}',
-      );
-      buffer.writeln('${indent}Price: Rs.${shoe.sellingPrice}/-');
+      buffer.writeln('$numbering${shoe.shoeDetail}');
+      buffer.writeln('${indent}Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}');
+      final appStatus = context.read<AppStatusNotifier>();
+      final currencyCode = appStatus.currencyCode;
+      final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
+      buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
       buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
       buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       buffer.writeln(); // blank line for separation

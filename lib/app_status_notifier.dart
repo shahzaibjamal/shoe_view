@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 class AppStatusNotifier extends ChangeNotifier {
   bool _isTest = false; // Default state
@@ -8,6 +9,9 @@ class AppStatusNotifier extends ChangeNotifier {
   int _dailyWrites = 0; // Default state
   int _dailyWritesLimit = 0; // Default state
   int _tier = 0; // Default state
+  ThemeMode _themeMode = ThemeMode.light;
+  String _currencyCode = 'USD'; // Default currency
+  bool _isMultiSizeModeEnabled = false;
 
   bool get isTrial => _isTrial;
   bool get isTest => _isTest;
@@ -16,6 +20,9 @@ class AppStatusNotifier extends ChangeNotifier {
   int get dailyWrites => _dailyWrites;
   int get dailyWritesLimit => _dailyWritesLimit;
   int get tier => _tier;
+  ThemeMode get themeMode => _themeMode;
+  String get currencyCode => _currencyCode;
+  bool get isMultiSizeModeEnabled => _isMultiSizeModeEnabled;
 
   void updateTrial(bool trial) {
     _isTrial = trial;
@@ -50,5 +57,22 @@ class AppStatusNotifier extends ChangeNotifier {
   void updateTier(int tier) {
     _tier = tier;
     notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateThemeMode(ThemeMode mode) {
+    _themeMode = mode;
+    notifyListeners();
+  }
+
+  void updateCurrencyCode(String code) {
+    _currencyCode = code;
+    notifyListeners();
+  }
+
+  void updateMultiSizeMode(bool value) {
+    if (_isMultiSizeModeEnabled != value) {
+      _isMultiSizeModeEnabled = value;
+      notifyListeners();
+    }
   }
 }

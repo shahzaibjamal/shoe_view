@@ -1,8 +1,5 @@
-import 'dart:io';
 import 'dart:math';
 
-import 'package:image/image.dart' as img;
-import 'package:path_provider/path_provider.dart';
 import 'package:shoe_view/shoe_model.dart';
 
 class ShoeQueryUtils {
@@ -53,11 +50,15 @@ class ShoeQueryUtils {
           }
         }
 
-        final shoeSizeEur = _formatSizeForComparison(shoe.sizeEur);
-        final shoeSizeUk = _formatSizeForComparison(shoe.sizeUk);
-
+        // ⭐️ MODIFIED: Check if ANY size in the shoe's size lists matches ANY target size
         final matchesSizeOr = targetSizes.any(
-          (targetStr) => shoeSizeEur == targetStr || shoeSizeUk == targetStr,
+          (targetStr) =>
+              (shoe.sizeEur ?? []).any(
+                (s) => _formatSizeForComparison(s) == targetStr,
+              ) ||
+              (shoe.sizeUk ?? []).any(
+                (s) => _formatSizeForComparison(s) == targetStr,
+              ),
         );
 
         if (!matchesSizeOr) {
@@ -78,12 +79,15 @@ class ShoeQueryUtils {
             targetSizeStrings.add(_formatSizeForComparison(nextHalfSize));
           }
 
-          final shoeSizeEurStr = _formatSizeForComparison(shoe.sizeEur);
-          final shoeSizeUkStr = _formatSizeForComparison(shoe.sizeUk);
-
+          // ⭐️ MODIFIED: Check if ANY size in the shoe's size lists matches ANY target size
           final matchesSize = targetSizeStrings.any(
             (targetStr) =>
-                shoeSizeEurStr == targetStr || shoeSizeUkStr == targetStr,
+                (shoe.sizeEur ?? []).any(
+                  (s) => _formatSizeForComparison(s) == targetStr,
+                ) ||
+                (shoe.sizeUk ?? []).any(
+                  (s) => _formatSizeForComparison(s) == targetStr,
+                ),
           );
 
           if (!matchesSize) {
@@ -101,6 +105,7 @@ class ShoeQueryUtils {
 
     if (!allFiltersMatch) return false;
 
+    // ... (Price filtering logic - UNCHANGED) ...
     if (isPriceFilterActive) {
       double? lowerBound;
       double? upperBound;
@@ -174,8 +179,8 @@ class ShoeQueryUtils {
 
       if (comparison == 0) {
         if (sortField == 'size') {
-          final sizeA = double.tryParse(a.sizeEur) ?? 0.0;
-          final sizeB = double.tryParse(b.sizeEur) ?? 0.0;
+          final sizeA = _safeDoubleParse(a.sizeEur?.first);
+          final sizeB = _safeDoubleParse(b.sizeEur?.first);
           comparison = sizeA.compareTo(sizeB);
         } else if (sortField == 'sellingPrice') {
           comparison = a.sellingPrice.compareTo(b.sellingPrice);
@@ -235,6 +240,114 @@ class ShoeQueryUtils {
       return url.replaceAll(regex, '=w$width');
     } else {
       return '$url=w$width';
+    }
+  }
+
+  // Lists for the CupertinoPicker
+  static const List<String> eurSizesList = [
+    '38',
+    '38.5',
+    '39',
+    '39.5',
+    '40',
+    '40.5',
+    '41',
+    '41.5',
+    '42',
+    '42.5',
+    '43',
+    '43.5',
+    '44',
+    '44.5',
+    '45',
+    '45.5',
+    '46',
+    '46.5',
+    '47',
+    '47.5',
+    '48',
+    '48.5',
+    '49',
+    '49.5',
+  ];
+  // --- SIZE CONVERSION DATA ---
+  // A reliable mapping based on standard shoe conversion charts for sports shoes.
+  static const Map<String, String> eurToUk = {
+    // Start (38 - 39.5)
+    '38': '5',
+    '38.5': '5.5',
+    '39': '6',
+    '39.5': '6.5', // Filled step
+    // Mid-range (40 - 43.5)
+    '40': '6.5', // Original value retained
+    '40.5': '7',
+    '41': '7.5',
+    '41.5': '7.5', // Filled step (often 41.5 is the same as 41 or 42 is an 8)
+    '42': '8',
+    '42.5': '8.5',
+    '43': '9',
+    '43.5': '9.5', // Filled step
+    // Upper Mid-range (44 - 47)
+    '44': '9.5', // Original value retained
+    '44.5': '10',
+    '45': '10.5',
+    '45.5': '11', // Filled step
+    '46': '11', // Original value retained
+    '46.5': '11.5', // Filled step
+    '47': '12', // Original value retained
+    // Extended range (47.5 - 49.5)
+    '47.5': '12.5',
+    '48': '13',
+    '48.5': '13.5',
+    '49': '14',
+    '49.5': '14.5',
+  };
+
+  // Generate reverse map (UK to EUR)
+  static Map<String, String> ukToEur = Map.fromEntries(
+    eurToUk.entries.map((e) => MapEntry(e.value, e.key)),
+  );
+
+  static List<String> ukSizesList = eurToUk.values.toSet().toList()
+    ..sort((a, b) => double.parse(a).compareTo(double.parse(b)));
+
+  static List<Map<String, String>> currencies = [
+    {'code': 'USD', 'symbol': '\$'},
+    {'code': 'PKR', 'symbol': '₨.'},
+    {'code': 'EUR', 'symbol': '€'},
+    {'code': 'GBP', 'symbol': '£'},
+    {'code': 'JPY', 'symbol': '¥'},
+    {'code': 'AUD', 'symbol': 'A\$'},
+    {'code': 'CAD', 'symbol': 'C\$'},
+    {'code': 'INR', 'symbol': '₹'},
+    {'code': 'CNY', 'symbol': '¥'},
+  ];
+
+  static String getSymbolFromCode(String code) {
+    return ShoeQueryUtils.currencies.firstWhere(
+      (c) => c['code'] == code,
+      orElse: () => {'symbol': '\$'},
+    )['symbol']!;
+  }
+
+  // --- CONDITION DATA ---
+  // Generate list of conditions from 1.0 to 10.0 in 0.5 increments
+  static List<String> conditionList = List<String>.generate(
+    19, // Total items from 1.0 to 10.0 in 0.5 increments (1.0, 1.5, ..., 9.5, 10.0)
+    (i) => (1.0 + i * 0.5).toStringAsFixed(1),
+  );
+
+  // Helper to format the size string based on the setting
+  static String formatSizes(List<String>? sizes, bool isMulti) {
+    if (sizes == null || sizes.isEmpty) {
+      return 'N/A';
+    }
+    if (isMulti) {
+      // Show all sizes separated by a comma and a space
+      return sizes.join(', ');
+    } else {
+      // Only show the first size (index 0)
+      return sizes.first;
     }
   }
 }

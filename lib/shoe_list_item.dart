@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/shoe_network_image.dart';
+import 'package:shoe_view/app_status_notifier.dart';
 
 import 'shoe_model.dart';
 
@@ -39,6 +43,26 @@ class ShoeListItem extends StatelessWidget {
   void _showFullScreenImage(BuildContext context, String imageUrl) {
     final height = MediaQuery.of(context).size.height * 0.75;
     final width = MediaQuery.of(context).size.width * 0.75;
+    final appStatus = context.read<AppStatusNotifier>();
+    String code = appStatus.currencyCode;
+    String currency = ShoeQueryUtils.getSymbolFromCode(code);
+    final bool isMultiSizeModeEnabled = appStatus.isMultiSizeModeEnabled;
+    // Get the formatted strings
+    final String eurSizes = ShoeQueryUtils.formatSizes(
+      shoe.sizeEur,
+      isMultiSizeModeEnabled,
+    );
+    final String ukSizes = shoe.sizeUk!.first;
+
+    final String sizeDisplay;
+    if (isMultiSizeModeEnabled) {
+      // If multi-size is ON, only display EUR sizes
+      sizeDisplay = 'EUR: $eurSizes';
+    } else {
+      // If multi-size is OFF (single-size), display both EUR and UK
+      sizeDisplay = 'EUR: $eurSizes, UK: $ukSizes';
+    }
+    AppLogger.log('sizes - $eurSizes');
     showDialog(
       context: context,
       barrierColor: const Color.fromARGB(200, 0, 0, 0),
@@ -63,7 +87,7 @@ class ShoeListItem extends StatelessWidget {
               ),
               Text(
                 textAlign: TextAlign.center,
-                '${shoe.shoeDetail}\nID: ${shoe.itemId} | #${shoe.shipmentId}\nEUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \nPrice: Rs.${shoe.sellingPrice.toStringAsFixed(0)}/-',
+                '${shoe.shoeDetail}\nID: ${shoe.itemId} | #${shoe.shipmentId}\n$sizeDisplay \nPrice: $currency ${shoe.sellingPrice.toStringAsFixed(0)}/-',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -79,6 +103,26 @@ class ShoeListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appStatus = context.read<AppStatusNotifier>();
+    String code = appStatus.currencyCode;
+    String currency = ShoeQueryUtils.getSymbolFromCode(code);
+    final bool isMultiSizeModeEnabled = appStatus.isMultiSizeModeEnabled;
+    // Get the formatted strings
+    final String eurSizes = ShoeQueryUtils.formatSizes(
+      shoe.sizeEur,
+      isMultiSizeModeEnabled,
+    );
+    final String ukSizes = shoe.sizeUk!.first;
+
+    final String sizeDisplay;
+    if (isMultiSizeModeEnabled) {
+      // If multi-size is ON, only display EUR sizes
+      sizeDisplay = 'EUR: $eurSizes';
+    } else {
+      // If multi-size is OFF (single-size), display both EUR and UK
+      sizeDisplay = 'EUR: $eurSizes, UK: $ukSizes';
+    }
+
     return Card(
       elevation: 4,
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -112,7 +156,7 @@ class ShoeListItem extends StatelessWidget {
             ),
             subtitle: Text(
               'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}\n'
-              'EUR: ${shoe.sizeEur}, UK: ${shoe.sizeUk} \nPrice: Rs.${shoe.sellingPrice.toStringAsFixed(0)}/-',
+              '$sizeDisplay \nPrice: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
               style: TextStyle(color: Colors.grey[600]),
             ),
           ),

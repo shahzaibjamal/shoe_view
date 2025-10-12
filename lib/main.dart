@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart' as fcore;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Assuming these imports exist:
 import 'package:shoe_view/Helpers/app_logger.dart';
@@ -21,6 +23,11 @@ enum AuthLoadingStage { idle, googleSignIn, firebaseAuth, authorizationCheck }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Lock orientation to portrait only
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   MobileAds.instance.initialize();
   MobileAds.instance.updateRequestConfiguration(
     RequestConfiguration(testDeviceIds: ['14F56A9612119919309484C5137CFCC8']),
@@ -52,6 +59,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = context.watch<AppStatusNotifier>().themeMode;
+
     return MaterialApp(
       title: 'Shoe View',
       initialRoute: '/',
@@ -60,12 +69,14 @@ class MyApp extends StatelessWidget {
         // other routes...
       },
       debugShowCheckedModeBanner: false,
-      darkTheme: ThemeData.dark(),
-      themeMode: ThemeMode.light,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
+        brightness: Brightness.light,
       ),
+      darkTheme: ThemeData.dark(),
+      themeMode:
+          themeMode, // ✅ Use the dynamic theme mode from AppStatusNotifier
       home: const AuthScreen(),
     );
   }
@@ -244,27 +255,18 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _callCheckUserAuthorization(String email, String idToken) async {
-    const isTest = false;
     final result = await _firebaseService.checkUserAuthorization(
       email: email,
       idToken: idToken,
     );
     final shoeResponse = ShoeResponse.fromJson(result);
-
-    context.read<AppStatusNotifier>().updateTrial(shoeResponse.isTrial);
-    context.read<AppStatusNotifier>().updateDailyShares(
-      shoeResponse.dailySharesUsed,
-    );
-    context.read<AppStatusNotifier>().updateDailySharesLimit(
-      shoeResponse.dailySharesLimit,
-    );
-    context.read<AppStatusNotifier>().updateDailyWrites(
-      shoeResponse.dailyWritesUsed,
-    );
-    context.read<AppStatusNotifier>().updateDailyWritesLimit(
-      shoeResponse.dailyWritesLimit,
-    );
-    context.read<AppStatusNotifier>().updateTier(shoeResponse.tier);
+    final appStatusNotifier = context.read<AppStatusNotifier>();
+    appStatusNotifier.updateTrial(shoeResponse.isTrial);
+    appStatusNotifier.updateDailyShares(shoeResponse.dailySharesUsed);
+    appStatusNotifier.updateDailySharesLimit(shoeResponse.dailySharesLimit);
+    appStatusNotifier.updateDailyWrites(shoeResponse.dailyWritesUsed);
+    appStatusNotifier.updateDailyWritesLimit(shoeResponse.dailyWritesLimit);
+    appStatusNotifier.updateTier(shoeResponse.tier);
 
     if (!shoeResponse.isAuthorized) {
       setState(() {
@@ -278,6 +280,7 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     _navigateToHome();
+    _loadPrefsInNotifier();
   }
 
   void _navigateToHome() {
@@ -288,6 +291,20 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _loadPrefsInNotifier() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currencyCode = prefs.getString('currency') ?? 'USD';
+    final themeString = prefs.getString('themeMode') ?? 'Light';
+    final isMultiSize = prefs.getBool('multiSize') ?? false;
+
+    final appStatusNotifier = context.read<AppStatusNotifier>();
+    appStatusNotifier.updateCurrencyCode(currencyCode);
+    ThemeMode themeMode = ThemeMode.light;
+    themeMode = ThemeMode.values.firstWhere((m) => m.name == themeString);
+    appStatusNotifier.updateThemeMode(themeMode);
+    appStatusNotifier.updateMultiSizeMode(isMultiSize);
   }
 
   @override
