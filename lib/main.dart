@@ -262,6 +262,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final shoeResponse = ShoeResponse.fromJson(result);
     final appStatusNotifier = context.read<AppStatusNotifier>();
     appStatusNotifier.updateTrial(shoeResponse.isTrial);
+    appStatusNotifier.updateTestModeEnabled(shoeResponse.isTestModeEnabled);
     appStatusNotifier.updateDailyShares(shoeResponse.dailySharesUsed);
     appStatusNotifier.updateDailySharesLimit(shoeResponse.dailySharesLimit);
     appStatusNotifier.updateDailyWrites(shoeResponse.dailyWritesUsed);
@@ -298,11 +299,13 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _loadPrefsInNotifier() async {
     final prefs = await SharedPreferences.getInstance();
     final themeString = prefs.getString('themeMode') ?? 'Light';
+    final isTest = prefs.getBool('isTest') ?? false;
 
     final appStatusNotifier = context.read<AppStatusNotifier>();
     ThemeMode themeMode = ThemeMode.light;
     themeMode = ThemeMode.values.firstWhere((m) => m.name == themeString);
     appStatusNotifier.updateThemeMode(themeMode);
+    appStatusNotifier.updateTest(isTest);
   }
 
   @override

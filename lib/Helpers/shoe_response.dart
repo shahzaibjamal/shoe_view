@@ -1,6 +1,7 @@
 class ShoeResponse {
   final bool isAuthorized;
   final bool isTrial;
+  final bool isTestModeEnabled;
   final int tier;
   final int trialStartedMillis;
   final int lastLoginMillis;
@@ -14,6 +15,7 @@ class ShoeResponse {
   ShoeResponse({
     required this.isAuthorized,
     required this.isTrial,
+    required this.isTestModeEnabled,
     required this.tier,
     required this.trialStartedMillis,
     required this.lastLoginMillis,
@@ -29,6 +31,7 @@ class ShoeResponse {
     return ShoeResponse(
       isAuthorized: json['isAuthorized'] ?? false,
       isTrial: json['isTrial'] ?? false,
+      isTestModeEnabled: json['isTestModeEnabled'] ?? false,
       tier: json['tier'] ?? 0,
       trialStartedMillis: json['trialStarted'] ?? 0,
       lastLoginMillis: json['lastLoginTime'] ?? 0,

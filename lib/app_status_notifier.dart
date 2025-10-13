@@ -5,6 +5,7 @@ import 'Helpers/app_logger.dart';
 
 class AppStatusNotifier extends ChangeNotifier {
   bool _isTest = false; // Default state
+  bool _isTestModeEnabled = false; // Default state
   bool _isTrial = true; // Default state
   int _dailyShares = 0; // Default state
   int _dailySharesLimit = 0; // Default state
@@ -17,6 +18,7 @@ class AppStatusNotifier extends ChangeNotifier {
 
   bool get isTrial => _isTrial;
   bool get isTest => _isTest;
+  bool get isTestModeEnabled => _isTestModeEnabled;
   int get dailyShares => _dailyShares;
   int get dailySharesLimit => _dailySharesLimit;
   int get dailyWrites => _dailyWrites;
@@ -33,6 +35,11 @@ class AppStatusNotifier extends ChangeNotifier {
 
   void updateTest(bool test) {
     _isTest = test;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateTestModeEnabled(bool testModeEnabled) {
+    _isTestModeEnabled = testModeEnabled;
     notifyListeners(); // Notify all listeners to rebuild
   }
 

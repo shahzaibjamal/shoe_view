@@ -27,8 +27,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
   ThemeMode _selectedTheme = ThemeMode.light;
   String _currencyCode = 'USD';
   bool _isMultiSize = false;
+  bool _isTest = false;
 
   bool _tempMultiSize = false;
+  bool _tempTest = false;
   ThemeMode _tempSelectedTheme = ThemeMode.light;
   String _tempCurrencyCode = 'USD';
 
@@ -146,8 +148,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
       final appStatus = context.read<AppStatusNotifier>();
       _selectedTheme = _tempSelectedTheme = appStatus.themeMode;
       _currencyCode = _tempCurrencyCode = appStatus.currencyCode;
-      AppLogger.log(appStatus.currencyCode);
       _isMultiSize = _tempMultiSize = appStatus.isMultiSizeModeEnabled;
+      _isTest = _tempTest = appStatus.isTest;
     });
   }
 
@@ -165,11 +167,16 @@ class _SettingsDialogState extends State<SettingsDialog> {
       isDirty = true;
     }
 
+    if (_tempTest != _isTest) {
+      isDirty = true;
+    }
+
     if (isDirty) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('themeMode', _selectedTheme.name);
       await prefs.setString('currency', _currencyCode);
       await prefs.setBool('multiSize', _isMultiSize);
+      await prefs.setBool('isTest', _isTest);
 
       final response = await widget.firebaseService.updateUserProfile({
         'isMultiSize': _isMultiSize,
@@ -189,7 +196,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     appStatus.updateThemeMode(mode);
   }
 
-  Future<void> _updateCurrencyPreference(String currencyCode) async {
+  Future<void> _updateCurrency(String currencyCode) async {
     setState(() {
       _currencyCode = currencyCode;
     });
@@ -197,7 +204,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     appStatus.updateCurrencyCode(_currencyCode);
   }
 
-  Future<void> _updateMultiSizePreference(bool isMultiSizeModeEnabled) async {
+  Future<void> _updateMultiSize(bool isMultiSizeModeEnabled) async {
     setState(() {
       _isMultiSize = isMultiSizeModeEnabled;
     });
@@ -205,16 +212,25 @@ class _SettingsDialogState extends State<SettingsDialog> {
     appStatus.updateMultiSizeMode(_isMultiSize);
   }
 
+  Future<void> _updateTest(bool isTest) async {
+    setState(() {
+      _isTest = isTest;
+    });
+    final appStatus = context.read<AppStatusNotifier>();
+    appStatus.updateTest(_isTest);
+  }
+
   @override
   Widget build(BuildContext context) {
     final appStatus = context.watch<AppStatusNotifier>();
     final tier = appStatus.tier;
+    final isTestModeEnabled = appStatus.isTestModeEnabled;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
       child: SizedBox(
         width: double.infinity,
-        height: 640,
+        height: isTestModeEnabled ? 680 : 640,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -321,7 +337,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                         label: Text('$code ($symbol)'),
                         selected: isSelected,
                         onSelected: (_) {
-                          _updateCurrencyPreference(code);
+                          _updateCurrency(code);
                         },
                       ),
                     );
@@ -342,10 +358,24 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   value: _isMultiSize,
                   onChanged: (bool value) {
                     // Use the new toggle method to update the global state
-                    _updateMultiSizePreference(value);
+                    _updateMultiSize(value);
                   },
                 ),
               ),
+              const SizedBox(height: 8),
+              if (isTestModeEnabled)
+                ListTile(
+                  title: const Text(
+                    'Enable Test Mode',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  trailing: Switch(
+                    value: _isTest,
+                    onChanged: (bool value) {
+                      _updateTest(value);
+                    },
+                  ),
+                ),
               const SizedBox(height: 8),
               Text(
                 'Current Tier: ${(tier)}',
