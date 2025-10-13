@@ -146,6 +146,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       final appStatus = context.read<AppStatusNotifier>();
       _selectedTheme = _tempSelectedTheme = appStatus.themeMode;
       _currencyCode = _tempCurrencyCode = appStatus.currencyCode;
+      AppLogger.log(appStatus.currencyCode);
       _isMultiSize = _tempMultiSize = appStatus.isMultiSizeModeEnabled;
     });
   }
@@ -172,6 +173,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
 
       final response = await widget.firebaseService.updateUserProfile({
         'isMultiSize': _isMultiSize,
+        'currencyCode': _currencyCode,
       });
       if (response['suceess']) {
         final message = response['message'];

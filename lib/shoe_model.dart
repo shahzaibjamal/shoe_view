@@ -217,7 +217,7 @@ class Shoe {
     String imageUrl = map['MediaThumbnail']?.toString() ?? '';
 
     /******************************************************/
-    final desiredWidth = 600;
+    final desiredWidth = 300;
     final uri = Uri.parse(imageUrl);
     final queryParameters = Map<String, String>.from(uri.queryParameters);
     queryParameters['sz'] = 'w$desiredWidth';

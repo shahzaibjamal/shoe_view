@@ -65,16 +65,10 @@ class _CollageBuilderState extends State<CollageBuilder> {
     }
   }
 
-  // ------------------------------------------------
-  // 🎯 CORRECTED BUILD METHOD TO FIX OVERFLOW
-  // ------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final imagesToDisplay = widget.shoes.take(_maxImages).toList();
     final imageCount = imagesToDisplay.length;
-
-    AppLogger.log('Length - $imageCount');
-
     if (imageCount == 0) {
       return const Center(
         child: Padding(
@@ -102,12 +96,23 @@ class _CollageBuilderState extends State<CollageBuilder> {
 
     // These dimension calculations define the fixed size of the RepaintBoundary.
     // The collageWidth should now be very close to the availableWidth, minimizing exterior margins.
-    final double collageWidth =
+    final double internalPadding = 4.0;
+
+    // 1. Calculate the core content dimensions (Tiles + Gaps)
+    // This must be done precisely for the vertical space occupied by the Column.
+    final double contentWidth =
         (crossAxisCount * itemSize) + ((crossAxisCount - 1) * spacing);
-    final double collageHeight =
+
+    // ⭐️ FIX: Isolate the calculation for the content height (tiles and spacing between them)
+    final double contentHeight =
         (actualRowCount * itemSize) +
+        // Only spacing BETWEEN rows (RowCount - 1)
         (actualRowCount > 0 ? (actualRowCount - 1) * spacing : 0.0);
 
+    // 2. Calculate the final dimensions by adding 2 * internalPadding to the content size.
+    // This sets the total height of the outer RepaintBoundary Container.
+    final double collageWidth = contentWidth + (internalPadding * 2);
+    final double collageHeight = contentHeight + (internalPadding * 2);
     final bool isOddSquareGrid =
         (crossAxisCount == actualRowCount) && (crossAxisCount % 2 != 0);
     final double logoSize = isOddSquareGrid ? 40.0 : 60.0;
@@ -128,9 +133,14 @@ class _CollageBuilderState extends State<CollageBuilder> {
         Center(
           child: RepaintBoundary(
             key: _collageKey,
-            child: SizedBox(
+            child: Container(
               width: collageWidth,
               height: collageHeight,
+              padding: EdgeInsets.all(internalPadding),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.white,
+              ),
               child: Stack(
                 children: [
                   Column(
@@ -145,7 +155,6 @@ class _CollageBuilderState extends State<CollageBuilder> {
                         padding: EdgeInsets.only(
                           top: rowIndex == 0 ? 0.0 : spacing,
                         ),
-                        // 🎯 FIX: Wrap Row in SizedBox to strictly enforce collageWidth
                         child: SizedBox(
                           width: collageWidth,
                           child: Row(
@@ -236,11 +245,14 @@ class _CollageBuilderState extends State<CollageBuilder> {
       child: Stack(
         alignment: Alignment.bottomLeft,
         children: [
-          Container(
-            color: Colors.grey[200],
-            child: ShoeNetworkImage(
-              imageUrl: shoe.remoteImageUrl,
-              fit: BoxFit.cover,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              color: Colors.grey[200],
+              child: ShoeNetworkImage(
+                imageUrl: shoe.remoteImageUrl,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           if (imageCount > 1)
@@ -248,7 +260,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
               left: 5,
               bottom: 5,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(4),
@@ -411,8 +423,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
   }
 
   Future<void> _validateShareCollage({bool isRewarded = false}) async {
-
-        if (mounted) {
+    if (mounted) {
       setState(() => _isSaving = true);
     }
     bool isTest = context.read<AppStatusNotifier>().isTest;

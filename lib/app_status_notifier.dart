@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'Helpers/app_logger.dart';
+
 class AppStatusNotifier extends ChangeNotifier {
   bool _isTest = false; // Default state
   bool _isTrial = true; // Default state

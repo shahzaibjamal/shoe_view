@@ -287,7 +287,19 @@ class _ShoeListViewState extends State<ShoeListView>
       final indent = ' ' * (numbering.length) + gap;
 
       buffer.writeln('$numbering${shoe.shoeDetail}');
-      buffer.writeln('${indent}Sizes: EUR ${shoe.sizeEur}, UK ${shoe.sizeUk}');
+      if (shoe.sizeEur != null && shoe.sizeEur!.length > 1) {
+        String line = '${indent}Sizes: EUR ';
+        for (var size in shoe.sizeEur!) {
+          line += '$size, ';
+        }
+        buffer.writeln(
+          line.trim().replaceAll(RegExp(r',$'), ''),
+        ); // Clean trailing comma
+      } else {
+        buffer.writeln(
+          '${indent}Sizes: EUR ${shoe.sizeEur?.first}, UK ${shoe.sizeUk?.first}',
+        );
+      }
       final appStatus = context.read<AppStatusNotifier>();
       final currencyCode = appStatus.currencyCode;
       final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);

@@ -267,6 +267,8 @@ class _AuthScreenState extends State<AuthScreen> {
     appStatusNotifier.updateDailyWrites(shoeResponse.dailyWritesUsed);
     appStatusNotifier.updateDailyWritesLimit(shoeResponse.dailyWritesLimit);
     appStatusNotifier.updateTier(shoeResponse.tier);
+    appStatusNotifier.updateMultiSizeMode(shoeResponse.isMultiSize);
+    appStatusNotifier.updateCurrencyCode(shoeResponse.currencyCode);
 
     if (!shoeResponse.isAuthorized) {
       setState(() {
@@ -295,16 +297,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _loadPrefsInNotifier() async {
     final prefs = await SharedPreferences.getInstance();
-    final currencyCode = prefs.getString('currency') ?? 'USD';
     final themeString = prefs.getString('themeMode') ?? 'Light';
-    final isMultiSize = prefs.getBool('multiSize') ?? false;
 
     final appStatusNotifier = context.read<AppStatusNotifier>();
-    appStatusNotifier.updateCurrencyCode(currencyCode);
     ThemeMode themeMode = ThemeMode.light;
     themeMode = ThemeMode.values.firstWhere((m) => m.name == themeString);
     appStatusNotifier.updateThemeMode(themeMode);
-    appStatusNotifier.updateMultiSizeMode(isMultiSize);
   }
 
   @override
