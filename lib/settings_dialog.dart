@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
+import 'package:shoe_view/analytics_service.dart';
 import 'package:shoe_view/firebase_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'error_dialog.dart';
@@ -157,14 +158,17 @@ class _SettingsDialogState extends State<SettingsDialog> {
     bool isDirty = false;
     if (_tempMultiSize != _isMultiSize) {
       isDirty = true;
+      AnalyticsService.logSettingsUpdate('multi_size_inventory', true);
     }
 
     if (_tempSelectedTheme != _selectedTheme) {
       isDirty = true;
+      AnalyticsService.logThemeChange(_selectedTheme.name);
     }
 
     if (_tempCurrencyCode != _currencyCode) {
       isDirty = true;
+      AnalyticsService.logSettingsUpdate('currency_code', _currencyCode);
     }
 
     if (_tempTest != _isTest) {
@@ -178,14 +182,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
       await prefs.setBool('multiSize', _isMultiSize);
       await prefs.setBool('isTest', _isTest);
 
-      final response = await widget.firebaseService.updateUserProfile({
+      widget.firebaseService.updateUserProfile({
         'isMultiSize': _isMultiSize,
         'currencyCode': _currencyCode,
       });
-      if (response['suceess']) {
-        final message = response['message'];
-        AppLogger.log('successly updated profile - $message');
-      }
     }
   }
 

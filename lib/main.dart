@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 // Assuming these imports exist:
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Auth/auth_screen.dart';
+import 'package:shoe_view/analytics_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 
 
@@ -24,7 +25,7 @@ void main() async {
     RequestConfiguration(testDeviceIds: ['14F56A9612119919309484C5137CFCC8']),
   );
   await fcore.Firebase.initializeApp();
-  // const String debugToken = '88E15778-3EEC-4586-AB37-2F44D5F39CA3';
+  await InstallSourceTracker.detectAndSetInstallSource();
 
   if (kReleaseMode) {
     await FirebaseAppCheck.instance.activate(

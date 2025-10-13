@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
+import 'package:shoe_view/analytics_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/error_dialog.dart';
 import 'package:shoe_view/Subscription/subscription_upgrade_page.dart';
@@ -221,10 +222,18 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   void _onShareShoe(Shoe shoe) {
+    AnalyticsService.logSelectContent(
+      contentType: 'button',
+      itemId: '_onShareShoe',
+    );
     _shareData([shoe]);
   }
 
   void _onShareAll() {
+    AnalyticsService.logSelectContent(
+      contentType: 'button',
+      itemId: '_onShareAll',
+    );
     _shareData(_displayedShoes);
   }
 
@@ -255,6 +264,10 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   void _onCopyShoe(Shoe shoe) {
+    AnalyticsService.logSelectContent(
+      contentType: 'button',
+      itemId: '_onCopyShoe',
+    );
     Clipboard.setData(ClipboardData(text: _copyData([shoe])));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -264,6 +277,10 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   void _copyAll() {
+    AnalyticsService.logSelectContent(
+      contentType: 'button',
+      itemId: '_onCopyAll',
+    );
     Clipboard.setData(ClipboardData(text: _copyData(_displayedShoes)));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
