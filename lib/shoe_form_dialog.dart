@@ -15,8 +15,6 @@ import 'package:shoe_view/error_dialog.dart';
 import 'package:shoe_view/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
 
-
-
 // ----------------------------------------------------------------------
 // 3. ShoeFormDialog Component (The complex content inside the AlertDialog)
 // ----------------------------------------------------------------------
@@ -88,6 +86,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     _selectedCondition = widget.shoe?.condition.toStringAsFixed(1) ?? '10.0';
 
     _status = widget.shoe?.status ?? 'Available';
+    _isBound = widget.shoe?.isSizeLinked ?? true;
     _quantityController = TextEditingController(
       text: widget.shoe?.quantity.toString() ?? '1',
     );
@@ -120,16 +119,21 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
 
     // We no longer need to check list length to set _isMultiSize.
     // The logic below handles the size data regardless of the setting.
-    final List<String> eurList = widget.shoe?.sizeEur ?? [ShoeQueryUtils.eurSizesList.first];
-    final List<String> ukList = widget.shoe?.sizeUk ?? [ShoeQueryUtils.ukSizesList.first];
+    final List<String> eurList =
+        widget.shoe?.sizeEur ?? [ShoeQueryUtils.eurSizesList.first];
+    final List<String> ukList =
+        widget.shoe?.sizeUk ?? [ShoeQueryUtils.ukSizesList.first];
 
     // Set the main source of truth for EUR sizes
     _currentEurSizes = eurList.toSet();
 
     // Set display sizes (used ONLY when multi-size is OFF)
     _displayEurSize =
-        eurList.firstWhereOrNull((_) => true) ?? ShoeQueryUtils.eurSizesList.first;
-    _displayUkSize = ukList.firstWhereOrNull((_) => true) ?? ShoeQueryUtils.ukSizesList.first;
+        eurList.firstWhereOrNull((_) => true) ??
+        ShoeQueryUtils.eurSizesList.first;
+    _displayUkSize =
+        ukList.firstWhereOrNull((_) => true) ??
+        ShoeQueryUtils.ukSizesList.first;
 
     // Listeners & Currency
     _shoeIdController.addListener(_validateIds);
@@ -156,7 +160,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   void _validateIds() {
     final currentItemId = _safeIntParse(_shoeIdController.text);
     final currentShipmentId = _shipmentIdController.text.trim();
-
+    AppLogger.log('#$currentShipmentId - ID - $currentItemId');
     final conflictingShoe = widget.existingShoes.firstWhereOrNull(
       (existingShoe) =>
           existingShoe.documentId != (widget.shoe?.documentId) &&
@@ -359,7 +363,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    _validateIds();
+    if (!_isEditing) _validateIds();
     if (_itemIdError != null || _shipmentIdError != null) {
       showDialog(
         context: context,
@@ -430,6 +434,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       status: _status,
       remoteImageUrl: _currentRemoteImageUrl,
       isUploaded: widget.shoe?.isUploaded ?? false,
+      isSizeLinked: _isBound,
     );
 
     // Start loading state
@@ -678,7 +683,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                                     _handleDisplayEurSizeSelected,
                                     'Select EUR Size',
                                   ),
-                            isBound: _isBound, // Pass bound status for visual feedback
+                            isBound:
+                                _isBound, // Pass bound status for visual feedback
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -695,7 +701,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                                     _handleDisplayUkSizeSelected,
                                     'Select UK Size',
                                   ),
-                            isBound: _isBound, // Pass bound status for visual feedback
+                            isBound:
+                                _isBound, // Pass bound status for visual feedback
                           ),
                         ),
                       ],
@@ -899,7 +906,7 @@ class SizeDisplayCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: borderColor, width: isBound ? 2.0 : 1.0), 
+          border: Border.all(color: borderColor, width: isBound ? 2.0 : 1.0),
           borderRadius: BorderRadius.circular(8.0),
           color: onTap == null ? Colors.grey.shade200 : Colors.white,
         ),

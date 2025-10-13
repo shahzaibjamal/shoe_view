@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'dart:math';
 
+import 'package:http/http.dart' as http;
+import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
 
 class ShoeQueryUtils {
@@ -348,6 +352,25 @@ class ShoeQueryUtils {
     } else {
       // Only show the first size (index 0)
       return sizes.first;
+    }
+  }
+
+  static void debugAddShoesFromSheetData(FirebaseService firebaseService, List<Shoe> shoes) async {
+    String? base64Image;
+    for (var newShoe in shoes) {
+      final urlResponse = await http.get(Uri.parse(newShoe.remoteImageUrl));
+      if (urlResponse.statusCode == 200) {
+        final bytes = urlResponse.bodyBytes;
+        base64Image = base64Encode(bytes);
+      }
+      final response = await firebaseService.updateShoe(
+        newShoe,
+        base64Image, // will be null if no image
+      );
+      if(response['success']){
+        final url = response['remoteImageUrl'];
+        AppLogger.log('successfully added - $url');
+      }
     }
   }
 }

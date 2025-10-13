@@ -180,4 +180,19 @@ class FirebaseService {
       return 'Error';
     }
   }
+
+  Future<dynamic> updateUserProfile(Map<String, dynamic> fieldsToUpdate) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'updateUserProfile',
+      );
+
+      final result = await callable.call({'updateData': fieldsToUpdate});
+      AppLogger.log(' result  ${result.data}');
+      return result.data;
+    } catch (error) {
+      print('Error updating shoe: $error');
+      return 'Error';
+    }
+  }
 }

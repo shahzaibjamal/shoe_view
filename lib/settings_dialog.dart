@@ -28,11 +28,21 @@ class _SettingsDialogState extends State<SettingsDialog> {
   String _currencyCode = 'USD';
   bool _isMultiSize = false;
 
+  bool _tempMultiSize = false;
+  ThemeMode _tempSelectedTheme = ThemeMode.light;
+  String _tempCurrencyCode = 'USD';
+
   @override
   void initState() {
     super.initState();
     _loadLogo();
     _loadDefaultSettings();
+  }
+
+  @override
+  void dispose() {
+    _writePrefs();
+    super.dispose();
   }
 
   Future<void> _loadLogo() async {
@@ -134,15 +144,43 @@ class _SettingsDialogState extends State<SettingsDialog> {
   Future<void> _loadDefaultSettings() async {
     setState(() {
       final appStatus = context.read<AppStatusNotifier>();
-      _selectedTheme = appStatus.themeMode;
-      _currencyCode = appStatus.currencyCode;
-      _isMultiSize = appStatus.isMultiSizeModeEnabled;
+      _selectedTheme = _tempSelectedTheme = appStatus.themeMode;
+      _currencyCode = _tempCurrencyCode = appStatus.currencyCode;
+      _isMultiSize = _tempMultiSize = appStatus.isMultiSizeModeEnabled;
     });
   }
 
+  void _writePrefs() async {
+    bool isDirty = false;
+    if (_tempMultiSize != _isMultiSize) {
+      isDirty = true;
+    }
+
+    if (_tempSelectedTheme != _selectedTheme) {
+      isDirty = true;
+    }
+
+    if (_tempCurrencyCode != _currencyCode) {
+      isDirty = true;
+    }
+
+    if (isDirty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('themeMode', _selectedTheme.name);
+      await prefs.setString('currency', _currencyCode);
+      await prefs.setBool('multiSize', _isMultiSize);
+
+      final response = await widget.firebaseService.updateUserProfile({
+        'isMultiSize': _isMultiSize,
+      });
+      if (response['suceess']) {
+        final message = response['message'];
+        AppLogger.log('successly updated profile - $message');
+      }
+    }
+  }
+
   Future<void> _updateTheme(ThemeMode mode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('themeMode', mode.name);
     setState(() => _selectedTheme = mode);
 
     final appStatus = context.read<AppStatusNotifier>();
@@ -150,8 +188,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
   }
 
   Future<void> _updateCurrencyPreference(String currencyCode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('currency', currencyCode);
     setState(() {
       _currencyCode = currencyCode;
     });
@@ -160,8 +196,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
   }
 
   Future<void> _updateMultiSizePreference(bool isMultiSizeModeEnabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('multiSize', _isMultiSize);
     setState(() {
       _isMultiSize = isMultiSizeModeEnabled;
     });
@@ -298,7 +332,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               ListTile(
-                title: const Text('Enable Multi-Size Inventory Mode', style: TextStyle(fontSize: 16),),
+                title: const Text(
+                  'Enable Multi-Size Inventory Mode',
+                  style: TextStyle(fontSize: 16),
+                ),
                 trailing: Switch(
                   value: _isMultiSize,
                   onChanged: (bool value) {
@@ -310,7 +347,10 @@ class _SettingsDialogState extends State<SettingsDialog> {
               const SizedBox(height: 8),
               Text(
                 'Current Tier: ${(tier)}',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Spacer(),
               Row(

@@ -148,7 +148,14 @@ class _ShoeListViewState extends State<ShoeListView>
         });
   }
 
-  void _openInApp() {
+  void _openInApp() async {
+    // // Debug add shoes from sheet
+    // final firebaseService = context.read<FirebaseService>();
+    // ShoeQueryUtils.debugAddShoesFromSheetData(
+    //   firebaseService,
+    //   _manuallyFetchedShoes,
+    // );
+    // return;
     final subscriptionManager = context.read<SubscriptionManager>();
 
     Navigator.of(context).push(
@@ -172,7 +179,6 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   void _deleteShoe(Shoe shoe) async {
-    // ... (Deletion logic remains unchanged)
     final confirmed =
         await showDialog<bool>(
           context: context,
@@ -432,8 +438,6 @@ class _ShoeListViewState extends State<ShoeListView>
           onPressed: () => showDialog(
             context: context,
             builder: (BuildContext context) {
-              // NOTE: It is best practice to use context.read<FirebaseService>() here
-              // instead of creating a new FirebaseService() instance.
               return ShoeFormDialogContent(
                 // Use context.read for dependency
                 firebaseService: firebaseService,

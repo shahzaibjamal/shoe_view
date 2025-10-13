@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/foundation.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 
@@ -19,6 +21,7 @@ class Shoe {
   final String remoteImageUrl; // URL from Firebase Storage
   final bool isUploaded;
   final bool isConfirmed;
+  final bool isSizeLinked;
 
   const Shoe({
     required this.documentId,
@@ -37,6 +40,7 @@ class Shoe {
     this.remoteImageUrl = '',
     this.isUploaded = false,
     this.isConfirmed = false,
+    this.isSizeLinked = true,
   });
 
   // Factory constructor for creating a Shoe object from a Firestore map.
@@ -51,19 +55,24 @@ class Shoe {
 
     final sizeEur = (sizeEurRaw is List)
         ? sizeEurRaw.map((e) => e.toString()).toList()
-        : sizeEurRaw != null ? [sizeEurRaw.toString()] : <String>[];
+        : sizeEurRaw != null
+        ? [sizeEurRaw.toString()]
+        : <String>[];
 
     final sizeUk = (sizeUkRaw is List)
         ? sizeUkRaw.map((e) => e.toString()).toList()
-        : sizeUkRaw != null ? [sizeUkRaw.toString()] : <String>[];
-        
-            final sellingPrice =
+        : sizeUkRaw != null
+        ? [sizeUkRaw.toString()]
+        : <String>[];
+
+    final sellingPrice =
         double.tryParse(map['SellingPrice']?.toString() ?? '') ?? 0.0;
     final condition =
         double.tryParse(map['Condition']?.toString() ?? '') ?? 0.0;
     final remoteImageUrl = map['RemoteImageURL']?.toString() ?? '';
     final isUploaded = map['IsUploaded'] as bool? ?? false;
     final isConfirmed = map['IsConfirmed'] as bool? ?? false;
+    final isSizeLinked = map['IsSizeLinked'] as bool? ?? false;
     final status = map['Status']?.toString() ?? '';
     final links = map['Links'] as List<dynamic>?;
     final quantity = map['Quantity'] as int? ?? 1;
@@ -105,6 +114,7 @@ class Shoe {
       isConfirmed: isConfirmed,
       status: status,
       quantity: quantity,
+      isSizeLinked: isSizeLinked,
     );
   }
 
@@ -127,6 +137,7 @@ class Shoe {
       'IsConfirmed': isConfirmed,
       'Status': status,
       'Quantity': quantity,
+      'IsSizeLinked': isSizeLinked,
     };
   }
 
@@ -147,7 +158,8 @@ class Shoe {
       remoteImageUrl = '',
       status = '',
       isUploaded = false,
-      isConfirmed = false;
+      isConfirmed = false,
+      isSizeLinked = true;
 
   // Creates an updated copy of the object.
   Shoe copyWith({
@@ -167,6 +179,7 @@ class Shoe {
     String? status,
     bool? isUploaded,
     bool? isConfirmed,
+    bool? isSizeLinked,
   }) {
     return Shoe(
       documentId: documentId ?? this.documentId,
@@ -184,6 +197,7 @@ class Shoe {
       remoteImageUrl: remoteImageUrl ?? this.remoteImageUrl,
       isUploaded: isUploaded ?? this.isUploaded,
       isConfirmed: isConfirmed ?? this.isConfirmed,
+      isSizeLinked: isSizeLinked ?? this.isSizeLinked,
       status: status ?? this.status,
     );
   }
@@ -193,12 +207,8 @@ class Shoe {
     final itemId = int.tryParse(map['Item ID']?.toString() ?? '') ?? 0;
     final shipmentId = map['Shipment ID']?.toString() ?? '';
     final shoeDetail = map['Shoe Detail']?.toString() ?? '';
-    final sizeEur = (map['sizeEur'] as List<dynamic>?)
-        ?.map((e) => e.toString())
-        .toList();
-    final sizeUk = (map['sizeUk'] as List<dynamic>?)
-        ?.map((e) => e.toString())
-        .toList();
+    final sizeEur = map['Size'] != null ? [map['Size'].toString()] : null;
+    final sizeUk = map['Size'] != null ? [map['Size UK'].toString()] : null;
     final status = map['Status']?.toString() ?? '';
     final sellingPrice =
         double.tryParse(map['Selling Price']?.toString() ?? '') ?? 0.0;
@@ -216,6 +226,7 @@ class Shoe {
     /******************************************************/
     final isUploaded = map['Uploaded'] as bool? ?? false;
     final isConfirmed = map['Video Created'] as bool? ?? false;
+    final isSizeLinked = map['IsSizeLinked'] as bool? ?? false;
     final links = map['Links'] as List<dynamic>?;
 
     String instagram = '';
@@ -248,6 +259,7 @@ class Shoe {
       isUploaded: isUploaded,
       isConfirmed: isConfirmed,
       status: status,
+      isSizeLinked: isSizeLinked,
     );
   }
 
