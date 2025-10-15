@@ -1,5 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:play_install_referrer/play_install_referrer.dart';
+import 'package:flutter_install_referrer/flutter_install_referrer.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
 
 class AnalyticsService {
   static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
@@ -31,16 +32,6 @@ class AnalyticsService {
     required String itemId,
   }) async {
     await _analytics.logSelectContent(contentType: contentType, itemId: itemId);
-  }
-
-  /// Logs when a user signs in
-  static Future<void> logLogin({String method = 'email'}) async {
-    await _analytics.logLogin(loginMethod: method);
-  }
-
-  /// Logs when a user signs up
-  static Future<void> logSignUp({String method = 'email'}) async {
-    await _analytics.logSignUp(signUpMethod: method);
   }
 
   /// Logs a custom event
@@ -77,13 +68,11 @@ class AnalyticsService {
 class InstallSourceTracker {
   static Future<void> detectAndSetInstallSource() async {
     try {
-      ReferrerDetails referrerDetails =
-          await PlayInstallReferrer.installReferrer;
-      final referrer = referrerDetails.toString();
+      final result = await InstallReferrer.app;
 
       await FirebaseAnalytics.instance.setUserProperty(
         name: 'install_source',
-        value: referrer,
+        value: result.referrer.toString(),
       );
     } catch (e) {
       // fallback if referrer fails

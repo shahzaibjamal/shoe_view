@@ -50,10 +50,7 @@ class ShoeListItem extends StatelessWidget {
     String currency = ShoeQueryUtils.getSymbolFromCode(code);
     final bool isMultiSizeModeEnabled = appStatus.isMultiSizeModeEnabled;
     // Get the formatted strings
-    final String eurSizes = ShoeQueryUtils.formatSizes(
-      shoe.sizeEur,
-      isMultiSizeModeEnabled,
-    );
+    final String eurSizes = ShoeQueryUtils.formatSizes(shoe.sizeEur);
     final String ukSizes = shoe.sizeUk!.first;
 
     final String sizeDisplay;
@@ -110,10 +107,7 @@ class ShoeListItem extends StatelessWidget {
     String currency = ShoeQueryUtils.getSymbolFromCode(code);
     final bool isMultiSizeModeEnabled = appStatus.isMultiSizeModeEnabled;
     // Get the formatted strings
-    final String eurSizes = ShoeQueryUtils.formatSizes(
-      shoe.sizeEur,
-      isMultiSizeModeEnabled,
-    );
+    final String eurSizes = ShoeQueryUtils.formatSizes(shoe.sizeEur);
     final String ukSizes = shoe.sizeUk!.first;
 
     final String sizeDisplay;

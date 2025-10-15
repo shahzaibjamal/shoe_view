@@ -341,19 +341,13 @@ class ShoeQueryUtils {
     (i) => (1.0 + i * 0.5).toStringAsFixed(1),
   );
 
-  // Helper to format the size string based on the setting
-  static String formatSizes(List<String>? sizes, bool isMulti) {
-    if (sizes == null || sizes.isEmpty) {
-      return 'N/A';
-    }
-    if (isMulti) {
-      // Show all sizes separated by a comma and a space
-      return sizes.join(', ');
-    } else {
-      // Only show the first size (index 0)
-      return sizes.first;
-    }
+static String formatSizes(List<String>? sizes) {
+  if (sizes == null || sizes.isEmpty) {
+    return 'N/A';
   }
+  return sizes.length > 1 ? sizes.join(', ') : sizes.first;
+}
+
 
   static void debugAddShoesFromSheetData(FirebaseService firebaseService, List<Shoe> shoes) async {
     String? base64Image;

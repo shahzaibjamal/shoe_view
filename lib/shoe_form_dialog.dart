@@ -9,6 +9,7 @@ import 'package:collection/collection.dart'; // Needed for firstWhereOrNull
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
+import 'package:shoe_view/analytics_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 
 import 'package:shoe_view/error_dialog.dart';
@@ -473,7 +474,18 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
         }
         return;
       }
-
+      if (!_isEditing) {
+        await AnalyticsService.logCustomEvent(
+          name: 'add_shoe',
+          parameters: {
+            'item_name': newShoe.shoeDetail,
+            'item_size': ShoeQueryUtils.formatSizes(newShoe.sizeEur),
+            'item_size_uk': ShoeQueryUtils.formatSizes(newShoe.sizeUk),
+            'item_condition': newShoe.condition,
+            'item_price': newShoe.sellingPrice,
+          },
+        );
+      }
       // Success: Close dialog
       _onDismissed();
     } catch (e) {

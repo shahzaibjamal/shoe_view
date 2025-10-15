@@ -460,22 +460,25 @@ class _ShoeListViewState extends State<ShoeListView>
         ),
       ),
       // 🎯 FIX: Wrap the FAB with an AnimatedOpacity
-      floatingActionButton: AnimatedOpacity(
-        opacity: _isFabVisible ? 1.0 : 0.0, // Control visibility
-        duration: const Duration(milliseconds: 300), // Smooth animation
-        child: FloatingActionButton(
-          onPressed: () => showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return ShoeFormDialogContent(
-                // Use context.read for dependency
-                firebaseService: firebaseService,
-                existingShoes: streamShoes,
-              );
-            },
+      floatingActionButton: IgnorePointer(
+        ignoring: !_isFabVisible,
+        child: AnimatedOpacity(
+          opacity: _isFabVisible ? 1.0 : 0.0, // Control visibility
+          duration: const Duration(milliseconds: 300), // Smooth animation
+          child: FloatingActionButton(
+            onPressed: () => showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return ShoeFormDialogContent(
+                  // Use context.read for dependency
+                  firebaseService: firebaseService,
+                  existingShoes: streamShoes,
+                );
+              },
+            ),
+            tooltip: 'Add New Shoe',
+            child: const Icon(Icons.add),
           ),
-          tooltip: 'Add New Shoe',
-          child: const Icon(Icons.add),
         ),
       ),
     );
