@@ -113,9 +113,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       Navigator.of(context).pop(); // Dismiss loader
 
       if (response['success']) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(response['message'])));
+        _signOutAndReturnToMain();
       }
     } catch (e) {
       Navigator.of(context).pop(); // Dismiss loader

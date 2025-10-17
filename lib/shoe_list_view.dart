@@ -27,7 +27,6 @@ class ShoeListView extends StatefulWidget {
 
 class _ShoeListViewState extends State<ShoeListView>
     with WidgetsBindingObserver {
-  // ... (Existing State Variables)
   String _sortField = 'ItemId';
   bool _sortAscending = true;
   bool _isLoadingExternalData = false;

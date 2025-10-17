@@ -21,9 +21,9 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   MobileAds.instance.initialize();
-  MobileAds.instance.updateRequestConfiguration(
-    RequestConfiguration(testDeviceIds: ['14F56A9612119919309484C5137CFCC8']),
-  );
+  // MobileAds.instance.updateRequestConfiguration(
+  //   RequestConfiguration(testDeviceIds: ['14F56A9612119919309484C5137CFCC8']),
+  // );
   await fcore.Firebase.initializeApp();
   await InstallSourceTracker.detectAndSetInstallSource();
 

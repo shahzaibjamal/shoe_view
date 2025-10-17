@@ -341,15 +341,17 @@ class ShoeQueryUtils {
     (i) => (1.0 + i * 0.5).toStringAsFixed(1),
   );
 
-static String formatSizes(List<String>? sizes) {
-  if (sizes == null || sizes.isEmpty) {
-    return 'N/A';
+  static String formatSizes(List<String>? sizes) {
+    if (sizes == null || sizes.isEmpty) {
+      return 'N/A';
+    }
+    return sizes.length > 1 ? sizes.join(', ') : sizes.first;
   }
-  return sizes.length > 1 ? sizes.join(', ') : sizes.first;
-}
 
-
-  static void debugAddShoesFromSheetData(FirebaseService firebaseService, List<Shoe> shoes) async {
+  static void debugAddShoesFromSheetData(
+    FirebaseService firebaseService,
+    List<Shoe> shoes,
+  ) async {
     String? base64Image;
     for (var newShoe in shoes) {
       final urlResponse = await http.get(Uri.parse(newShoe.remoteImageUrl));
@@ -361,7 +363,7 @@ static String formatSizes(List<String>? sizes) {
         newShoe,
         base64Image, // will be null if no image
       );
-      if(response['success']){
+      if (response['success']) {
         final url = response['remoteImageUrl'];
         AppLogger.log('successfully added - $url');
       }

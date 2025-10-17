@@ -38,8 +38,6 @@ class ListHeader extends StatefulWidget {
 }
 
 class _ListHeaderState extends State<ListHeader> {
-  int _tapCount = 0;
-  DateTime? _lastTapTime;
   bool _isValidDevice = false;
 
   @override
@@ -65,54 +63,192 @@ class _ListHeaderState extends State<ListHeader> {
         Container(
           height: widget.height,
           color: Colors.blueGrey.shade800,
-          padding: const EdgeInsets.only(
-            left: 16.0,
-            right: 16.0,
-            top: 20.0,
-            bottom: 8.0,
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Search Input Field
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: TextField(
-                  controller: widget.searchController,
-                  decoration: InputDecoration(
-                    hintText:
-                        'Search: Name, Size (e.g., 42), or Price (e.g., <2500, >1500, =2100)...',
-                    hintStyle: TextStyle(
-                      color: Colors.blueGrey.shade300,
-                      fontSize: 14,
+              Row(
+                children: [
+                  // Search Input Field
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: TextField(
+                        controller: widget.searchController,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Search: Name, Size (e.g., 42), or Price (e.g., <2500, >1500, =2100)...',
+                          hintStyle: TextStyle(
+                            color: Colors.blueGrey.shade300,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: Colors.white70,
+                          ),
+                          filled: true,
+                          fillColor: Colors.blueGrey.shade700,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10.0,
+                            horizontal: 16.0,
+                          ),
+                          suffixIcon: widget.searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(
+                                    Icons.clear,
+                                    color: Colors.white70,
+                                  ),
+                                  onPressed: () {
+                                    widget.searchController.clear();
+                                  },
+                                )
+                              : null,
+                        ),
+                        style: const TextStyle(color: Colors.white),
+                        cursorColor: Colors.white,
+                      ),
                     ),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white70),
-                    filled: true,
-                    fillColor: Colors.blueGrey.shade700,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 10.0,
-                      horizontal: 16.0,
-                    ),
-                    suffixIcon: widget.searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.clear,
-                              color: Colors.white70,
-                            ),
-                            onPressed: () {
-                              widget.searchController.clear();
-                            },
-                          )
-                        : null,
                   ),
-                  style: const TextStyle(color: Colors.white),
-                  cursorColor: Colors.white,
-                ),
+                  const SizedBox(
+                    width: 2,
+                  ), // Add spacing between TextField and icon
+                  IconButton(
+                    icon: Icon(
+                      Icons.help_outline,
+                      color: Colors.white.withValues(
+                        alpha: 0.8,
+                      ), // Reduced opacity
+                      size: 32, // Slightly larger than default (24)
+                    ),
+                    onPressed: () {
+                      FocusScope.of(context).unfocus(); // Dismiss keyboard
+
+                      Future.delayed(Duration(milliseconds: 100), () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Search Help'),
+                            content: Text.rich(
+                              TextSpan(
+                                style: TextStyle(fontSize: 14),
+                                children: [
+                                  TextSpan(
+                                    text: 'Smart Search Guide\n\n',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '• ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'Name or keyword: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'e.g. "Jordan", "black", "leather"\n',
+                                  ),
+                                  TextSpan(
+                                    text: '• ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'Size: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '42 or multiple like 42|43|44\n',
+                                  ),
+                                  TextSpan(
+                                    text: '• ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'Price: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '<2500, >1500, =2100, ~3000 (±500)\n',
+                                  ),
+                                  TextSpan(
+                                    text: '• ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'Shipment ID: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '# followed by ID (e.g. #102)\n',
+                                  ),
+                                  TextSpan(
+                                    text: '• ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'Limit results: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(text: 'lim<10, lim>5, lim~8\n\n'),
+                                  TextSpan(
+                                    text: 'Example: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'Jordan 42 >2000 lim<5\n',
+                                    style: TextStyle(
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        'Combine filters for powerful results.',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Got it'),
+                              ),
+                            ],
+                          ),
+                        );
+                      });
+                    },
+                    tooltip: 'Search Help',
+                  ),
+                ],
               ),
 
               // Sort and Control Buttons

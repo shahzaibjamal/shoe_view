@@ -45,7 +45,8 @@ class _CollageBuilderState extends State<CollageBuilder> {
   @override
   void initState() {
     // 🎯 Call load in initState as before
-    loadRewardedAd();
+    bool isTest = context.read<AppStatusNotifier>().isTest;
+    if (!isTest) loadRewardedAd();
     _loadLogo();
     super.initState();
   }
@@ -334,10 +335,12 @@ class _CollageBuilderState extends State<CollageBuilder> {
       return;
     }
 
-    final sharesUsed = context.read<AppStatusNotifier>().dailyShares;
-    final sharesLimit = context.read<AppStatusNotifier>().dailySharesLimit;
+    var appStatusNotifier = context.read<AppStatusNotifier>();
+    final sharesUsed = appStatusNotifier.dailyShares;
+    final sharesLimit = appStatusNotifier.dailySharesLimit;
+    bool isTest = appStatusNotifier.isTest;
 
-    if (sharesUsed < sharesLimit) {
+    if (isTest || sharesUsed < sharesLimit) {
       _validateShareCollage();
       return;
     }
@@ -387,19 +390,20 @@ class _CollageBuilderState extends State<CollageBuilder> {
   }
 
   void _showRewardedAd() {
-    if (mounted) Navigator.of(context).pop();
-
     if (_rewardedAd == null) {
       AppLogger.log('Ad is null when trying to show.');
       return;
     }
-
+    bool rewardGranted = false;
     _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
-      onAdShowedFullScreenContent: (RewardedAd ad) =>
-          AppLogger.log('$ad showed.'),
+      onAdShowedFullScreenContent: (RewardedAd ad) => {},
       onAdDismissedFullScreenContent: (RewardedAd ad) {
-        AppLogger.log('$ad dismissed.');
         ad.dispose();
+        if (mounted) Navigator.of(context).pop();
+        if (rewardGranted) {
+          _validateShareCollage(isRewarded: true);
+        }
+
         loadRewardedAd();
       },
       onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
@@ -413,11 +417,10 @@ class _CollageBuilderState extends State<CollageBuilder> {
         );
       },
     );
-
     _rewardedAd!.show(
       onUserEarnedReward: (AdWithoutView ad, RewardItem rewardItem) {
         AppLogger.log('Reward amount: ${rewardItem.amount}');
-        _validateShareCollage(isRewarded: true);
+        rewardGranted = true;
       },
     );
   }
