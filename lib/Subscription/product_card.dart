@@ -1,11 +1,11 @@
 // _ProductCard remains unchanged as it receives all data and callbacks via constructor.
 import 'package:flutter/material.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shoe_view/Subscription/subscription_manager.dart';
 
 class ProductCard extends StatelessWidget {
   final OfferWithTierDetails offer;
   final Function(OfferWithTierDetails) onBuy;
+  final Function() onUnSub;
   final bool isHighlighted;
   final dynamic isPurchased;
 
@@ -13,6 +13,7 @@ class ProductCard extends StatelessWidget {
     super.key,
     required this.offer,
     required this.onBuy,
+    required this.onUnSub,
     this.isHighlighted = false,
     this.isPurchased = false,
   });
@@ -66,11 +67,11 @@ class ProductCard extends StatelessWidget {
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton.icon(
-                onPressed: isPurchased ? null : () => onBuy(offer),
-                icon: Icon(isPurchased ? Icons.check_circle : Icons.star),
+                onPressed: isPurchased ? onUnSub : () => onBuy(offer),
+                icon: Icon(isPurchased ? Icons.cancel : Icons.star),
                 label: Text(
                   isPurchased
-                      ? 'Already Subscribed'
+                      ? 'Unsubscribe'
                       : 'Subscribe Now - ${offer.displayPrice}',
                   style: const TextStyle(fontSize: 16),
                 ),
@@ -80,7 +81,7 @@ class ProductCard extends StatelessWidget {
                     vertical: 12,
                   ),
                   backgroundColor: isPurchased
-                      ? Colors.grey.shade500
+                      ? Colors.red.shade600
                       : (isHighlighted
                             ? Colors.blueAccent.shade700
                             : Colors.grey.shade700),

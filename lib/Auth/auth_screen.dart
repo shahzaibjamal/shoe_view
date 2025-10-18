@@ -201,6 +201,7 @@ class _AuthScreenState extends State<AuthScreen> {
     appStatusNotifier.updateTier(shoeResponse.tier);
     appStatusNotifier.updateMultiSizeMode(shoeResponse.isMultiSize);
     appStatusNotifier.updateCurrencyCode(shoeResponse.currencyCode);
+    appStatusNotifier.updatePurchasedOffer(shoeResponse.purchasedOffer);
 
     if (!shoeResponse.isAuthorized) {
       setState(() {

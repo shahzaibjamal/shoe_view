@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert'; // ADDED: Required for JSON parsing the receipt
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -246,10 +247,10 @@ class SubscriptionManager with ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> _verifyPurchase(PurchaseDetails purchase) async {
+    _setTransactionMessage('Verifying purchase on server...');
     final token = purchase.verificationData.serverVerificationData;
     final productId = purchase.productID;
 
-    // Assuming this service sends the purchase data to your backend for validation
     final response = await _firebaseService.verifyInAppPurchase(
       productId: productId,
       purchaseToken: token,
@@ -261,7 +262,7 @@ class SubscriptionManager with ChangeNotifier {
       final sharesUsed = response['dailySharesUsed'];
       final sharesLimit = response['dailySharesLimit'];
       final tier = response['tier'];
-
+      final purchasedOffer = response['purchasedOffer'];
       _purchases.clear();
       _purchases.add(purchase);
       notifyListeners();
@@ -269,6 +270,7 @@ class SubscriptionManager with ChangeNotifier {
       _appStatusNotifier.updateDailyShares(sharesUsed);
       _appStatusNotifier.updateDailySharesLimit(sharesLimit);
       _appStatusNotifier.updateTier(tier);
+      _appStatusNotifier.updatePurchasedOffer(purchasedOffer);
 
       if (purchase.pendingCompletePurchase) {
         AppLogger.log('completing transaction');
@@ -300,31 +302,39 @@ class SubscriptionManager with ChangeNotifier {
     AppLogger.log('Purchase initiated for product: ${product.id}');
   }
 
-   void manageSubscription() async {
+  void manageSubscription() async {
     _setTransactionMessage('Opening store to manage your subscription...');
-    
+
     // Use the appropriate URL based on the platform for subscription management.
-    final String urlString = defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS
+    final String urlString =
+        defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS
         ? 'https://apps.apple.com/account/subscriptions' // iOS/macOS subscription management link
         : 'https://play.google.com/store/account/subscriptions'; // Android subscription management link
 
     final url = Uri.parse(urlString);
 
     try {
-      // Use platformDefault mode for stability, as it lets the OS decide 
+      // Use platformDefault mode for stability, as it lets the OS decide
       // the best way (browser/store app) to open the link.
       final launched = await launchUrl(url, mode: LaunchMode.platformDefault);
-      
+
       if (!launched) {
-        AppLogger.log('Could not launch subscription management URL: launchUrl returned false for $urlString');
+        AppLogger.log(
+          'Could not launch subscription management URL: launchUrl returned false for $urlString',
+        );
         // Providing clearer instruction to the user
-        _setTransactionMessage('Unable to open subscription management page. Please manually check your $urlString.');
+        _setTransactionMessage(
+          'Unable to open subscription management page. Please manually check your $urlString.',
+        );
       }
     } catch (e) {
       // Catching the PlatformException/channel-error directly
       AppLogger.log('Error launching URL ($urlString): $e');
       // Providing clearer instruction to the user
-      _setTransactionMessage('An error occurred while trying to open the store. Error: $e. Please check your $urlString manually.');
+      _setTransactionMessage(
+        'An error occurred while trying to open the store. Error: $e. Please check your $urlString manually.',
+      );
     }
   }
 

@@ -2,8 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Subscription/product_card.dart';
 import 'package:shoe_view/Subscription/subscription_manager.dart';
+import 'package:shoe_view/app_status_notifier.dart';
 
 class SubscriptionUpgradePage extends StatefulWidget {
   const SubscriptionUpgradePage({super.key});
@@ -112,10 +114,8 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
                         else
                           // Iterate over the list of OfferWithTierDetails
                           ...manager.availableOffers.map((offer) {
-                            final isPurchased = manager.purchases.any(
-                              // Use the proxy ID getter from OfferWithTierDetails
-                              (p) => p.productID == offer.id,
-                            );
+                            String purchasedOffer = context.read<AppStatusNotifier>().purchasedOffer;
+                            final isPurchased = purchasedOffer == offer.basePlanId;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 16.0),
                               child: ProductCard(
@@ -127,6 +127,7 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
                                 // Use the proxy ID getter
                                 isHighlighted: offer.id.contains('gold'),
                                 isPurchased: isPurchased, 
+                                onUnSub: () => manager.manageSubscription(),
                               ),
                             );
                           }),

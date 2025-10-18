@@ -11,6 +11,7 @@ class ShoeResponse {
   final int dailyWritesLimit;
   final bool isMultiSize;
   final String currencyCode;
+  final String purchasedOffer;
 
   ShoeResponse({
     required this.isAuthorized,
@@ -25,6 +26,7 @@ class ShoeResponse {
     required this.dailyWritesLimit,
     required this.isMultiSize,
     required this.currencyCode,
+    required this.purchasedOffer,
   });
 
   factory ShoeResponse.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class ShoeResponse {
       dailyWritesLimit: json['dailyWritesLimit'] ?? 0,
       isMultiSize: json['isMultiSize'] ?? 0,
       currencyCode: json['currencyCode'] ?? 'USD',
+      purchasedOffer: json['purchasedOffer'] ?? 'none',
     );
   }
 }
