@@ -1,15 +1,20 @@
 // _ProductCard remains unchanged as it receives all data and callbacks via constructor.
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:shoe_view/Subscription/subscription_manager.dart';
 
 class ProductCard extends StatelessWidget {
-  final ProductDetails product;
-  final Function(ProductDetails) onBuy;
+  final OfferWithTierDetails offer;
+  final Function(OfferWithTierDetails) onBuy;
   final bool isHighlighted;
-  const ProductCard({super.key, 
-    required this.product,
+  final dynamic isPurchased;
+
+  const ProductCard({
+    super.key,
+    required this.offer,
     required this.onBuy,
     this.isHighlighted = false,
+    this.isPurchased = false,
   });
 
   @override
@@ -34,7 +39,7 @@ class ProductCard extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    product.title,
+                    offer.name,
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -44,7 +49,7 @@ class ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  product.price,
+                  offer.displayPrice,
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
@@ -55,16 +60,18 @@ class ProductCard extends StatelessWidget {
             ),
             const Divider(height: 20, thickness: 1),
             Text(
-              product.description,
+              offer.tierDescription,
               style: const TextStyle(fontSize: 15, color: Colors.black54),
             ),
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton.icon(
-                onPressed: () => onBuy(product),
-                icon: const Icon(Icons.star),
+                onPressed: isPurchased ? null : () => onBuy(offer),
+                icon: Icon(isPurchased ? Icons.check_circle : Icons.star),
                 label: Text(
-                  'Subscribe Now - ${product.price}',
+                  isPurchased
+                      ? 'Already Subscribed'
+                      : 'Subscribe Now - ${offer.displayPrice}',
                   style: const TextStyle(fontSize: 16),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -72,9 +79,11 @@ class ProductCard extends StatelessWidget {
                     horizontal: 30,
                     vertical: 12,
                   ),
-                  backgroundColor: isHighlighted
-                      ? Colors.blueAccent.shade700
-                      : Colors.grey.shade700,
+                  backgroundColor: isPurchased
+                      ? Colors.grey.shade500
+                      : (isHighlighted
+                            ? Colors.blueAccent.shade700
+                            : Colors.grey.shade700),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

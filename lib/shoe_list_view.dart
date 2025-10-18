@@ -92,7 +92,6 @@ class _ShoeListViewState extends State<ShoeListView>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
-      // ... (Subscription Check Logic)
       final prefs = await SharedPreferences.getInstance();
       final lastCheck = prefs.getInt('lastSubscriptionCheck') ?? 0;
       final now = DateTime.now().millisecondsSinceEpoch;

@@ -1,55 +1,114 @@
-// --- subscription_manager.dart (formerly InAppPurchaseManager) ---
-
 import 'dart:async';
-import 'package:flutter/material.dart'; // Still needed for ChangeNotifier
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+// Note: In a real project, these imports are required for the wrapper classes
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/firebase_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-// Defined Subscription IDs (MUST match Play Console/App Store IDs)
-const Set<String> _kProductIds = {
-  'tier_bronze_monthly',
-  'tier_silver_monthly',
-  'tier_gold_monthly',
+const Set<String> _kProductIds = {'tier_premium_access'};
+// enum LaunchMode { platformDefault, inAppWebView, externalApplication, externalNonBrowserApplication }
+// Future<bool> canLaunchUrl(Uri url) async => true;
+// Future<bool> launchUrl(Uri url, {required LaunchMode mode}) async {
+//   AppLogger.log('Launching URL: $url with mode: $mode');
+//   return true;
+// }
+// 1. Subscription Tiers (Used to map Base Plan ID to a Description)
+final Map<String, String> subscriptionTiers = {
+  // Assuming your Base Plan IDs contain these identifiers (e.g., 'monthly_bronze_plan')
+  'bronze':
+      'The Bronze Tier provides 20 writes and 5 collage shares, perfect for the casual, entry-level user.',
+  'silver':
+      'The Silver Tier offers 50 writes and 15 collage shares, designed for active users needing more capacity and frequent sharing.',
+  'gold':
+      'The Gold Tier delivers 500 writes and 50 collage shares, offering maximum capacity and creative freedom for power users and professionals.',
 };
 
-// Renamed class to SubscriptionManagerF
+// --- FIX 1: Use Composition (Wrapper Class) instead of Inheritance ---
+
+/// A custom wrapper that combines the raw Google Play details with your local marketing data.
+class OfferWithTierDetails {
+  // Store the actual GooglePlayProductDetails object
+  final GooglePlayProductDetails productDetails;
+
+  // Store the local marketing description based on tier
+  final String tierDescription;
+
+  // Store key identifiers
+  final String basePlanId;
+  final SubscriptionOfferDetailsWrapper? offerDetails;
+  final String name;
+
+  OfferWithTierDetails({
+    required this.productDetails,
+    required this.tierDescription,
+    required this.basePlanId,
+    required this.offerDetails,
+    required this.name, // NEW: Requires name
+  });
+
+  // Proxy getters for convenience when displaying
+  String get id => productDetails.id;
+  String get title => productDetails.title;
+  double get rawPrice => productDetails.rawPrice;
+
+  // A helper getter for a cleaner price display
+  String get displayPrice {
+    if (offerDetails != null && offerDetails!.pricingPhases.isNotEmpty) {
+      // Typically, the first phase price is the one to show (might be trial, intro, or base)
+      return offerDetails!.pricingPhases.first.formattedPrice;
+    }
+    // Fallback to the generic price field
+    return productDetails.price;
+  }
+
+  // Helper to get the actual ProductDetails needed for the buy method
+  ProductDetails get purchaseProductDetails => productDetails;
+}
+
 class SubscriptionManager with ChangeNotifier {
   final FirebaseService _firebaseService;
   final InAppPurchase _iap = InAppPurchase.instance;
-  final AppStatusNotifier _appStatusNotifier; 
+  final AppStatusNotifier _appStatusNotifier;
 
-  // State fields
   bool _isAvailable = false;
-  List<ProductDetails> _products = [];
   bool _isLoading = true;
-  StreamSubscription<List<PurchaseDetails>>? _subscription;
-  // Added a field to communicate transaction success/failure status to the UI
-  String? _transactionMessage;
 
-  // Expose state to UI via getters
+  // --- FIX 2: Change product list to hold the new custom type ---
+  List<OfferWithTierDetails> _offerDetails = [];
+
+  List<PurchaseDetails> _purchases = [];
+  String? _transactionMessage;
+  StreamSubscription<List<PurchaseDetails>>? _subscription;
+
   bool get isAvailable => _isAvailable;
-  List<ProductDetails> get products => _products;
   bool get isLoading => _isLoading;
+
+  // --- FIX 3: New getter for products with tier info ---
+  List<OfferWithTierDetails> get availableOffers => _offerDetails;
+
+  // Kept for compatibility if external components expect ProductDetails
+  List<ProductDetails> get products =>
+      _offerDetails.map((e) => e.productDetails).toList();
+
+  List<PurchaseDetails> get purchases => _purchases;
   String? get transactionMessage => _transactionMessage;
 
-  // Constructor: Requires the FirebaseService to call the cloud function
-  // Removed BuildContext from the constructor to make it a pure service
   SubscriptionManager(this._firebaseService, this._appStatusNotifier) {
     _initializeIAP();
   }
 
-  // --- CORE INITIALIZATION ---
   Future<void> _initializeIAP() async {
     _isAvailable = await _iap.isAvailable();
 
     if (_isAvailable) {
       await _loadProducts();
 
-      // 2. Listen to the purchase stream for purchases/restorations
-      final purchaseUpdated = _iap.purchaseStream;
-      _subscription = purchaseUpdated.listen(
+      _subscription = _iap.purchaseStream.listen(
         _listenToPurchaseUpdated,
         onDone: () => _subscription?.cancel(),
         onError: (error) {
@@ -58,30 +117,109 @@ class SubscriptionManager with ChangeNotifier {
         },
       );
 
-      // 3. IMPORTANT: Query for any active purchases/subscriptions on launch
-      await queryActivePurchases();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        queryActivePurchases();
+      });
     } else {
       _isLoading = false;
-      notifyListeners();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // notifyListeners();
+      });
     }
   }
 
-  // Utility to set and clear transaction message for UI
-  void _setTransactionMessage(String message) {
-    _transactionMessage = message;
+  // --- FIX 4: Implemented logic to map offer details to local data ---
+  Future<void> _loadProducts() async {
+    _isLoading = true;
     notifyListeners();
-    // Optional: Clear message after a delay so it doesn't persist
-    Future.delayed(const Duration(seconds: 5), () {
-      if (_transactionMessage == message) {
-        _transactionMessage = null;
-        notifyListeners();
-      }
-    });
-  }
 
-  // Called by the UI to check for existing subs
+    final response = await _iap.queryProductDetails(_kProductIds);
+
+    if (response.error != null) {
+      AppLogger.log('Failed to load products: ${response.error}');
+      _setTransactionMessage('Failed to load subscription details.');
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    final List<OfferWithTierDetails> combinedOffers = [];
+
+    // The query returns ONE GooglePlayProductDetails object for EACH offer/base plan
+    for (var pd in response.productDetails) {
+      if (pd is GooglePlayProductDetails) {
+        final productDetailsWrapper = pd.productDetails;
+
+        if (productDetailsWrapper.productType == ProductType.subs) {
+          final fullListOfOffers =
+              productDetailsWrapper.subscriptionOfferDetails;
+          final currentOfferIndex = pd.subscriptionIndex;
+
+          if (fullListOfOffers != null &&
+              currentOfferIndex != null &&
+              currentOfferIndex < fullListOfOffers.length) {
+            final SubscriptionOfferDetailsWrapper currentOffer =
+                fullListOfOffers[currentOfferIndex];
+
+            final basePlanId = currentOffer.basePlanId;
+            AppLogger.log('Processing Offer. Base Plan ID: $basePlanId');
+
+            // --- FIX: Filter out offers without pricing (often indicates inactive/deactivated) ---
+            if (currentOffer.pricingPhases.isEmpty) {
+              AppLogger.log(
+                'Skipping offer for $basePlanId: No pricing phase found (likely inactive/deactivated)',
+              );
+              continue; // Skip this deactivated offer
+            }
+
+            // --- Mapping Logic for Name and Description ---
+            String tierKey = 'default';
+
+            // Derive Tier
+            if (basePlanId.toLowerCase().contains('bronze')) {
+              tierKey = 'Bronze';
+            } else if (basePlanId.toLowerCase().contains('silver')) {
+              tierKey = 'Silver';
+            } else if (basePlanId.toLowerCase().contains('gold')) {
+              tierKey = 'Gold';
+            }
+
+            // NEW: Generate user-friendly name
+            final String offerName =
+                '$tierKey Tier'; // e.g., "Monthly Gold Tier"
+
+            final String description =
+                subscriptionTiers[tierKey.toLowerCase()] ??
+                pd.description; // Fallback to store description
+
+            combinedOffers.add(
+              OfferWithTierDetails(
+                productDetails: pd,
+                tierDescription: description,
+                basePlanId: basePlanId,
+                offerDetails: currentOffer,
+                name: offerName, // NEW: Add the generated name
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    // Sort the final list by price (e.g., to ensure consistent display order)
+    combinedOffers.sort((a, b) => a.rawPrice.compareTo(b.rawPrice));
+
+    _offerDetails = combinedOffers;
+
+    _isLoading = false;
+    notifyListeners();
+  }
+  // --- End _loadProducts fix ---
+
   Future<void> queryActivePurchases() async {
     AppLogger.log('Querying for active subscriptions...');
+    _purchases.clear();
+
     try {
       await _iap.restorePurchases();
       AppLogger.log('Restore purchases command sent.');
@@ -90,31 +228,8 @@ class SubscriptionManager with ChangeNotifier {
     }
   }
 
-  // --- PRODUCT LOADING ---
-  Future<void> _loadProducts() async {
-    _isLoading = true;
-    notifyListeners();
-
-    final ProductDetailsResponse response = await _iap.queryProductDetails(
-      _kProductIds,
-    );
-
-    if (response.error != null) {
-      AppLogger.log('Failed to load products: ${response.error}');
-      _setTransactionMessage('Failed to load subscription details.');
-    }
-
-    final sortedProducts = response.productDetails;
-    sortedProducts.sort((a, b) => a.rawPrice.compareTo(b.rawPrice));
-
-    _products = sortedProducts;
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  // --- PURCHASE FLOW ---
   void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
-    for (var purchase in purchaseDetailsList) {
+    for (final purchase in purchaseDetailsList) {
       if (purchase.status == PurchaseStatus.pending) {
         _setTransactionMessage('Purchase Pending...');
       } else if (purchase.status == PurchaseStatus.error) {
@@ -122,60 +237,53 @@ class SubscriptionManager with ChangeNotifier {
         _setTransactionMessage('Purchase Failed: ${purchase.error?.message}');
       } else if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        // Deliver product requires context to update AppStatusNotifier,
-        // so we make this method accept the context provided by the UI.
-        // For the global service, we rely on the UI to call the contextual method.
         AppLogger.log('Purchase requires verification: ${purchase.status}');
-        // We cannot call _verifyAndDeliverProduct here as it needs BuildContext.
-        // We MUST pass the PurchaseDetails to a contextual method called by the view.
-        // However, to simplify the external interface, we'll keep the internal verification logic here
-        // but acknowledge the need for context during the AppStatusNotifier update.
-        // Since the manager is registered via Provider, we can't completely remove all
-        // context-related logic if it must update AppStatusNotifier.
-
-        // Since the requirement is to remove context, we must ONLY do Firebase verification here.
-        // The AppStatusNotifier update MUST be delegated to a UI method.
-        // This is a compromise: we verify here, and let the UI handle the AppStatusNotifier update.
         _verifyPurchase(purchase);
       } else {
-        AppLogger.log('Purchase status: ${purchase.status}');
+        AppLogger.log('Unhandled purchase status: ${purchase.status}');
       }
     }
   }
 
-  // New method: ONLY performs Firebase verification and returns the result
   Future<Map<String, dynamic>> _verifyPurchase(PurchaseDetails purchase) async {
-    final finalReceiptToken = purchase.verificationData.serverVerificationData;
-    final purchasedProductId = purchase.productID;
+    final token = purchase.verificationData.serverVerificationData;
+    final productId = purchase.productID;
 
+    // Assuming this service sends the purchase data to your backend for validation
     final response = await _firebaseService.verifyInAppPurchase(
-      productId: purchasedProductId,
-      purchaseToken: finalReceiptToken,
+      productId: productId,
+      purchaseToken: token,
     );
 
     if (response['status'] == 'success') {
-      AppLogger.log('Verification successful for ${purchase.productID}');
+      AppLogger.log('Verification successful for $productId');
+
       final sharesUsed = response['dailySharesUsed'];
       final sharesLimit = response['dailySharesLimit'];
       final tier = response['tier'];
-      AppLogger.log('Verification successful. Tier:$tier shares : $sharesUsed/$sharesLimit');
+
+      _purchases.clear();
+      _purchases.add(purchase);
+      notifyListeners();
+
       _appStatusNotifier.updateDailyShares(sharesUsed);
       _appStatusNotifier.updateDailySharesLimit(sharesLimit);
       _appStatusNotifier.updateTier(tier);
 
-      // CRITICAL: Acknowledge purchase to the store
       if (purchase.pendingCompletePurchase) {
+        AppLogger.log('completing transaction');
         _iap.completePurchase(purchase);
       }
-      _setTransactionMessage('Success! Your purchase is being applied.');
+
+      _setTransactionMessage('Success! Your subscription is active.');
     } else {
-      AppLogger.log('Server verification failed: ${response['message']}');
+      AppLogger.log('Verification failed: ${response['message']}');
       _setTransactionMessage('Verification failed. Please try again.');
     }
+
     return response;
   }
 
-  // Exposed method for the UI to call when a button is pressed
   void buySubscription(ProductDetails product) {
     if (!_isAvailable) {
       _setTransactionMessage(
@@ -184,17 +292,52 @@ class SubscriptionManager with ChangeNotifier {
       return;
     }
 
-    final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
+    // Note: When calling this, you should pass OfferWithTierDetails.purchaseProductDetails
+    // or cast the OfferWithTierDetails object if you must.
+    final purchaseParam = PurchaseParam(productDetails: product);
     _iap.buyNonConsumable(purchaseParam: purchaseParam);
+
     AppLogger.log('Purchase initiated for product: ${product.id}');
   }
 
-  // Exposed method for managing subscription (requires url_launcher)
-  void manageSubscription() {
-    AppLogger.log('Unsubscribe/Manage initiated.');
-    _setTransactionMessage(
-      'Redirecting to the store to manage your subscription.',
-    );
+   void manageSubscription() async {
+    _setTransactionMessage('Opening store to manage your subscription...');
+    
+    // Use the appropriate URL based on the platform for subscription management.
+    final String urlString = defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS
+        ? 'https://apps.apple.com/account/subscriptions' // iOS/macOS subscription management link
+        : 'https://play.google.com/store/account/subscriptions'; // Android subscription management link
+
+    final url = Uri.parse(urlString);
+
+    try {
+      // Use platformDefault mode for stability, as it lets the OS decide 
+      // the best way (browser/store app) to open the link.
+      final launched = await launchUrl(url, mode: LaunchMode.platformDefault);
+      
+      if (!launched) {
+        AppLogger.log('Could not launch subscription management URL: launchUrl returned false for $urlString');
+        // Providing clearer instruction to the user
+        _setTransactionMessage('Unable to open subscription management page. Please manually check your $urlString.');
+      }
+    } catch (e) {
+      // Catching the PlatformException/channel-error directly
+      AppLogger.log('Error launching URL ($urlString): $e');
+      // Providing clearer instruction to the user
+      _setTransactionMessage('An error occurred while trying to open the store. Error: $e. Please check your $urlString manually.');
+    }
+  }
+
+  void _setTransactionMessage(String message) {
+    _transactionMessage = message;
+    notifyListeners();
+
+    Future.delayed(const Duration(seconds: 5), () {
+      if (_transactionMessage == message) {
+        _transactionMessage = null;
+        notifyListeners();
+      }
+    });
   }
 
   @override

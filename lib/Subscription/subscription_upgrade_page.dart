@@ -16,15 +16,15 @@ class SubscriptionUpgradePage extends StatefulWidget {
 class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
   // 1. FIX: Removed the duplicate declaration.
   // Changed to nullable to safely handle initialization check in dispose.
-  SubscriptionManager? _manager; 
-  
+  SubscriptionManager? _manager;
+
   // Track the last message to avoid unnecessary SnackBar updates.
-  String? _lastMessage; 
+  String? _lastMessage;
 
   @override
   void initState() {
     super.initState();
-    
+
     // The safest way to access Provider in initState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _listenForManagerMessages();
@@ -36,7 +36,7 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
     // Read the manager once. This is safe inside addPostFrameCallback.
     // We can use context.read because we are not listening for changes here.
     _manager = context.read<SubscriptionManager>();
-    
+
     // Start listening to the manager
     // We know _manager is not null here, but we check/force non-null access.
     _manager!.addListener(_handleManagerUpdate);
@@ -46,11 +46,12 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
     // 2. FIX: Access the nullable field with a null check or null-aware operator.
     // Using a local variable for clarity and promotion.
     final manager = _manager;
-    
+
     if (manager == null) return; // Should not happen if logic is correct
-    
+
     // Check if message exists and is different from the last one
-    if (manager.transactionMessage != null && manager.transactionMessage != _lastMessage) {
+    if (manager.transactionMessage != null &&
+        manager.transactionMessage != _lastMessage) {
       _showSnackbar(manager.transactionMessage!);
       _lastMessage = manager.transactionMessage; // Update last message
     }
@@ -59,8 +60,8 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
   @override
   void dispose() {
     // 3. FIX: Check for nullability. This is the correct way for instance fields.
-    if (_manager != null) { 
-       _manager!.removeListener(_handleManagerUpdate);
+    if (_manager != null) {
+      _manager!.removeListener(_handleManagerUpdate);
     }
     super.dispose();
   }
@@ -80,7 +81,6 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
     return Consumer<SubscriptionManager>(
       builder: (context, manager, child) {
         return Scaffold(
-          // ... rest of the Scaffold body and UI logic is correct ...
           appBar: AppBar(
             title: const Text('Upgrade Your Access'),
             backgroundColor: Colors.blueGrey,
@@ -101,22 +101,32 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
                   : ListView(
                       padding: const EdgeInsets.all(16.0),
                       children: [
-                        // ... UI elements are correct ...
-                        if (manager.products.isEmpty)
+                        // --- FIX 4: Use the new availableOffers list ---
+                        if (manager.availableOffers.isEmpty)
                           const Center(
-                             child: Padding(
-                               padding: EdgeInsets.all(24.0),
-                               child: Text('No subscription products found.'),
-                             ),
+                            child: Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: Text('No subscription products found.'),
+                            ),
                           )
                         else
-                          ...manager.products.map((product) {
+                          // Iterate over the list of OfferWithTierDetails
+                          ...manager.availableOffers.map((offer) {
+                            final isPurchased = manager.purchases.any(
+                              // Use the proxy ID getter from OfferWithTierDetails
+                              (p) => p.productID == offer.id,
+                            );
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 16.0),
-                              child: ProductCard (
-                                product: product,
-                                onBuy: manager.buySubscription,
-                                isHighlighted: product.id.contains('gold'),
+                              child: ProductCard(
+                                // Pass the OfferWithTierDetails object to ProductCard for display
+                                offer: offer,
+                                // CRUCIAL FIX: When calling buySubscription, 
+                                // pass the underlying ProductDetails object needed by the IAP plugin.
+                                onBuy: (p) => manager.buySubscription(offer.purchaseProductDetails),
+                                // Use the proxy ID getter
+                                isHighlighted: offer.id.contains('gold'),
+                                isPurchased: isPurchased, 
                               ),
                             );
                           }),
