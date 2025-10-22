@@ -163,13 +163,9 @@ class SubscriptionManager with ChangeNotifier {
                 fullListOfOffers[currentOfferIndex];
 
             final basePlanId = currentOffer.basePlanId;
-            AppLogger.log('Processing Offer. Base Plan ID: $basePlanId');
 
             // --- FIX: Filter out offers without pricing (often indicates inactive/deactivated) ---
             if (currentOffer.pricingPhases.isEmpty) {
-              AppLogger.log(
-                'Skipping offer for $basePlanId: No pricing phase found (likely inactive/deactivated)',
-              );
               continue; // Skip this deactivated offer
             }
 

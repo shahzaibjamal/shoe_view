@@ -206,6 +206,7 @@ class _ShoeListViewState extends State<ShoeListView>
     if (confirmed) {
       final firebaseService = context.read<FirebaseService>();
       final response = await firebaseService.deleteShoe(shoe);
+      ShoeQueryUtils.logDynamic(response);
       if (response['success'] == false) {
         showDialog(
           context: context,
@@ -319,6 +320,7 @@ class _ShoeListViewState extends State<ShoeListView>
       final currencyCode = appStatus.currencyCode;
       final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
       buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
+      buffer.writeln('${indent}Condition: $symbol${shoe.condition}/10');
       buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
       buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       buffer.writeln(); // blank line for separation

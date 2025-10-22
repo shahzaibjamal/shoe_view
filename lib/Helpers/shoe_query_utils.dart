@@ -249,6 +249,8 @@ class ShoeQueryUtils {
 
   // Lists for the CupertinoPicker
   static const List<String> eurSizesList = [
+    '37',
+    '37.5',
     '38',
     '38.5',
     '39',
@@ -277,7 +279,9 @@ class ShoeQueryUtils {
   // --- SIZE CONVERSION DATA ---
   // A reliable mapping based on standard shoe conversion charts for sports shoes.
   static const Map<String, String> eurToUk = {
-    // Start (38 - 39.5)
+    // Start (37 - 39.5)
+    '37': '4',
+    '37.5': '4.5',
     '38': '5',
     '38.5': '5.5',
     '39': '6',
@@ -367,6 +371,27 @@ class ShoeQueryUtils {
         final url = response['remoteImageUrl'];
         AppLogger.log('successfully added - $url');
       }
+    }
+  }
+
+  static void logDynamic(dynamic data) {
+    if (data == null) {
+      AppLogger.log("⚠️ Data is null.");
+      return;
+    }
+
+    AppLogger.log("🔍 Logging data of type: ${data.runtimeType}");
+
+    if (data is Map) {
+      data.forEach((key, value) {
+        AppLogger.log("• $key: $value");
+      });
+    } else if (data is List) {
+      for (int i = 0; i < data.length; i++) {
+        AppLogger.log("• [$i]: ${data[i]}");
+      }
+    } else {
+      AppLogger.log("• Value: $data");
     }
   }
 }

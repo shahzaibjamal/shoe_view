@@ -161,7 +161,6 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   void _validateIds() {
     final currentItemId = _safeIntParse(_shoeIdController.text);
     final currentShipmentId = _shipmentIdController.text.trim();
-    AppLogger.log('#$currentShipmentId - ID - $currentItemId');
     final conflictingShoe = widget.existingShoes.firstWhereOrNull(
       (existingShoe) =>
           existingShoe.documentId != (widget.shoe?.documentId) &&
@@ -406,11 +405,18 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     // 1. Determine final size lists from the set
     final List<String> finalEurList = _currentEurSizes.toList()..sort();
 
-    // 2. Generate UK list based on EUR list
-    final List<String> finalUkList = finalEurList
-        .map((eur) => ShoeQueryUtils.eurToUk[eur] ?? 'N/A')
-        .toList();
+    // if the multi-size mode is globally enabled.
+    final bool isMultiSizeModeEnabled = context
+        .read<AppStatusNotifier>()
+        .isMultiSizeModeEnabled;
+    final bool shouldAutoGenerateUk = _isBound || isMultiSizeModeEnabled;
 
+    // 2. Determine UK list based on the combined condition.
+    final List<String> finalUkList = shouldAutoGenerateUk
+        ? finalEurList // If linked OR multi-size enabled, calculate UK list from the EUR list.
+              .map((eur) => ShoeQueryUtils.eurToUk[eur] ?? 'N/A')
+              .toList()
+        : ([_displayUkSize]);
     // 3. Prepare new/updated Shoe object
     final newShoe = (widget.shoe ?? Shoe.empty()).copyWith(
       itemId: itemId,
@@ -454,10 +460,13 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
         }
       }
 
+      bool isTest = context.read<AppStatusNotifier>().isTest;
       final response = await widget.firebaseService.updateShoe(
         newShoe,
-        base64Image, // will be null if no image
+        base64Image,
+        isTest: isTest, // will be null if no image
       );
+      // ShoeQueryUtils.logDynamic(response);
 
       if (response['success'] == false) {
         if (mounted) {
@@ -795,7 +804,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                   LengthLimitingTextInputFormatter(6),
                 ],
                 decoration: InputDecoration(
-                  labelText: 'Selling Price (${currency})',
+                  labelText: 'Selling Price ($currency)',
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty)
                     ? 'Price is required.'
