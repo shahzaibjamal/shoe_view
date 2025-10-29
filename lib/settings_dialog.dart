@@ -296,21 +296,28 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 2),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
                 children: ThemeMode.values.map((mode) {
                   final label =
                       mode.name[0].toUpperCase() + mode.name.substring(1);
                   return Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Radio<ThemeMode>(
+                        visualDensity: const VisualDensity(
+                          horizontal: -1,
+                          vertical: -2,
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         value: mode,
                         groupValue: _selectedTheme,
                         onChanged: (ThemeMode? value) {
                           if (value != null) _updateTheme(value);
                         },
                       ),
-                      Text(label),
+                      Text(label, style: const TextStyle(fontSize: 14)),
                     ],
                   );
                 }).toList(),
@@ -384,21 +391,37 @@ class _SettingsDialogState extends State<SettingsDialog> {
               ),
               const Spacer(),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: _showClearDataDialog,
-                    icon: const Icon(Icons.delete_forever),
-                    label: const Text('Clear All Data'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
+                  Flexible(
+                    child: ElevatedButton.icon(
+                      onPressed: _showClearDataDialog,
+                      icon: const Icon(Icons.delete_forever, size: 18),
+                      label: const Text('Clear Data'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
+                        textStyle: const TextStyle(fontSize: 14),
+                      ),
                     ),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: _signOutAndReturnToMain,
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Sign Out'),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: ElevatedButton.icon(
+                      onPressed: _signOutAndReturnToMain,
+                      icon: const Icon(Icons.logout, size: 18),
+                      label: const Text('Sign Out'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
+                        textStyle: const TextStyle(fontSize: 14),
+                      ),
+                    ),
                   ),
                 ],
               ),

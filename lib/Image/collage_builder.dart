@@ -139,7 +139,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
               height: collageHeight,
               padding: EdgeInsets.all(internalPadding),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 color: Colors.white,
               ),
               child: Stack(

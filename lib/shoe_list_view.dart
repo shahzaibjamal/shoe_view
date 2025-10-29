@@ -320,7 +320,7 @@ class _ShoeListViewState extends State<ShoeListView>
       final currencyCode = appStatus.currencyCode;
       final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
       buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
-      buffer.writeln('${indent}Condition: $symbol${shoe.condition}/10');
+      buffer.writeln('${indent}Condition: ${shoe.condition}/10');
       buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
       buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       buffer.writeln(); // blank line for separation

@@ -394,4 +394,9 @@ class ShoeQueryUtils {
       AppLogger.log("• Value: $data");
     }
   }
+
+  static String cleanLink(String url) {
+    final uri = Uri.parse(url);
+    return '${uri.scheme}://${uri.host}${uri.path}';
+  }
 }

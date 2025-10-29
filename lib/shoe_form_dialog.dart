@@ -182,9 +182,10 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   // --- Image Handling ---
   Future<void> _pickImage() async {
     final picker = ImagePicker();
+    bool isTest = context.read<AppStatusNotifier>().isTest;
     final picked = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 300,
+      maxWidth: isTest ? 500 : 300,
     );
     if (picked != null) {
       setState(() {
@@ -433,10 +434,10 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
 
       instagramLink: _instagramController.text.trim().isEmpty
           ? null
-          : _instagramController.text.trim(),
+          : ShoeQueryUtils.cleanLink(_instagramController.text.trim()),
       tiktokLink: _tiktokController.text.trim().isEmpty
           ? null
-          : _tiktokController.text.trim(),
+          : ShoeQueryUtils.cleanLink(_tiktokController.text.trim()),
       localImagePath: _dialogImageFile?.path ?? '',
       status: _status,
       remoteImageUrl: _currentRemoteImageUrl,
