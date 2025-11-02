@@ -113,50 +113,73 @@ class _ShoeListViewState extends State<ShoeListView>
     });
   }
 
-  void _onRefreshData() {
+  Future<void> _onRefreshData() async {
     setState(() {
       _isLoadingExternalData = true;
     });
-    final firebaseService = context.read<FirebaseService>();
-    firebaseService
-        .fetchData()
-        .then((newShoes) {
-          setState(() {
-            final combinedShoes = <Shoe>{..._manuallyFetchedShoes, ...newShoes};
-            _manuallyFetchedShoes = combinedShoes.toList();
-            _isLoadingExternalData = false;
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Fetched ${newShoes.length} item(s) and merged into the list.',
-                ),
-              ),
-            );
-          });
-        })
-        .catchError((error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Failed to fetch external data: $error',
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
+    final firebaseService = context.read<FirebaseService>();
+
+    try {
+      final fetchedShoes = await firebaseService.fetchData();
+
+      // Build a lookup map from streamShoes using composite key
+      final existingKeys = {
+        for (var shoe in streamShoes) '${shoe.itemId}_${shoe.shipmentId}': true,
+      };
+
+      final List<Shoe> newAvailableShoes = [];
+
+      for (final shoe in fetchedShoes) {
+        final key = '${shoe.itemId}_${shoe.shipmentId}';
+        final isNew = !existingKeys.containsKey(key) && shoe.status == 'N/A';
+
+        if (isNew) {
+          newAvailableShoes.add(shoe);
+          AppLogger.log(
+            'NEW → ID: ${shoe.itemId}, Shipment: ${shoe.shipmentId}, Detail: ${shoe.shoeDetail}',
           );
-        });
+        }
+      }
+
+      // Inject one new shoe for debug purposes
+      if (newAvailableShoes.isNotEmpty) {
+        await ShoeQueryUtils.debugAddShoesFromSheetData(
+          firebaseService,
+          newAvailableShoes,
+        );
+      }
+
+      // Merge all fetched shoes into manually fetched list
+      setState(() {
+        _isLoadingExternalData = false;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Fetched ${fetchedShoes.length} item(s) and merged into the list.',
+            ),
+          ),
+        );
+      });
+    } catch (error) {
+      setState(() {
+        _isLoadingExternalData = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to fetch external data: $error',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
   }
 
   void _openInApp() async {
-    // // Debug add shoes from sheet
-    // final firebaseService = context.read<FirebaseService>();
-    // ShoeQueryUtils.debugAddShoesFromSheetData(
-    //   firebaseService,
-    //   _manuallyFetchedShoes,
-    // );
-    // return;
     final subscriptionManager = context.read<SubscriptionManager>();
-
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ChangeNotifierProvider.value(
@@ -321,8 +344,12 @@ class _ShoeListViewState extends State<ShoeListView>
       final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
       buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
       buffer.writeln('${indent}Condition: ${shoe.condition}/10');
-      buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
-      buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
+      if (shoe.instagramLink.isNotEmpty) {
+        buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
+      }
+      if (shoe.tiktokLink.isNotEmpty) {
+        buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
+      }
       buffer.writeln(); // blank line for separation
     }
     buffer.writeln('Tap to claim 📦');
@@ -427,9 +454,8 @@ class _ShoeListViewState extends State<ShoeListView>
                     );
                   }
 
-                  // 🎯 FIX: Attach the ScrollController here
                   return ListView.builder(
-                    controller: _scrollController, // <-- ATTACH CONTROLLER
+                    controller: _scrollController,
                     itemCount: _displayedShoes.length,
                     itemBuilder: (context, index) {
                       final shoe = _displayedShoes[index];

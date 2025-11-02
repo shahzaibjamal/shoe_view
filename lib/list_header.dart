@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/app_info.dart';
+import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/app_status_notifier.dart'; // or use Riverpod if preferred
 
 class ListHeader extends StatefulWidget {
@@ -38,25 +39,15 @@ class ListHeader extends StatefulWidget {
 }
 
 class _ListHeaderState extends State<ListHeader> {
-  bool _isValidDevice = false;
-
   @override
   void initState() {
     super.initState();
-    _checkDevice();
-  }
-
-  void _checkDevice() async {
-    final deviceId = await AppInfoUtility.getDeviceId();
-    final validDevices = ['TP1A.220624.014'];
-    setState(() {
-      _isValidDevice = validDevices.contains(deviceId);
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final showDebugButton = context.watch<AppStatusNotifier>().isTest;
+    bool isValidDevice = context.read<AppStatusNotifier>().isTest;
 
     return Stack(
       children: [
@@ -250,7 +241,6 @@ class _ListHeaderState extends State<ListHeader> {
                   ),
                 ],
               ),
-
               // Sort and Control Buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -265,7 +255,7 @@ class _ListHeaderState extends State<ListHeader> {
                     onPressed: widget.onInAppButtonPressed,
                     tooltip: 'In-app action',
                   ),
-                  if (_isValidDevice)
+                  if (isValidDevice)
                     IconButton(
                       icon: const Icon(Icons.refresh, color: Colors.white),
                       onPressed: widget.onRefreshDataPressed,
@@ -293,21 +283,12 @@ class _ListHeaderState extends State<ListHeader> {
                           widget.onSortFieldChanged(newValue);
                         }
                       },
-                      items:
-                          [
-                            'ItemId',
-                            'size',
-                            'sold',
-                            'repaired',
-                            'sellingPrice',
-                          ].map((field) {
+                      items: ['ItemId', 'size', 'sellingPrice', 'sold', 'n/a']
+                          .map((field) {
                             return DropdownMenuItem(
                               value: field,
                               child: Text(
-                                field == 'sellingPrice'
-                                    ? 'Price'
-                                    : field[0].toUpperCase() +
-                                          field.substring(1),
+                                ShoeQueryUtils.formatLabel(field),
                                 style: TextStyle(
                                   color: widget.sortField == field
                                       ? Colors.amberAccent
@@ -315,7 +296,8 @@ class _ListHeaderState extends State<ListHeader> {
                                 ),
                               ),
                             );
-                          }).toList(),
+                          })
+                          .toList(),
                     ),
                   ),
                   IconButton(
@@ -336,8 +318,8 @@ class _ListHeaderState extends State<ListHeader> {
 
         if (showDebugButton)
           Positioned(
-            top: 8,
-            right: 8,
+            top: 2,
+            right: 2,
             child: IconButton(
               icon: const Icon(Icons.bug_report, color: Colors.redAccent),
               onPressed: () {

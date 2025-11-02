@@ -8,12 +8,13 @@ class ProductCard extends StatelessWidget {
   final Function() onUnSub;
   final bool isHighlighted;
   final dynamic isPurchased;
-
+  final bool isVerifying;
   const ProductCard({
     super.key,
     required this.offer,
     required this.onBuy,
     required this.onUnSub,
+    required this.isVerifying,
     this.isHighlighted = false,
     this.isPurchased = false,
   });
@@ -67,7 +68,9 @@ class ProductCard extends StatelessWidget {
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton.icon(
-                onPressed: isPurchased ? onUnSub : () => onBuy(offer),
+                onPressed: isVerifying
+                    ? null
+                    : (isPurchased ? onUnSub : () => onBuy(offer)),
                 icon: Icon(isPurchased ? Icons.cancel : Icons.star),
                 label: Text(
                   isPurchased

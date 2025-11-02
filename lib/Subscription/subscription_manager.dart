@@ -22,9 +22,9 @@ const Set<String> _kProductIds = {'tier_premium_access'};
 final Map<String, String> subscriptionTiers = {
   // Assuming your Base Plan IDs contain these identifiers (e.g., 'monthly_bronze_plan')
   'bronze':
-      'The Bronze Tier provides 20 writes and 5 collage shares, perfect for the casual, entry-level user.',
+      'The Bronze Tier provides 50 writes and 10 collage shares, perfect for the casual, entry-level user.',
   'silver':
-      'The Silver Tier offers 50 writes and 15 collage shares, designed for active users needing more capacity and frequent sharing.',
+      'The Silver Tier offers 100 writes and 20 collage shares, designed for active users needing more capacity and frequent sharing.',
   'gold':
       'The Gold Tier delivers 500 writes and 50 collage shares, offering maximum capacity and creative freedom for power users and professionals.',
 };

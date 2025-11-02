@@ -87,17 +87,6 @@ class Shoe {
       }
     }
 
-    // if (links != null) {
-    //   for (var link in links) {
-    //     final linkStr = link.toString();
-    //     if (linkStr.contains('instagram.com')) {
-    //       instagram = linkStr;
-    //     } else if (linkStr.contains('tiktok.com')) {
-    //       tiktok = linkStr;
-    //     }
-    //   }
-    // }
-
     return Shoe(
       documentId: documentId,
       itemId: itemId,

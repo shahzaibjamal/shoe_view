@@ -61,7 +61,7 @@ class ShoeListItem extends StatelessWidget {
       // If multi-size is OFF (single-size), display both EUR and UK
       sizeDisplay = 'EUR: $eurSizes, UK: $ukSizes';
     }
-    AppLogger.log('sizes - $eurSizes');
+
     showDialog(
       context: context,
       barrierColor: const Color.fromARGB(200, 0, 0, 0),

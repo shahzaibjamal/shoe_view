@@ -69,7 +69,7 @@ class FirebaseService {
         for (var item in data) {
           try {
             final shoe = Shoe.fromJson(item);
-            if (shoe.status != 'Sold' && shoe.isUploaded && shoe.isConfirmed) {
+            if (shoe.status != 'Sold') {
               shoes.add(shoe);
             }
           } catch (e) {

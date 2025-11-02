@@ -7,7 +7,6 @@ import 'dart:convert';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart'; // Needed for firstWhereOrNull
 import 'package:provider/provider.dart';
-import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/analytics_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
@@ -251,11 +250,11 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
 
     await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (BuildContext context) {
-        return Container(
-          height: 200,
-          color: Colors.white,
+        return SafeArea(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -267,7 +266,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              Expanded(
+              SizedBox(
+                height: 200,
                 child: CupertinoPicker.builder(
                   scrollController: FixedExtentScrollController(
                     initialItem: !sizeList.contains(selectedSize)
@@ -467,7 +467,6 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
         base64Image,
         isTest: isTest, // will be null if no image
       );
-      // ShoeQueryUtils.logDynamic(response);
 
       if (response['success'] == false) {
         if (mounted) {
@@ -670,8 +669,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                       children: [
                         Text(
                           _isBound
-                              ? 'Sizes are linked (Auto-convert enabled)'
-                              : 'Sizes are independent (Manual entry)',
+                              ? 'Sizes linked (Auto)'
+                              : 'Sizes independent (Manual)',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Colors.blueGrey,
@@ -784,11 +783,11 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _buildStatusOption('Available'),
                       _buildStatusOption('Sold'),
-                      _buildStatusOption('Repaired'),
+                      _buildStatusOption('N/A'),
                     ],
                   ),
                 ],

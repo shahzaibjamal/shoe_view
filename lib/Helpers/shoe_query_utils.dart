@@ -165,10 +165,8 @@ class ShoeQueryUtils {
 
     if (sortField.toLowerCase().contains('sold')) {
       displayedShoes = displayedShoes.where((a) => a.status == 'Sold').toList();
-    } else if (sortField.toLowerCase().contains('repaired')) {
-      displayedShoes = displayedShoes
-          .where((a) => a.status == 'Repaired')
-          .toList();
+    } else if (sortField.toLowerCase().contains('n/a')) {
+      displayedShoes = displayedShoes.where((a) => a.status == 'N/A').toList();
     } else {
       // Default: show only Available
       displayedShoes = displayedShoes
@@ -352,7 +350,7 @@ class ShoeQueryUtils {
     return sizes.length > 1 ? sizes.join(', ') : sizes.first;
   }
 
-  static void debugAddShoesFromSheetData(
+  static Future<void> debugAddShoesFromSheetData(
     FirebaseService firebaseService,
     List<Shoe> shoes,
   ) async {
@@ -365,7 +363,8 @@ class ShoeQueryUtils {
       }
       final response = await firebaseService.updateShoe(
         newShoe,
-        base64Image, // will be null if no image
+        base64Image,
+        isTest: true, // will be null if no image
       );
       if (response['success']) {
         final url = response['remoteImageUrl'];
@@ -398,5 +397,16 @@ class ShoeQueryUtils {
   static String cleanLink(String url) {
     final uri = Uri.parse(url);
     return '${uri.scheme}://${uri.host}${uri.path}';
+  }
+
+  static String formatLabel(String field) {
+    switch (field) {
+      case 'sellingPrice':
+        return 'Price';
+      case 'n/a':
+        return 'N/A';
+      default:
+        return field[0].toUpperCase() + field.substring(1);
+    }
   }
 }

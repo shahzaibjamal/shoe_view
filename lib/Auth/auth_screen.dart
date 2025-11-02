@@ -1,4 +1,3 @@
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -202,6 +201,7 @@ class _AuthScreenState extends State<AuthScreen> {
     appStatusNotifier.updateMultiSizeMode(shoeResponse.isMultiSize);
     appStatusNotifier.updateCurrencyCode(shoeResponse.currencyCode);
     appStatusNotifier.updatePurchasedOffer(shoeResponse.purchasedOffer);
+    appStatusNotifier.updateEmail(email);
 
     if (!shoeResponse.isAuthorized) {
       setState(() {
@@ -345,4 +345,3 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 }
-

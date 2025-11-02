@@ -77,7 +77,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
       '${dir.path}/logo_temp_${DateTime.now().millisecondsSinceEpoch}.jpg',
     );
     await savedFile.copy(tempPath.path);
-
     setState(() => _logoFile = tempPath);
   }
 
@@ -85,6 +84,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     try {
       await GoogleSignIn.instance.signOut();
       await FirebaseAuth.instance.signOut();
+      context.read<AppStatusNotifier>().reset();
       Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
     } catch (e) {
       print('Error signing out: $e');
@@ -223,212 +223,224 @@ class _SettingsDialogState extends State<SettingsDialog> {
     final appStatus = context.watch<AppStatusNotifier>();
     final tier = appStatus.tier;
     final isTestModeEnabled = appStatus.isTestModeEnabled;
+    final email = appStatus.email;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
-      child: SizedBox(
-        width: double.infinity,
-        height: isTestModeEnabled ? 680 : 640,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                // ✅ Title row
-                children: const [
-                  Icon(Icons.settings, size: 32),
-                  SizedBox(width: 8),
-                  Text(
-                    'Settings',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Your Logo',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _logoFile != null
-                      ? Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey, width: 2),
-                            borderRadius: BorderRadius.circular(8),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.settings, size: 32),
+                SizedBox(width: 8),
+                Text(
+                  'Settings',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Your Logo',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _logoFile != null
+                    ? Stack(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey, width: 2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            clipBehavior: Clip.hardEdge,
+                            child: Image.file(_logoFile!, fit: BoxFit.cover),
                           ),
-                          clipBehavior: Clip.hardEdge,
-                          child: Image.file(_logoFile!, fit: BoxFit.cover),
-                        )
-                      : Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey, width: 2),
-                            borderRadius: BorderRadius.circular(8),
+                          Positioned(
+                            top: 2,
+                            right: 2,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _logoFile = null;
+                                });
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  shape: BoxShape.circle,
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            size: 40,
-                          ),
+                        ],
+                      )
+                    : Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey, width: 2),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ElevatedButton(
-                          onPressed: _pickLogoImage,
-                          child: const Text('Upload'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Theme Mode',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 2),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: ThemeMode.values.map((mode) {
-                  final label =
-                      mode.name[0].toUpperCase() + mode.name.substring(1);
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Radio<ThemeMode>(
-                        visualDensity: const VisualDensity(
-                          horizontal: -1,
-                          vertical: -2,
-                        ),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        value: mode,
-                        groupValue: _selectedTheme,
-                        onChanged: (ThemeMode? value) {
-                          if (value != null) _updateTheme(value);
-                        },
+                        child: const Icon(Icons.image_not_supported, size: 40),
                       ),
-                      Text(label, style: const TextStyle(fontSize: 14)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _pickLogoImage,
+                        child: const Text('Upload'),
+                      ),
                     ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Theme Mode',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 2),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: ThemeMode.values.map((mode) {
+                final label =
+                    mode.name[0].toUpperCase() + mode.name.substring(1);
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Radio<ThemeMode>(
+                      visualDensity: const VisualDensity(
+                        horizontal: -1,
+                        vertical: -2,
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      value: mode,
+                      groupValue: _selectedTheme,
+                      onChanged: (ThemeMode? value) {
+                        if (value != null) _updateTheme(value);
+                      },
+                    ),
+                    Text(label, style: const TextStyle(fontSize: 14)),
+                  ],
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Currency',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: ShoeQueryUtils.currencies.map((currency) {
+                  final code = currency['code']!;
+                  final symbol = currency['symbol']!;
+                  final isSelected = _currencyCode == code;
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text('$code ($symbol)'),
+                      selected: isSelected,
+                      onSelected: (_) => _updateCurrency(code),
+                    ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Currency',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Multi-Size Inventory',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            ListTile(
+              title: const Text(
+                'Enable Multi-Size Inventory Mode',
+                style: TextStyle(fontSize: 16),
               ),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: ShoeQueryUtils.currencies.map((currency) {
-                    final code = currency['code']!;
-                    final symbol = currency['symbol']!;
-                    final isSelected = _currencyCode == code;
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ChoiceChip(
-                        label: Text('$code ($symbol)'),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          _updateCurrency(code);
-                        },
-                      ),
-                    );
-                  }).toList(),
-                ),
+              trailing: Switch(
+                value: _isMultiSize,
+                onChanged: _updateMultiSize,
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Multi-Size Inventory',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+            ),
+            const SizedBox(height: 8),
+            if (isTestModeEnabled)
               ListTile(
                 title: const Text(
-                  'Enable Multi-Size Inventory Mode',
+                  'Enable Test Mode',
                   style: TextStyle(fontSize: 16),
                 ),
-                trailing: Switch(
-                  value: _isMultiSize,
-                  onChanged: (bool value) {
-                    // Use the new toggle method to update the global state
-                    _updateMultiSize(value);
-                  },
-                ),
+                trailing: Switch(value: _isTest, onChanged: _updateTest),
               ),
-              const SizedBox(height: 8),
-              if (isTestModeEnabled)
-                ListTile(
-                  title: const Text(
-                    'Enable Test Mode',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  trailing: Switch(
-                    value: _isTest,
-                    onChanged: (bool value) {
-                      _updateTest(value);
-                    },
-                  ),
-                ),
-              const SizedBox(height: 8),
-              Text(
-                'Current Tier: ${(tier)}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Flexible(
-                    child: ElevatedButton.icon(
-                      onPressed: _showClearDataDialog,
-                      icon: const Icon(Icons.delete_forever, size: 18),
-                      label: const Text('Clear Data'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        textStyle: const TextStyle(fontSize: 14),
+            const SizedBox(height: 8),
+            Text(
+              'Current Tier: $tier',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Flexible(
+                  child: ElevatedButton.icon(
+                    onPressed: _showClearDataDialog,
+                    icon: const Icon(Icons.delete_forever, size: 18),
+                    label: const Text('Clear Data'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
                       ),
+                      textStyle: const TextStyle(fontSize: 14),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: ElevatedButton.icon(
-                      onPressed: _signOutAndReturnToMain,
-                      icon: const Icon(Icons.logout, size: 18),
-                      label: const Text('Sign Out'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        textStyle: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: ElevatedButton.icon(
+                    onPressed: _signOutAndReturnToMain,
+                    icon: const Icon(Icons.logout, size: 18),
+                    label: const Text('Sign Out'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
                       ),
+                      textStyle: const TextStyle(fontSize: 14),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const VersionFooter(),
-            ],
-          ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const VersionFooter(),
+            const SizedBox(height: 2),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Text('signed in as: $email'),
+            ),
+          ],
         ),
       ),
     );

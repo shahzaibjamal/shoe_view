@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'Helpers/app_logger.dart';
-
 class AppStatusNotifier extends ChangeNotifier {
   bool _isTest = false; // Default state
   bool _isTestModeEnabled = false; // Default state
@@ -16,6 +14,7 @@ class AppStatusNotifier extends ChangeNotifier {
   String _currencyCode = 'USD'; // Default currency
   bool _isMultiSizeModeEnabled = false;
   String _purchasedOffer = 'none'; // Default currency
+  String _email = 'none'; // Default currency
 
   bool get isTrial => _isTrial;
   bool get isTest => _isTest;
@@ -29,6 +28,23 @@ class AppStatusNotifier extends ChangeNotifier {
   String get currencyCode => _currencyCode;
   bool get isMultiSizeModeEnabled => _isMultiSizeModeEnabled;
   String get purchasedOffer => _purchasedOffer;
+  String get email => _email;
+
+  void reset() {
+    _isTrial = false;
+    _isTest = false;
+    _isTestModeEnabled = false;
+    _dailyShares = 0;
+    _dailySharesLimit = 0;
+    _dailyWrites = 0;
+    _dailyWritesLimit = 0;
+    _tier = 0;
+    _themeMode = ThemeMode.light;
+    _currencyCode = 'USD';
+    _isMultiSizeModeEnabled = false;
+    _purchasedOffer = 'none';
+    _email = 'none';
+  }
 
   void updateTrial(bool trial) {
     _isTrial = trial;
@@ -89,6 +105,11 @@ class AppStatusNotifier extends ChangeNotifier {
 
   void updatePurchasedOffer(String offer) {
     _purchasedOffer = offer;
+    notifyListeners();
+  }
+
+  void updateEmail(String email) {
+    _email = email;
     notifyListeners();
   }
 }
