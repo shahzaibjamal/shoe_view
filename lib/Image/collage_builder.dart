@@ -12,7 +12,7 @@ import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Image/shoe_network_image.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/error_dialog.dart';
-import 'package:shoe_view/firebase_service.dart';
+import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
 
 class CollageBuilder extends StatefulWidget {
@@ -289,7 +289,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
     // Determine the maximum requested size based on the grid structure
     double requestedCap;
     if (crossAxisCount == 1) {
-      requestedCap = 100.0;
+      requestedCap = 00.0;
     } else if (crossAxisCount == 2) {
       requestedCap = 90.0;
     } else if (crossAxisCount == 3) {

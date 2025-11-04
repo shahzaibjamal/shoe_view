@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:shoe_view/Helpers/app_logger.dart';
-import 'package:shoe_view/firebase_service.dart';
+import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
 
 class ShoeQueryUtils {
@@ -167,6 +167,10 @@ class ShoeQueryUtils {
       displayedShoes = displayedShoes.where((a) => a.status == 'Sold').toList();
     } else if (sortField.toLowerCase().contains('n/a')) {
       displayedShoes = displayedShoes.where((a) => a.status == 'N/A').toList();
+    } else if (sortField.toLowerCase().contains('repaired')) {
+      displayedShoes = displayedShoes
+          .where((a) => a.status == 'Repaired')
+          .toList();
     } else {
       // Default: show only Available
       displayedShoes = displayedShoes
@@ -174,12 +178,24 @@ class ShoeQueryUtils {
           .toList();
     }
     // --- 1. Sorting ---
-    displayedShoes.sort((a, b) {
-      final shipmentA = int.tryParse(a.shipmentId) ?? 0;
-      final shipmentB = int.tryParse(b.shipmentId) ?? 0;
-      int comparison = shipmentA.compareTo(shipmentB);
+    final isStatusFiltered = [
+      'sold',
+      'n/a',
+      'repaired',
+    ].any((status) => sortField.toLowerCase().contains(status));
 
-      if (comparison == 0) {
+    displayedShoes.sort((a, b) {
+      int comparison;
+
+      if (isStatusFiltered) {
+        final shipmentA = int.tryParse(a.shipmentId) ?? 0;
+        final shipmentB = int.tryParse(b.shipmentId) ?? 0;
+        comparison = shipmentA.compareTo(shipmentB);
+
+        if (comparison == 0) {
+          comparison = a.itemId.compareTo(b.itemId);
+        }
+      } else {
         if (sortField == 'size') {
           final sizeA = _safeDoubleParse(a.sizeEur?.first);
           final sizeB = _safeDoubleParse(b.sizeEur?.first);
@@ -188,14 +204,14 @@ class ShoeQueryUtils {
           comparison = a.sellingPrice.compareTo(b.sellingPrice);
         } else if (sortField == 'ItemId') {
           comparison = a.itemId.compareTo(b.itemId);
-        }
-
-        if (!sortAscending) {
-          comparison = -comparison;
+        } else {
+          final shipmentA = int.tryParse(a.shipmentId) ?? 0;
+          final shipmentB = int.tryParse(b.shipmentId) ?? 0;
+          comparison = shipmentA.compareTo(shipmentB);
         }
       }
 
-      return comparison;
+      return sortAscending ? comparison : -comparison;
     });
 
     // --- 2. Limiting & Randomization ---
@@ -227,6 +243,22 @@ class ShoeQueryUtils {
   static double _safeDoubleParse(String? text) {
     if (text == null || text.isEmpty) return 0.0;
     return double.tryParse(text) ?? 0.0;
+  }
+
+  // --- Data Conversion & Validation Helpers ---
+  static int safeIntParse(String? text) {
+    if (text == null || text.isEmpty) return 0;
+    return int.tryParse(text) ?? 0;
+  }
+
+  static String? validateLink(String? value, String requiredDomain) {
+    if (value == null || value.trim().isEmpty) {
+      return null; // Links are optional
+    }
+    if (!value.toLowerCase().contains(requiredDomain)) {
+      return 'If provided, must contain "$requiredDomain".';
+    }
+    return null;
   }
 
   static String _formatSizeForComparison(dynamic size) {
@@ -405,6 +437,8 @@ class ShoeQueryUtils {
         return 'Price';
       case 'n/a':
         return 'N/A';
+      case 'repaired':
+        return 'Repaired';
       default:
         return field[0].toUpperCase() + field.substring(1);
     }

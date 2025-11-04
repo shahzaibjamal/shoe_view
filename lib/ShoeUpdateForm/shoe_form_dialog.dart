@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart'; // Added for CupertinoPicker
 import 'package:flutter/services.dart'; // Added for input formatters
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart'; // Needed for firstWhereOrNull
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
-import 'package:shoe_view/analytics_service.dart';
+import 'package:shoe_view/ShoeUpdateForm/shoe_condition_picker.dart';
+import 'package:shoe_view/ShoeUpdateForm/shoe_image_picker.dart';
+import 'package:shoe_view/ShoeUpdateForm/shoe_size_picker.dart';
+import 'package:shoe_view/ShoeUpdateForm/shoe_status_selector.dart';
+import 'package:shoe_view/Services/analytics_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 
 import 'package:shoe_view/error_dialog.dart';
-import 'package:shoe_view/firebase_service.dart';
+import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
 
 // ----------------------------------------------------------------------
@@ -57,7 +60,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   // These variables are only used for display purposes when in Single Size Mode
   late String _displayEurSize;
   late String _displayUkSize;
-
+  String _repairNotes = '';
   bool _isBound = true; // true = changing one auto-updates the other (default)
 
   // Local State
@@ -84,6 +87,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
 
     // Condition, Quantity, and Status
     _selectedCondition = widget.shoe?.condition.toStringAsFixed(1) ?? '10.0';
+    _repairNotes = widget.shoe?.notes ?? 'None';
 
     _status = widget.shoe?.status ?? 'Available';
     _isBound = widget.shoe?.isSizeLinked ?? true;
@@ -158,7 +162,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
 
   // --- Real-time Validation ---
   void _validateIds() {
-    final currentItemId = _safeIntParse(_shoeIdController.text);
+    final currentItemId = ShoeQueryUtils.safeIntParse(_shoeIdController.text);
     final currentShipmentId = _shipmentIdController.text.trim();
     final conflictingShoe = widget.existingShoes.firstWhereOrNull(
       (existingShoe) =>
@@ -177,24 +181,6 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       }
     });
   }
-
-  // --- Image Handling ---
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    bool isTest = context.read<AppStatusNotifier>().isTest;
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: isTest ? 500 : 300,
-    );
-    if (picked != null) {
-      setState(() {
-        _dialogImageFile = File(picked.path);
-        _currentRemoteImageUrl = '';
-      });
-    }
-  }
-
-  // --- Size/Condition Handlers ---
 
   // Handle EUR size selection for SINGLE-SIZE MODE
   void _handleDisplayEurSizeSelected(String newEurSize) {
@@ -239,126 +225,6 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     });
   }
 
-  // Helper function to show a modal with CupertinoPicker
-  Future<void> _showSizePicker(
-    String selectedSize,
-    List<String> sizeList,
-    Function(String) onSizeSelected,
-    String title,
-  ) async {
-    String tempSelectedSize = selectedSize;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              SizedBox(
-                height: 200,
-                child: CupertinoPicker.builder(
-                  scrollController: FixedExtentScrollController(
-                    initialItem: !sizeList.contains(selectedSize)
-                        ? 0
-                        : sizeList.indexOf(selectedSize),
-                  ),
-                  itemExtent: 32.0,
-                  onSelectedItemChanged: (int index) {
-                    tempSelectedSize = sizeList[index];
-                  },
-                  childCount: sizeList.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    return Center(child: Text(sizeList[index]));
-                  },
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  onSizeSelected(tempSelectedSize);
-                  Navigator.pop(context);
-                },
-                child: const Text('Done'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // --- Helper method for Multi-Size Picker UI ---
-  Widget _buildMultiSizePicker(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Selected EUR Sizes:',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6.0,
-          runSpacing: 6.0,
-          children: ShoeQueryUtils.eurSizesList.map((size) {
-            final isSelected = _currentEurSizes.contains(size);
-            return FilterChip(
-              label: Text(size),
-              selected: isSelected,
-              onSelected: _isLoading
-                  ? null
-                  : (bool selected) {
-                      setState(() {
-                        if (selected) {
-                          _currentEurSizes.add(size);
-                        } else {
-                          // Prevent deselecting if it's the only one left
-                          if (_currentEurSizes.length > 1) {
-                            _currentEurSizes.remove(size);
-                          }
-                        }
-                      });
-                    },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        if (_currentEurSizes.isEmpty)
-          const Text(
-            'Please select at least one size.',
-            style: TextStyle(color: Colors.red, fontSize: 12),
-          ),
-      ],
-    );
-  }
-
-  // --- Data Conversion & Validation Helpers ---
-  int _safeIntParse(String? text) {
-    if (text == null || text.isEmpty) return 0;
-    return int.tryParse(text) ?? 0;
-  }
-
-  String? _validateLink(String? value, String requiredDomain) {
-    if (value == null || value.trim().isEmpty) {
-      return null; // Links are optional
-    }
-    if (!value.toLowerCase().contains(requiredDomain)) {
-      return 'If provided, must contain "$requiredDomain".';
-    }
-    return null;
-  }
-
   // --- SAVE SHOE LOGIC (CRITICALLY UPDATED) ---
   Future<void> _saveShoe() async {
     if (!_formKey.currentState!.validate()) {
@@ -377,12 +243,12 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       return;
     }
 
-    final itemId = _safeIntParse(_shoeIdController.text);
+    final itemId = ShoeQueryUtils.safeIntParse(_shoeIdController.text);
     final shipmentId = _shipmentIdController.text.trim();
     final name = _nameController.text.trim();
-    final priceValue = _safeIntParse(_priceController.text);
+    final priceValue = ShoeQueryUtils.safeIntParse(_priceController.text);
     final conditionValue = double.tryParse(_selectedCondition) ?? 0.0;
-    final quantity = _safeIntParse(_quantityController.text);
+    final quantity = ShoeQueryUtils.safeIntParse(_quantityController.text);
 
     if (_currentEurSizes.isEmpty ||
         quantity < 1 ||
@@ -423,6 +289,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       itemId: itemId,
       shipmentId: shipmentId,
       shoeDetail: name,
+      notes: _repairNotes,
 
       // Use the combined LIST fields (Requires Shoe Model Update)
       sizeEur: finalEurList,
@@ -465,7 +332,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       final response = await widget.firebaseService.updateShoe(
         newShoe,
         base64Image,
-        isTest: isTest, // will be null if no image
+        isTest: isTest,
       );
 
       if (response['success'] == false) {
@@ -527,72 +394,10 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   }
 
   // Helper method to build the image widget (network or file)
-  Widget _buildShoeImage(
-    String remoteImageUrl, {
-    double width = 70,
-    double height = 70,
-  }) {
-    // Priority 1: Remote URL (from Firestore)
-    if (remoteImageUrl.isNotEmpty) {
-      // Assuming Image.network is used as a stand-in for ShoeNetworkImage
-
-      return Image.network(
-        remoteImageUrl,
-        width: width,
-        cacheWidth: 512, // width constraint
-        height: height,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                  : null,
-            ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return const Icon(
-            Icons.broken_image,
-            size: 40,
-            color: Colors.redAccent,
-          );
-        },
-      );
-    }
-    // Fallback: No image available
-    return const Icon(Icons.image_not_supported, size: 40, color: Colors.grey);
-  }
 
   @override
   Widget build(BuildContext context) {
     // Build the image preview widget
-    Widget imagePreview(double width, double height) {
-      if (_dialogImageFile != null) {
-        // Show newly picked local image
-        return Image.file(
-          _dialogImageFile!,
-          width: width,
-          height: height,
-          fit: BoxFit.cover,
-        );
-      } else if (_currentRemoteImageUrl.isNotEmpty) {
-        // Show remote image if editing existing shoe
-        return _buildShoeImage(
-          _currentRemoteImageUrl,
-          width: width,
-          height: height,
-        );
-      }
-      return const Icon(
-        Icons.image_not_supported,
-        size: 60,
-        color: Colors.grey,
-      );
-    }
-
     final bool isMultiSizeModeEnabled = context
         .watch<AppStatusNotifier>()
         .isMultiSizeModeEnabled;
@@ -660,82 +465,20 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
               ),
               const SizedBox(height: 16),
               // --- CONDITIONAL SIZE INPUTS ---
-              if (isSingleSize)
-                // A. SINGLE-SIZE PICKERS (EUR/UK linked automatically via handlers)
-                Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _isBound
-                              ? 'Sizes linked (Auto)'
-                              : 'Sizes independent (Manual)',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.blueGrey,
-                          ),
-                        ),
-                        Switch(
-                          value: _isBound,
-                          onChanged: _isLoading
-                              ? null
-                              : (bool value) {
-                                  setState(() {
-                                    _isBound = value;
-                                  });
-                                },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizeDisplayCard(
-                            title: 'Size EUR',
-                            value: _displayEurSize,
-                            // ⭐️ EUR Picker is always enabled in single-size mode
-                            onTap: _isLoading
-                                ? null
-                                : () => _showSizePicker(
-                                    _displayEurSize,
-                                    ShoeQueryUtils.eurSizesList,
-                                    _handleDisplayEurSizeSelected,
-                                    'Select EUR Size',
-                                  ),
-                            isBound:
-                                _isBound, // Pass bound status for visual feedback
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SizeDisplayCard(
-                            title: 'Size UK',
-                            value: _displayUkSize,
-                            // ⭐️ UK Picker is always enabled in single-size mode
-                            onTap: _isLoading
-                                ? null
-                                : () => _showSizePicker(
-                                    _displayUkSize,
-                                    ShoeQueryUtils.ukSizesList,
-                                    _handleDisplayUkSizeSelected,
-                                    'Select UK Size',
-                                  ),
-                            isBound:
-                                _isBound, // Pass bound status for visual feedback
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                )
-              else
-                // B. MULTI-SIZE CHIP PICKER
-                _buildMultiSizePicker(context),
-
+              ShoeSizePicker(
+                isSingleSize: isSingleSize,
+                isBound: _isBound,
+                isLoading: _isLoading,
+                displayEurSize: _displayEurSize,
+                displayUkSize: _displayUkSize,
+                currentEurSizes: _currentEurSizes,
+                onBoundChanged: (val) => setState(() => _isBound = val),
+                onEurSizeSelected: _handleDisplayEurSizeSelected,
+                onUkSizeSelected: _handleDisplayUkSizeSelected,
+                onMultiSizeChanged: (sizes) =>
+                    setState(() => _currentEurSizes = sizes),
+              ),
               const SizedBox(height: 16),
-
               // --- QUANTITY FIELD (NEW) ---
               TextFormField(
                 controller: _quantityController,
@@ -750,50 +493,33 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                   helperText: 'Used for inventory tracking. Must be 1 or more.',
                 ),
                 validator: (value) {
-                  if (value == null || _safeIntParse(value) < 1) {
+                  if (value == null || ShoeQueryUtils.safeIntParse(value) < 1) {
                     return 'Quantity must be 1 or more.';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-
-              if (isSingleSize)
-                SizeDisplayCard(
-                  title: 'Condition (1.0 - 10.0)',
-                  value: _selectedCondition,
-                  onTap: _isLoading
-                      ? null
-                      : () => _showSizePicker(
-                          _selectedCondition,
-                          ShoeQueryUtils
-                              .conditionList, // Use the corrected list
-                          _handleConditionSelected,
-                          'Select Condition',
-                        ),
-                ),
-              const SizedBox(height: 16),
-
-              // --- STATUS RADIO GROUP (Unchanged) ---
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Status:',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStatusOption('Available'),
-                      _buildStatusOption('Sold'),
-                      _buildStatusOption('N/A'),
-                    ],
-                  ),
-                ],
+              ShoeConditionPicker(
+                selectedCondition: _selectedCondition,
+                isLoading: _isLoading,
+                onConditionSelected: _handleConditionSelected,
               ),
               const SizedBox(height: 16),
 
+              ShoeStatusSelector(
+                selectedStatus: _status,
+                repairNotes: _repairNotes,
+                isLoading: _isLoading,
+                onStatusChanged: (newStatus) => setState(() {
+                  _status = newStatus;
+                  if (newStatus != 'Repaired') _repairNotes = '';
+                }),
+                onRepairNotesChanged: (notes) => setState(() {
+                  _repairNotes = notes;
+                }),
+              ),
+              const SizedBox(height: 16),
               // --- Price Field (Unchanged) ---
               TextFormField(
                 controller: _priceController,
@@ -817,39 +543,30 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                 enabled: !_isLoading,
                 keyboardType: TextInputType.url,
                 decoration: const InputDecoration(labelText: 'Instagram Link'),
-                validator: (value) => _validateLink(value, 'instagram.com'),
+                validator: (value) =>
+                    ShoeQueryUtils.validateLink(value, 'instagram.com'),
               ),
               TextFormField(
                 controller: _tiktokController,
                 enabled: !_isLoading,
                 keyboardType: TextInputType.url,
                 decoration: const InputDecoration(labelText: 'TikTok Link'),
-                validator: (value) => _validateLink(value, 'tiktok.com'),
+                validator: (value) =>
+                    ShoeQueryUtils.validateLink(value, 'tiktok.com'),
               ),
               const SizedBox(height: 16),
 
               // --- IMAGE PICKER (Unchanged) ---
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Pick Image'),
-                    onPressed: _isLoading ? null : _pickImage,
-                  ),
-                  const SizedBox(width: 26),
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8.0),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8.0),
-                      child: imagePreview(90, 90),
-                    ),
-                  ),
-                ],
+              ShoeImagePicker(
+                imageFile: _dialogImageFile,
+                remoteImageUrl: _currentRemoteImageUrl,
+                isLoading: _isLoading,
+                onImagePicked: (file) {
+                  setState(() {
+                    _dialogImageFile = file;
+                    _currentRemoteImageUrl = '';
+                  });
+                },
               ),
               const SizedBox(height: 16),
             ],
@@ -894,55 +611,6 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
           textAlign: TextAlign.left,
         ),
       ],
-    );
-  }
-}
-
-// ----------------------------------------------------------------------
-// 4. SizeDisplayCard (Helper Widget for cleaner UI)
-// ----------------------------------------------------------------------
-class SizeDisplayCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final VoidCallback? onTap;
-  final bool isBound;
-
-  const SizeDisplayCard({
-    super.key,
-    required this.title,
-    required this.value,
-    required this.onTap,
-    this.isBound = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Color borderColor = onTap == null
-        ? Colors.grey.shade300
-        : isBound
-        ? Theme.of(context).primaryColor
-        : Colors.grey.shade400;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: borderColor, width: isBound ? 2.0 : 1.0),
-          borderRadius: BorderRadius.circular(8.0),
-          color: onTap == null ? Colors.grey.shade200 : Colors.white,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 0),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -7,7 +7,7 @@ import 'package:shoe_view/Auth/auth_loading_splash.dart';
 import 'package:shoe_view/Helpers/shoe_response.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/app_status_notifier.dart';
-import 'package:shoe_view/firebase_service.dart';
+import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/Auth/home_gate.dart';
 
 import '../Helpers/app_logger.dart';

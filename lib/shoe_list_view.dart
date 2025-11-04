@@ -5,18 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
-import 'package:shoe_view/analytics_service.dart';
+import 'package:shoe_view/Services/analytics_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/error_dialog.dart';
 import 'package:shoe_view/Subscription/subscription_upgrade_page.dart';
 import 'package:shoe_view/Subscription/subscription_manager.dart';
 import 'package:shoe_view/list_header.dart';
 import 'package:shoe_view/settings_dialog.dart';
-import 'package:shoe_view/shoe_form_dialog.dart';
+import 'package:shoe_view/ShoeUpdateForm/shoe_form_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
 
 import 'shoe_model.dart';
-import 'firebase_service.dart';
+import 'Services/firebase_service.dart';
 
 class ShoeListView extends StatefulWidget {
   const ShoeListView({super.key});
@@ -34,7 +34,7 @@ class _ShoeListViewState extends State<ShoeListView>
   List<Shoe> _filteredShoes = [];
   List<Shoe> _displayedShoes = [];
   List<Shoe> streamShoes = [];
-  List<Shoe> _manuallyFetchedShoes = [];
+  final List<Shoe> _manuallyFetchedShoes = [];
 
   final TextEditingController _searchController = TextEditingController();
   // ---------------------------------------
@@ -132,7 +132,9 @@ class _ShoeListViewState extends State<ShoeListView>
 
       for (final shoe in fetchedShoes) {
         final key = '${shoe.itemId}_${shoe.shipmentId}';
-        final isNew = !existingKeys.containsKey(key) && shoe.status == 'N/A';
+        final isNew =
+            !existingKeys.containsKey(key) &&
+            (shoe.status == 'N/A' || shoe.status == 'Repaired');
 
         if (isNew) {
           newAvailableShoes.add(shoe);
@@ -350,6 +352,10 @@ class _ShoeListViewState extends State<ShoeListView>
       if (shoe.tiktokLink.isNotEmpty) {
         buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       }
+      if (shoe.status == 'Repaired') {
+        buffer.writeln('XX Repaired XX');
+        buffer.writeln('Note: ${shoe.notes}');
+      }
       buffer.writeln(); // blank line for separation
     }
     buffer.writeln('Tap to claim 📦');
@@ -455,6 +461,8 @@ class _ShoeListViewState extends State<ShoeListView>
                   }
 
                   return ListView.builder(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     controller: _scrollController,
                     itemCount: _displayedShoes.length,
                     itemBuilder: (context, index) {

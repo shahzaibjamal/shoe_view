@@ -9,8 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
-import 'package:shoe_view/analytics_service.dart';
-import 'package:shoe_view/firebase_service.dart';
+import 'package:shoe_view/Services/analytics_service.dart';
+import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'error_dialog.dart';
 

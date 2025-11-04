@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:shoe_view/Helpers/app_info.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
-import 'shoe_model.dart'; // Assuming this contains the Shoe class with itemId
+import '../shoe_model.dart'; // Assuming this contains the Shoe class with itemId
 
 /// A service class to handle all interactions with Firebase Firestore and Storage.
 class FirebaseService {
@@ -31,8 +31,6 @@ class FirebaseService {
         .call({'email': email, 'idToken': idToken, 'isTest': isTest});
     return result.data as Map<String, dynamic>;
   }
-
-  // --- Read/Stream Operations ---
 
   /// Returns a real-time stream of Shoe lists for the current authenticated user.
   Stream<List<Shoe>> streamShoes() {

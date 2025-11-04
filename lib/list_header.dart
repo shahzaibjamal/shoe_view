@@ -283,8 +283,15 @@ class _ListHeaderState extends State<ListHeader> {
                           widget.onSortFieldChanged(newValue);
                         }
                       },
-                      items: ['ItemId', 'size', 'sellingPrice', 'sold', 'n/a']
-                          .map((field) {
+                      items:
+                          [
+                            'ItemId',
+                            'size',
+                            'sellingPrice',
+                            'sold',
+                            'n/a',
+                            'repaired',
+                          ].map((field) {
                             return DropdownMenuItem(
                               value: field,
                               child: Text(
@@ -296,8 +303,7 @@ class _ListHeaderState extends State<ListHeader> {
                                 ),
                               ),
                             );
-                          })
-                          .toList(),
+                          }).toList(),
                     ),
                   ),
                   IconButton(

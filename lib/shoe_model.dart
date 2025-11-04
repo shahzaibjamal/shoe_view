@@ -22,6 +22,7 @@ class Shoe {
   final bool isUploaded;
   final bool isConfirmed;
   final bool isSizeLinked;
+  final String notes;
 
   const Shoe({
     required this.documentId,
@@ -41,6 +42,7 @@ class Shoe {
     this.isUploaded = false,
     this.isConfirmed = false,
     this.isSizeLinked = true,
+    this.notes = '',
   });
 
   // Factory constructor for creating a Shoe object from a Firestore map.
@@ -76,6 +78,7 @@ class Shoe {
     final status = map['Status']?.toString() ?? '';
     final links = map['Links'] as List<dynamic>?;
     final quantity = map['Quantity'] as int? ?? 1;
+    final notes = map['Notes']?.toString() ?? '';
 
     String instagram = '';
     String tiktok = '';
@@ -104,6 +107,7 @@ class Shoe {
       status: status,
       quantity: quantity,
       isSizeLinked: isSizeLinked,
+      notes: notes,
     );
   }
 
@@ -127,6 +131,7 @@ class Shoe {
       'Status': status,
       'Quantity': quantity,
       'IsSizeLinked': isSizeLinked,
+      'Notes': notes,
     };
   }
 
@@ -148,7 +153,8 @@ class Shoe {
       status = '',
       isUploaded = false,
       isConfirmed = false,
-      isSizeLinked = true;
+      isSizeLinked = true,
+      notes = '';
 
   // Creates an updated copy of the object.
   Shoe copyWith({
@@ -169,6 +175,7 @@ class Shoe {
     bool? isUploaded,
     bool? isConfirmed,
     bool? isSizeLinked,
+    String? notes,
   }) {
     return Shoe(
       documentId: documentId ?? this.documentId,
@@ -188,6 +195,7 @@ class Shoe {
       isConfirmed: isConfirmed ?? this.isConfirmed,
       isSizeLinked: isSizeLinked ?? this.isSizeLinked,
       status: status ?? this.status,
+      notes: notes ?? this.notes,
     );
   }
 
@@ -204,6 +212,7 @@ class Shoe {
     final condition =
         double.tryParse(map['Condition']?.toString() ?? '') ?? 0.0;
     String imageUrl = map['MediaThumbnail']?.toString() ?? '';
+    final notes = map['Notes']?.toString() ?? '';
 
     /******************************************************/
     final desiredWidth = 300;
@@ -249,6 +258,7 @@ class Shoe {
       isConfirmed: isConfirmed,
       status: status,
       isSizeLinked: isSizeLinked,
+      notes: notes,
     );
   }
 

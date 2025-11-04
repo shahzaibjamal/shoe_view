@@ -8,7 +8,7 @@ import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/app_status_notifier.dart';
-import 'package:shoe_view/firebase_service.dart';
+import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const Set<String> _kProductIds = {'tier_premium_access'};
