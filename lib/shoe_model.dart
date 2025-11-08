@@ -23,6 +23,7 @@ class Shoe {
   final bool isConfirmed;
   final bool isSizeLinked;
   final String notes;
+  final String imagesLink;
 
   const Shoe({
     required this.documentId,
@@ -36,6 +37,7 @@ class Shoe {
     required this.quantity,
     required this.instagramLink,
     required this.tiktokLink,
+    required this.imagesLink,
     required this.status,
     this.localImagePath = '',
     this.remoteImageUrl = '',
@@ -79,6 +81,7 @@ class Shoe {
     final links = map['Links'] as List<dynamic>?;
     final quantity = map['Quantity'] as int? ?? 1;
     final notes = map['Notes']?.toString() ?? '';
+    final imagesLink = map['ImagesLink']?.toString() ?? '';
 
     String instagram = '';
     String tiktok = '';
@@ -108,6 +111,7 @@ class Shoe {
       quantity: quantity,
       isSizeLinked: isSizeLinked,
       notes: notes,
+      imagesLink: imagesLink,
     );
   }
 
@@ -132,6 +136,7 @@ class Shoe {
       'Quantity': quantity,
       'IsSizeLinked': isSizeLinked,
       'Notes': notes,
+      'ImagesLink': imagesLink,
     };
   }
 
@@ -154,7 +159,8 @@ class Shoe {
       isUploaded = false,
       isConfirmed = false,
       isSizeLinked = true,
-      notes = '';
+      notes = '',
+      imagesLink = '';
 
   // Creates an updated copy of the object.
   Shoe copyWith({
@@ -176,6 +182,7 @@ class Shoe {
     bool? isConfirmed,
     bool? isSizeLinked,
     String? notes,
+    String? imagesLink,
   }) {
     return Shoe(
       documentId: documentId ?? this.documentId,
@@ -196,6 +203,7 @@ class Shoe {
       isSizeLinked: isSizeLinked ?? this.isSizeLinked,
       status: status ?? this.status,
       notes: notes ?? this.notes,
+      imagesLink: imagesLink ?? this.imagesLink,
     );
   }
 
@@ -213,6 +221,7 @@ class Shoe {
         double.tryParse(map['Condition']?.toString() ?? '') ?? 0.0;
     String imageUrl = map['MediaThumbnail']?.toString() ?? '';
     final notes = map['Notes']?.toString() ?? '';
+    final imagesLink = map['Pics']?.toString() ?? '';
 
     /******************************************************/
     final desiredWidth = 300;
@@ -259,6 +268,7 @@ class Shoe {
       status: status,
       isSizeLinked: isSizeLinked,
       notes: notes,
+      imagesLink: imagesLink,
     );
   }
 

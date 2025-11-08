@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 class ShoeStatusSelector extends StatelessWidget {
   final String selectedStatus;
   final String repairNotes;
+  final String imagesLink;
   final bool isLoading;
   final void Function(String) onStatusChanged;
   final void Function(String) onRepairNotesChanged;
+  final void Function(String) onImagesLinkChanged;
 
   const ShoeStatusSelector({
     super.key,
     required this.selectedStatus,
     required this.repairNotes,
+    required this.imagesLink,
     required this.isLoading,
     required this.onStatusChanged,
     required this.onRepairNotesChanged,
+    required this.onImagesLinkChanged,
   });
 
   static const List<String> statusOptions = [
@@ -43,7 +47,7 @@ class ShoeStatusSelector extends StatelessWidget {
           }).toList(),
         ),
         const SizedBox(height: 16),
-        if (selectedStatus == 'Repaired')
+        if (selectedStatus == 'Repaired') ...[
           TextFormField(
             initialValue: repairNotes,
             maxLines: 3,
@@ -55,6 +59,18 @@ class ShoeStatusSelector extends StatelessWidget {
               border: OutlineInputBorder(),
             ),
           ),
+          const SizedBox(height: 12),
+          TextFormField(
+            enabled: !isLoading,
+            initialValue: imagesLink,
+            onChanged: onImagesLinkChanged,
+            decoration: InputDecoration(
+              labelText: 'Images URL',
+              hintText: imagesLink.isEmpty ? 'No images URL provided' : null,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
       ],
     );
   }

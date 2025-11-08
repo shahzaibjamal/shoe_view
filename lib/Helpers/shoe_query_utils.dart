@@ -185,36 +185,31 @@ class ShoeQueryUtils {
     ].any((status) => sortField.toLowerCase().contains(status));
 
     displayedShoes.sort((a, b) {
-      int comparison;
+      final shipmentA = int.tryParse(a.shipmentId) ?? 0;
+      final shipmentB = int.tryParse(b.shipmentId) ?? 0;
 
-      if (isStatusFiltered) {
-        final shipmentA = int.tryParse(a.shipmentId) ?? 0;
-        final shipmentB = int.tryParse(b.shipmentId) ?? 0;
-        comparison = shipmentA.compareTo(shipmentB);
+      // Always sort by shipmentId first
+      int comparison = shipmentA.compareTo(shipmentB);
+      if (comparison != 0) return comparison;
 
-        if (comparison == 0) {
-          comparison = a.itemId.compareTo(b.itemId);
-        }
+      // Then sort by the selected field
+      final normalizedField = sortField.toLowerCase();
+
+      if (normalizedField == 'itemid') {
+        comparison = a.itemId.compareTo(b.itemId);
+      } else if (normalizedField == 'size') {
+        final sizeA = _safeDoubleParse(a.sizeEur?.first);
+        final sizeB = _safeDoubleParse(b.sizeEur?.first);
+        comparison = sizeA.compareTo(sizeB);
+      } else if (normalizedField == 'sellingprice') {
+        comparison = a.sellingPrice.compareTo(b.sellingPrice);
       } else {
-        if (sortField == 'size') {
-          final sizeA = _safeDoubleParse(a.sizeEur?.first);
-          final sizeB = _safeDoubleParse(b.sizeEur?.first);
-          comparison = sizeA.compareTo(sizeB);
-        } else if (sortField == 'sellingPrice') {
-          comparison = a.sellingPrice.compareTo(b.sellingPrice);
-        } else if (sortField == 'ItemId') {
-          comparison = a.itemId.compareTo(b.itemId);
-        } else {
-          final shipmentA = int.tryParse(a.shipmentId) ?? 0;
-          final shipmentB = int.tryParse(b.shipmentId) ?? 0;
-          comparison = shipmentA.compareTo(shipmentB);
-        }
+        // Default fallback: itemId
+        comparison = a.itemId.compareTo(b.itemId);
       }
 
       return sortAscending ? comparison : -comparison;
-    });
-
-    // --- 2. Limiting & Randomization ---
+    }); // --- 2. Limiting & Randomization ---
     final limRegex = RegExp(r'lim([<>]|~)(\d+)');
     final limMatch = limRegex.firstMatch(rawQuery.toLowerCase());
 
@@ -401,6 +396,8 @@ class ShoeQueryUtils {
       if (response['success']) {
         final url = response['remoteImageUrl'];
         AppLogger.log('successfully added - $url');
+      } else {
+        AppLogger.log('Unable to add - ${newShoe.shoeDetail}');
       }
     }
   }

@@ -29,6 +29,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   String _currencyCode = 'USD';
   bool _isMultiSize = false;
   bool _isTest = false;
+  bool _isRepairedInfoAvailable = false;
 
   bool _tempMultiSize = false;
   bool _tempTest = false;
@@ -149,6 +150,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       _currencyCode = _tempCurrencyCode = appStatus.currencyCode;
       _isMultiSize = _tempMultiSize = appStatus.isMultiSizeModeEnabled;
       _isTest = _tempTest = appStatus.isTest;
+      _isRepairedInfoAvailable = appStatus.isRepairedInfoAvailable;
     });
   }
 
@@ -216,6 +218,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
     });
     final appStatus = context.read<AppStatusNotifier>();
     appStatus.updateTest(_isTest);
+  }
+
+  Future<void> _updateShowRepairedInfo(bool isRepairedInfoAvailable) async {
+    setState(() {
+      _isRepairedInfoAvailable = isRepairedInfoAvailable;
+    });
+    final appStatus = context.read<AppStatusNotifier>();
+    appStatus.updateRepairedInfoAvailable(_isRepairedInfoAvailable);
   }
 
   @override
@@ -391,6 +401,18 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   style: TextStyle(fontSize: 16),
                 ),
                 trailing: Switch(value: _isTest, onChanged: _updateTest),
+              ),
+            const SizedBox(height: 8),
+            if (_isTest)
+              ListTile(
+                title: const Text(
+                  'Show repaired info',
+                  style: TextStyle(fontSize: 16),
+                ),
+                trailing: Switch(
+                  value: _isRepairedInfoAvailable,
+                  onChanged: _updateShowRepairedInfo,
+                ),
               ),
             const SizedBox(height: 8),
             Text(

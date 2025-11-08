@@ -94,7 +94,6 @@ class _CollageBuilderState extends State<CollageBuilder> {
       totalAvailableWidth,
       crossAxisCount,
     );
-
     // These dimension calculations define the fixed size of the RepaintBoundary.
     // The collageWidth should now be very close to the availableWidth, minimizing exterior margins.
     final double internalPadding = 4.0;
@@ -114,6 +113,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
     // This sets the total height of the outer RepaintBoundary Container.
     final double collageWidth = contentWidth + (internalPadding * 2);
     final double collageHeight = contentHeight + (internalPadding * 2);
+
     final bool isOddSquareGrid =
         (crossAxisCount == actualRowCount) && (crossAxisCount % 2 != 0);
     final double logoSize = isOddSquareGrid ? 40.0 : 60.0;
@@ -289,7 +289,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
     // Determine the maximum requested size based on the grid structure
     double requestedCap;
     if (crossAxisCount == 1) {
-      requestedCap = 00.0;
+      requestedCap = 100.0;
     } else if (crossAxisCount == 2) {
       requestedCap = 90.0;
     } else if (crossAxisCount == 3) {

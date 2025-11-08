@@ -343,6 +343,7 @@ class _ShoeListViewState extends State<ShoeListView>
       }
       final appStatus = context.read<AppStatusNotifier>();
       final currencyCode = appStatus.currencyCode;
+      final isReparedInfoAvailable = appStatus.isRepairedInfoAvailable;
       final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
       buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
       buffer.writeln('${indent}Condition: ${shoe.condition}/10');
@@ -352,9 +353,17 @@ class _ShoeListViewState extends State<ShoeListView>
       if (shoe.tiktokLink.isNotEmpty) {
         buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       }
-      if (shoe.status == 'Repaired') {
-        buffer.writeln('XX Repaired XX');
-        buffer.writeln('Note: ${shoe.notes}');
+      if (isReparedInfoAvailable) {
+        if (shoe.status == 'Repaired') {
+          String notes = shoe.notes;
+          if (shoe.notes.contains("Not repaired")) {
+            notes = notes.replaceAll("Not repaired", "").trim();
+          } else {
+            buffer.writeln('$indent❌❌ Repaired ❌❌');
+          }
+          buffer.writeln('${indent}Note: ✨$notes✨');
+          buffer.writeln('${indent}Images: ${shoe.imagesLink}');
+        }
       }
       buffer.writeln(); // blank line for separation
     }
@@ -381,6 +390,18 @@ class _ShoeListViewState extends State<ShoeListView>
               onSortFieldChanged: (value) {
                 setState(() {
                   _sortField = value;
+
+                  // Wait for the frame to complete before accessing updated list
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${ShoeQueryUtils.formatLabel(_sortField)}: ${_displayedShoes.length}',
+                        ),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  });
                 });
               },
               onSortDirectionToggled: () {

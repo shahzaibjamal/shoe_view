@@ -13,6 +13,7 @@ class AppStatusNotifier extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.light;
   String _currencyCode = 'USD'; // Default currency
   bool _isMultiSizeModeEnabled = false;
+  bool _isRepairedInfoAvailable = true;
   String _purchasedOffer = 'none'; // Default currency
   String _email = 'none'; // Default currency
 
@@ -27,6 +28,7 @@ class AppStatusNotifier extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   String get currencyCode => _currencyCode;
   bool get isMultiSizeModeEnabled => _isMultiSizeModeEnabled;
+  bool get isRepairedInfoAvailable => _isRepairedInfoAvailable;
   String get purchasedOffer => _purchasedOffer;
   String get email => _email;
 
@@ -99,6 +101,13 @@ class AppStatusNotifier extends ChangeNotifier {
   void updateMultiSizeMode(bool value) {
     if (_isMultiSizeModeEnabled != value) {
       _isMultiSizeModeEnabled = value;
+      notifyListeners();
+    }
+  }
+
+  void updateRepairedInfoAvailable(bool value) {
+    if (_isRepairedInfoAvailable != value) {
+      _isRepairedInfoAvailable = value;
       notifyListeners();
     }
   }

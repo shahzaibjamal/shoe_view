@@ -61,6 +61,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   late String _displayEurSize;
   late String _displayUkSize;
   String _repairNotes = '';
+  String _imagesLink = '';
   bool _isBound = true; // true = changing one auto-updates the other (default)
 
   // Local State
@@ -88,6 +89,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     // Condition, Quantity, and Status
     _selectedCondition = widget.shoe?.condition.toStringAsFixed(1) ?? '10.0';
     _repairNotes = widget.shoe?.notes ?? 'None';
+    _imagesLink = widget.shoe?.imagesLink ?? '';
 
     _status = widget.shoe?.status ?? 'Available';
     _isBound = widget.shoe?.isSizeLinked ?? true;
@@ -290,6 +292,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       shipmentId: shipmentId,
       shoeDetail: name,
       notes: _repairNotes,
+      imagesLink: _imagesLink,
 
       // Use the combined LIST fields (Requires Shoe Model Update)
       sizeEur: finalEurList,
@@ -510,6 +513,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
               ShoeStatusSelector(
                 selectedStatus: _status,
                 repairNotes: _repairNotes,
+                imagesLink: _imagesLink,
                 isLoading: _isLoading,
                 onStatusChanged: (newStatus) => setState(() {
                   _status = newStatus;
@@ -517,6 +521,9 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                 }),
                 onRepairNotesChanged: (notes) => setState(() {
                   _repairNotes = notes;
+                }),
+                onImagesLinkChanged: (imagesLink) => setState(() {
+                  _imagesLink = imagesLink;
                 }),
               ),
               const SizedBox(height: 16),
@@ -538,24 +545,27 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
               ),
 
               // --- Instagram/TikTok Fields (Unchanged) ---
-              TextFormField(
-                controller: _instagramController,
-                enabled: !_isLoading,
-                keyboardType: TextInputType.url,
-                decoration: const InputDecoration(labelText: 'Instagram Link'),
-                validator: (value) =>
-                    ShoeQueryUtils.validateLink(value, 'instagram.com'),
-              ),
-              TextFormField(
-                controller: _tiktokController,
-                enabled: !_isLoading,
-                keyboardType: TextInputType.url,
-                decoration: const InputDecoration(labelText: 'TikTok Link'),
-                validator: (value) =>
-                    ShoeQueryUtils.validateLink(value, 'tiktok.com'),
-              ),
-              const SizedBox(height: 16),
-
+              if (_status != 'Repaired') ...[
+                TextFormField(
+                  controller: _instagramController,
+                  enabled: !_isLoading,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(
+                    labelText: 'Instagram Link',
+                  ),
+                  validator: (value) =>
+                      ShoeQueryUtils.validateLink(value, 'instagram.com'),
+                ),
+                TextFormField(
+                  controller: _tiktokController,
+                  enabled: !_isLoading,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(labelText: 'TikTok Link'),
+                  validator: (value) =>
+                      ShoeQueryUtils.validateLink(value, 'tiktok.com'),
+                ),
+                const SizedBox(height: 16),
+              ],
               // --- IMAGE PICKER (Unchanged) ---
               ShoeImagePicker(
                 imageFile: _dialogImageFile,
@@ -590,25 +600,6 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                   ),
                 )
               : Text(_isEditing ? 'Update' : 'Add Shoe'),
-        ),
-      ],
-    );
-  }
-
-  // Helper for building radio buttons
-  Widget _buildStatusOption(String value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Radio<String>(
-          value: value,
-          groupValue: _status,
-          onChanged: _isLoading ? null : (v) => setState(() => _status = v!),
-        ),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.left,
         ),
       ],
     );
