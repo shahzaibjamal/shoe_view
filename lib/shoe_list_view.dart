@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -180,6 +182,18 @@ class _ShoeListViewState extends State<ShoeListView>
     }
   }
 
+  Future<void> _onSampleSend() async {
+    final sampleShareCount = context.read<AppStatusNotifier>().sampleShareCount;
+
+    if (_displayedShoes.isEmpty || sampleShareCount <= 0) {
+      return;
+    }
+
+    final shuffled = List.of(_displayedShoes)..shuffle(Random());
+    final limitedShoes = shuffled.take(sampleShareCount).toList();
+    _shareData(limitedShoes);
+  }
+
   void _openInApp() async {
     final subscriptionManager = context.read<SubscriptionManager>();
     Navigator.of(context).push(
@@ -318,6 +332,8 @@ class _ShoeListViewState extends State<ShoeListView>
   String _copyData(List<Shoe> shoeList) {
     final buffer = StringBuffer();
     final gap = shoeList.length > 1 ? '    ' : '';
+
+    shoeList = shoeList.take(CollageBuilder.maxImages).toList();
     if (shoeList.length > 1) {
       buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
     }
@@ -414,6 +430,7 @@ class _ShoeListViewState extends State<ShoeListView>
               onRefreshDataPressed: _onRefreshData,
               onInAppButtonPressed: _openInApp,
               onSettingsButtonPressed: _openSettingsDialog,
+              onSampleSendPressed: _onSampleSend,
             ),
             if (_isLoadingExternalData) const LinearProgressIndicator(),
             Expanded(

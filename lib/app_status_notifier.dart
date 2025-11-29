@@ -16,6 +16,7 @@ class AppStatusNotifier extends ChangeNotifier {
   bool _isRepairedInfoAvailable = true;
   String _purchasedOffer = 'none'; // Default currency
   String _email = 'none'; // Default currency
+  int _sampleShareCount = 0; // Default state
 
   bool get isTrial => _isTrial;
   bool get isTest => _isTest;
@@ -31,6 +32,7 @@ class AppStatusNotifier extends ChangeNotifier {
   bool get isRepairedInfoAvailable => _isRepairedInfoAvailable;
   String get purchasedOffer => _purchasedOffer;
   String get email => _email;
+  int get sampleShareCount => _sampleShareCount;
 
   void reset() {
     _isTrial = false;
@@ -120,5 +122,10 @@ class AppStatusNotifier extends ChangeNotifier {
   void updateEmail(String email) {
     _email = email;
     notifyListeners();
+  }
+
+  void updateSampleShareCount(int sampleShareCount) {
+    _sampleShareCount = sampleShareCount;
+    notifyListeners(); // Notify all listeners to rebuild
   }
 }

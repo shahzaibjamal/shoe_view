@@ -222,14 +222,14 @@ class Shoe {
     String imageUrl = map['MediaThumbnail']?.toString() ?? '';
     final notes = map['Notes']?.toString() ?? '';
     final imagesLink = map['Pics']?.toString() ?? '';
-
     /******************************************************/
-    final desiredWidth = 300;
+    final desiredWidth = 500;
     final uri = Uri.parse(imageUrl);
     final queryParameters = Map<String, String>.from(uri.queryParameters);
     queryParameters['sz'] = 'w$desiredWidth';
     final newUri = uri.replace(queryParameters: queryParameters);
     imageUrl = newUri.toString();
+
     /******************************************************/
     final isUploaded = map['Uploaded'] as bool? ?? false;
     final isConfirmed = map['Video Created'] as bool? ?? false;

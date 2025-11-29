@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -30,22 +31,30 @@ class _SettingsDialogState extends State<SettingsDialog> {
   bool _isMultiSize = false;
   bool _isTest = false;
   bool _isRepairedInfoAvailable = false;
+  int _sampleShareCount = 4;
 
   bool _tempMultiSize = false;
   bool _tempTest = false;
+  int _tempSampleShareCount = 4;
   ThemeMode _tempSelectedTheme = ThemeMode.light;
   String _tempCurrencyCode = 'USD';
+
+  late TextEditingController _sampleController;
 
   @override
   void initState() {
     super.initState();
     _loadLogo();
     _loadDefaultSettings();
+    _sampleController = TextEditingController(
+      text: _sampleShareCount.toString(),
+    );
   }
 
   @override
   void dispose() {
     _writePrefs();
+    _sampleController.dispose();
     super.dispose();
   }
 
@@ -149,6 +158,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       _selectedTheme = _tempSelectedTheme = appStatus.themeMode;
       _currencyCode = _tempCurrencyCode = appStatus.currencyCode;
       _isMultiSize = _tempMultiSize = appStatus.isMultiSizeModeEnabled;
+      _tempSampleShareCount = _sampleShareCount = appStatus.sampleShareCount;
       _isTest = _tempTest = appStatus.isTest;
       _isRepairedInfoAvailable = appStatus.isRepairedInfoAvailable;
     });
@@ -171,6 +181,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
       AnalyticsService.logSettingsUpdate('currency_code', _currencyCode);
     }
 
+    if (_tempSampleShareCount != _sampleShareCount) {
+      isDirty = true;
+      AnalyticsService.logSettingsUpdate(
+        'sample_share_count',
+        _sampleShareCount,
+      );
+    }
+
     if (_tempTest != _isTest) {
       isDirty = true;
     }
@@ -181,6 +199,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       await prefs.setString('currency', _currencyCode);
       await prefs.setBool('multiSize', _isMultiSize);
       await prefs.setBool('isTest', _isTest);
+      await prefs.setInt('sampleShareCount', _sampleShareCount);
 
       widget.firebaseService.updateUserProfile({
         'isMultiSize': _isMultiSize,
@@ -218,6 +237,18 @@ class _SettingsDialogState extends State<SettingsDialog> {
     });
     final appStatus = context.read<AppStatusNotifier>();
     appStatus.updateTest(_isTest);
+  }
+
+  Future<void> _updateSampleShareCount() async {
+    var intVal = int.tryParse(_sampleController.text) ?? _sampleShareCount;
+    if (intVal < 0 || intVal > 12) {
+      intVal = 4;
+      _sampleController.text = intVal.toString(); // only reset if invalid
+    }
+    setState(() {
+      _sampleShareCount = intVal;
+    });
+    context.read<AppStatusNotifier>().updateSampleShareCount(_sampleShareCount);
   }
 
   Future<void> _updateShowRepairedInfo(bool isRepairedInfoAvailable) async {
@@ -394,6 +425,29 @@ class _SettingsDialogState extends State<SettingsDialog> {
               ),
             ),
             const SizedBox(height: 8),
+            ListTile(
+              title: const Text(
+                "Sample Share Count",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              trailing: SizedBox(
+                width: 70,
+                child: TextField(
+                  controller: _sampleController,
+                  textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  onChanged: (_) => _updateSampleShareCount(),
+                ),
+              ),
+            ),
             if (isTestModeEnabled)
               ListTile(
                 title: const Text(

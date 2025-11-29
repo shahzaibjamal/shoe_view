@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
-import 'package:shoe_view/app_status_notifier.dart'; // or use Riverpod if preferred
+import 'package:shoe_view/app_status_notifier.dart';
 
 class ListHeader extends StatefulWidget {
   final double height;
@@ -16,6 +16,7 @@ class ListHeader extends StatefulWidget {
   final VoidCallback onRefreshDataPressed;
   final VoidCallback onInAppButtonPressed;
   final VoidCallback onSettingsButtonPressed;
+  final VoidCallback onSampleSendPressed;
 
   const ListHeader({
     super.key,
@@ -31,6 +32,7 @@ class ListHeader extends StatefulWidget {
     required this.onRefreshDataPressed,
     required this.onInAppButtonPressed,
     required this.onSettingsButtonPressed,
+    required this.onSampleSendPressed,
   });
 
   @override
@@ -38,15 +40,79 @@ class ListHeader extends StatefulWidget {
 }
 
 class _ListHeaderState extends State<ListHeader> {
-  @override
-  void initState() {
-    super.initState();
+  final GlobalKey _menuKey = GlobalKey();
+  OverlayEntry? _overlayEntry;
+
+  void _toggleOverlay() {
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+      return;
+    }
+
+    final renderBox = _menuKey.currentContext!.findRenderObject() as RenderBox;
+    final position = renderBox.localToGlobal(Offset.zero);
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Transparent barrier to dismiss when clicking outside
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _toggleOverlay,
+              behavior: HitTestBehavior.translucent,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+
+          // Dropdown container next to 3 dots
+          Positioned(
+            top: position.dy + renderBox.size.height,
+            left: position.dx,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'Refresh Data',
+                      onPressed: () {
+                        _toggleOverlay();
+                        // widget.onRefreshDataPressed();
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.local_shipping),
+                      tooltip: 'Send Sample Shoes',
+                      onPressed: () {
+                        _toggleOverlay();
+                        widget.onSampleSendPressed();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
   }
 
   @override
   Widget build(BuildContext context) {
-    final showDebugButton = context.watch<AppStatusNotifier>().isTest;
-    bool isValidDevice = context.read<AppStatusNotifier>().isTest;
+    final appStatus = context.watch<AppStatusNotifier>();
+    final showDebugButton = appStatus.isTest;
 
     return Stack(
       children: [
@@ -58,9 +124,9 @@ class _ListHeaderState extends State<ListHeader> {
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 🔍 Search Row
               Row(
                 children: [
-                  // Search Input Field
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
@@ -68,7 +134,7 @@ class _ListHeaderState extends State<ListHeader> {
                         controller: widget.searchController,
                         decoration: InputDecoration(
                           hintText:
-                              'Search: Name, Size (e.g., 42), or Price (e.g., <2500, >1500, =2100)...',
+                              'Search: Name, Size (42), Price (<2500, >1500, =2100)...',
                           hintStyle: TextStyle(
                             color: Colors.blueGrey.shade300,
                             fontSize: 14,
@@ -93,9 +159,8 @@ class _ListHeaderState extends State<ListHeader> {
                                     Icons.clear,
                                     color: Colors.white70,
                                   ),
-                                  onPressed: () {
-                                    widget.searchController.clear();
-                                  },
+                                  onPressed: () =>
+                                      widget.searchController.clear(),
                                 )
                               : null,
                         ),
@@ -104,127 +169,29 @@ class _ListHeaderState extends State<ListHeader> {
                       ),
                     ),
                   ),
-                  const SizedBox(
-                    width: 2,
-                  ), // Add spacing between TextField and icon
+                  const SizedBox(width: 2),
                   IconButton(
                     icon: Icon(
                       Icons.help_outline,
-                      color: Colors.white.withValues(
-                        alpha: 0.8,
-                      ), // Reduced opacity
-                      size: 32, // Slightly larger than default (24)
+                      color: Colors.white.withOpacity(0.8),
+                      size: 28,
                     ),
+                    tooltip: 'Search Help',
                     onPressed: () {
-                      FocusScope.of(context).unfocus(); // Dismiss keyboard
-
-                      Future.delayed(Duration(milliseconds: 100), () {
+                      FocusScope.of(context).unfocus();
+                      Future.delayed(const Duration(milliseconds: 100), () {
                         showDialog(
                           context: context,
-                          builder: (context) => AlertDialog(
+                          builder: (_) => AlertDialog(
                             title: const Text('Search Help'),
-                            content: Text.rich(
-                              TextSpan(
-                                style: TextStyle(fontSize: 14),
-                                children: [
-                                  TextSpan(
-                                    text: 'Smart Search Guide\n\n',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '• ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'Name or keyword: ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'e.g. "Jordan", "black", "leather"\n',
-                                  ),
-                                  TextSpan(
-                                    text: '• ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'Size: ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '42 or multiple like 42|43|44\n',
-                                  ),
-                                  TextSpan(
-                                    text: '• ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'Price: ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '<2500, >1500, =2100, ~3000 (±500)\n',
-                                  ),
-                                  TextSpan(
-                                    text: '• ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'Shipment ID: ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '# followed by ID (e.g. #102)\n',
-                                  ),
-                                  TextSpan(
-                                    text: '• ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'Limit results: ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  TextSpan(text: 'lim<10, lim>5, lim~8\n\n'),
-                                  TextSpan(
-                                    text: 'Example: ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'Jordan 42 >2000 lim<5\n',
-                                    style: TextStyle(
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text:
-                                        'Combine filters for powerful results.',
-                                  ),
-                                ],
-                              ),
+                            content: const Text(
+                              'Smart Search Guide:\n\n'
+                              '• Name: "Jordan", "black"\n'
+                              '• Size: 42 or 42|43|44\n'
+                              '• Price: <2500, >1500, =2100, ~3000\n'
+                              '• Shipment ID: #102\n'
+                              '• Limit: lim<10, lim>5, lim~8\n\n'
+                              'Example: Jordan 42 >2000 lim<5',
                             ),
                             actions: [
                               TextButton(
@@ -236,41 +203,44 @@ class _ListHeaderState extends State<ListHeader> {
                         );
                       });
                     },
-                    tooltip: 'Search Help',
                   ),
                 ],
               ),
-              // Sort and Control Buttons
+
+              // ⚙️ Control Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.settings, color: Colors.white),
-                    onPressed: widget.onSettingsButtonPressed,
                     tooltip: 'Settings',
+                    onPressed: widget.onSettingsButtonPressed,
                   ),
                   IconButton(
                     icon: const Icon(Icons.diamond, color: Colors.white),
-                    onPressed: widget.onInAppButtonPressed,
                     tooltip: 'In-app action',
+                    onPressed: widget.onInAppButtonPressed,
                   ),
-                  if (isValidDevice)
-                    IconButton(
-                      icon: const Icon(Icons.refresh, color: Colors.white),
-                      onPressed: widget.onRefreshDataPressed,
-                      tooltip: 'Refresh data',
-                    ),
                   IconButton(
                     icon: const Icon(Icons.content_copy, color: Colors.white),
-                    onPressed: widget.onCopyDataPressed,
                     tooltip: 'Copy data',
+                    onPressed: widget.onCopyDataPressed,
                   ),
                   IconButton(
                     icon: const Icon(Icons.share_sharp, color: Colors.white),
-                    onPressed: widget.onShareDataPressed,
                     tooltip: 'Share data',
+                    onPressed: widget.onShareDataPressed,
                   ),
-                  const SizedBox(width: 0),
+
+                  // ✅ Only show 3 dots when isTest is true
+                  if (appStatus.isTest)
+                    IconButton(
+                      key: _menuKey,
+                      icon: const Icon(Icons.more_vert, color: Colors.white),
+                      tooltip: 'More actions',
+                      onPressed: _toggleOverlay,
+                    ),
+
                   DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: widget.sortField,
@@ -278,9 +248,8 @@ class _ListHeaderState extends State<ListHeader> {
                       icon: const Icon(Icons.sort, color: Colors.white),
                       style: const TextStyle(color: Colors.white, fontSize: 16),
                       onChanged: (String? newValue) {
-                        if (newValue != null) {
+                        if (newValue != null)
                           widget.onSortFieldChanged(newValue);
-                        }
                       },
                       items:
                           [
@@ -312,8 +281,8 @@ class _ListHeaderState extends State<ListHeader> {
                           : Icons.arrow_downward,
                       color: Colors.white,
                     ),
-                    onPressed: widget.onSortDirectionToggled,
                     tooltip: 'Toggle Sort Direction',
+                    onPressed: widget.onSortDirectionToggled,
                   ),
                 ],
               ),
@@ -321,18 +290,19 @@ class _ListHeaderState extends State<ListHeader> {
           ),
         ),
 
+        // 🐞 Debug button
         if (showDebugButton)
           Positioned(
             top: 2,
             right: 2,
             child: IconButton(
               icon: const Icon(Icons.bug_report, color: Colors.redAccent),
-              onPressed: () {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Debug Mode Activated')));
-              },
               tooltip: 'Debug Mode',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Debug Mode Activated')),
+                );
+              },
             ),
           ),
       ],

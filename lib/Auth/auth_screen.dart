@@ -232,12 +232,14 @@ class _AuthScreenState extends State<AuthScreen> {
     final prefs = await SharedPreferences.getInstance();
     final themeString = prefs.getString('themeMode') ?? 'Light';
     final isTest = prefs.getBool('isTest') ?? false;
+    final sampleShareCount = prefs.getInt('sampleShareCount') ?? 0;
 
     final appStatusNotifier = context.read<AppStatusNotifier>();
     ThemeMode themeMode = ThemeMode.light;
     themeMode = ThemeMode.values.firstWhere((m) => m.name == themeString);
     appStatusNotifier.updateThemeMode(themeMode);
     appStatusNotifier.updateTest(isTest);
+    appStatusNotifier.updateSampleShareCount(sampleShareCount);
   }
 
   @override

@@ -19,6 +19,7 @@ class CollageBuilder extends StatefulWidget {
   final List<Shoe> shoes;
   final String text;
   final FirebaseService firebaseService;
+  static const int maxImages = 16;
 
   const CollageBuilder({
     super.key,
@@ -33,7 +34,6 @@ class CollageBuilder extends StatefulWidget {
 
 class _CollageBuilderState extends State<CollageBuilder> {
   final _collageKey = GlobalKey();
-  static const int _maxImages = 16;
   bool _isSaving = false;
   // Use a nullable ad to manage its state clearly
   RewardedAd? _rewardedAd;
@@ -55,6 +55,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
   @override
   void dispose() {
     _rewardedAd?.dispose();
+    isAdLoading.dispose(); // Dispose the ValueNotifier
     super.dispose();
   }
 
@@ -68,7 +69,9 @@ class _CollageBuilderState extends State<CollageBuilder> {
 
   @override
   Widget build(BuildContext context) {
-    final imagesToDisplay = widget.shoes.take(_maxImages).toList();
+    final imagesToDisplay = widget.shoes
+        .take(CollageBuilder.maxImages)
+        .toList();
     final imageCount = imagesToDisplay.length;
     if (imageCount == 0) {
       return const Center(
@@ -94,23 +97,20 @@ class _CollageBuilderState extends State<CollageBuilder> {
       totalAvailableWidth,
       crossAxisCount,
     );
-    // These dimension calculations define the fixed size of the RepaintBoundary.
-    // The collageWidth should now be very close to the availableWidth, minimizing exterior margins.
-    final double internalPadding = 4.0;
+
+    const double internalPadding = 4.0;
 
     // 1. Calculate the core content dimensions (Tiles + Gaps)
-    // This must be done precisely for the vertical space occupied by the Column.
     final double contentWidth =
         (crossAxisCount * itemSize) + ((crossAxisCount - 1) * spacing);
 
-    // ⭐️ FIX: Isolate the calculation for the content height (tiles and spacing between them)
+    // 2. Calculate the core content height (tiles and spacing between them)
     final double contentHeight =
         (actualRowCount * itemSize) +
         // Only spacing BETWEEN rows (RowCount - 1)
         (actualRowCount > 0 ? (actualRowCount - 1) * spacing : 0.0);
 
-    // 2. Calculate the final dimensions by adding 2 * internalPadding to the content size.
-    // This sets the total height of the outer RepaintBoundary Container.
+    // 3. Calculate the final dimensions by adding 2 * internalPadding to the content size.
     final double collageWidth = contentWidth + (internalPadding * 2);
     final double collageHeight = contentHeight + (internalPadding * 2);
 
@@ -345,19 +345,26 @@ class _CollageBuilderState extends State<CollageBuilder> {
       return;
     }
 
+    // ⭐️ ADJUSTMENT: Use ValueListenableBuilder inside the dialog builder
     showDialog(
       context: context,
       builder: (context) {
-        final bool isAdReady = _rewardedAd != null && !isAdLoading.value;
+        return ValueListenableBuilder<bool>(
+          valueListenable: isAdLoading,
+          builder: (context, isLoading, child) {
+            final bool isAdReady = _rewardedAd != null && !isLoading;
 
-        return ErrorDialog(
-          title: 'Daily Share Limit Reached',
-          message: isAdReady
-              ? 'Watch a short ad to share for free, or upgrade your plan.'
-              : 'The reward ad is loading. Please wait a moment or try the premium plan.',
-          onYesPressed: isAdReady ? _showRewardedAd : null,
-          onDismissed: () => {},
-          isLoadingNotifier: isAdLoading,
+            return ErrorDialog(
+              title: 'Daily Share Limit Reached',
+              message: isAdReady
+                  ? 'Watch a short ad to share for free, or upgrade your plan.'
+                  : 'The reward ad is loading. Please wait a moment or try the premium plan.',
+              onYesPressed: isAdReady ? _showRewardedAd : null,
+              onDismissed: () => {},
+              // Keep isLoadingNotifier for external display (e.g., premium button state)
+              isLoadingNotifier: isAdLoading,
+            );
+          },
         );
       },
     );
@@ -471,11 +478,31 @@ class _CollageBuilderState extends State<CollageBuilder> {
   }
 
   void _shareCollage() async {
+    // ⭐️ FIX for "noisy" output: Use a high fixed pixel ratio (5.0) for oversampling.
+    const double highQualityPixelRatio = 5.0;
+
     final boundary =
         _collageKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-    final image = await boundary.toImage(pixelRatio: 3.0);
+
+    // Captures the widget as an image using the high-quality pixel ratio
+    final image = await boundary.toImage(pixelRatio: highQualityPixelRatio);
+
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final pngBytes = byteData!.buffer.asUint8List();
+
+    // 2. ⭐ File Size Calculation and Logging ⭐
+    final int fileSizeBytes = pngBytes.length;
+    final double fileSizeMB = fileSizeBytes / (1024 * 1024);
+
+    // The actual number of pixels rendered
+    final int pixelWidth = image.width;
+    final int pixelHeight = image.height;
+
+    AppLogger.log('  Pixel Dimensions: ${pixelWidth}x${pixelHeight}');
+    AppLogger.log(
+      '  PNG File Size: ${fileSizeBytes} bytes (${fileSizeMB.toStringAsFixed(2)} MB)',
+    );
+    // ⭐ End File Size Calculation and Logging ⭐
 
     final tempDir = await getTemporaryDirectory();
     final file = await File('${tempDir.path}/collage.png').create();
