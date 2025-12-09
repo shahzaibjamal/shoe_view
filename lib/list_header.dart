@@ -86,7 +86,7 @@ class _ListHeaderState extends State<ListHeader> {
                       tooltip: 'Refresh Data',
                       onPressed: () {
                         _toggleOverlay();
-                        // widget.onRefreshDataPressed();
+                        widget.onRefreshDataPressed();
                       },
                     ),
                     IconButton(

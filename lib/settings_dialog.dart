@@ -469,6 +469,22 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 ),
               ),
             const SizedBox(height: 8),
+            if (_isTest)
+              ListTile(
+                title: const Text(
+                  'Reset Send Sequence',
+                  style: TextStyle(fontSize: 16),
+                ),
+                trailing: ElevatedButton(
+                  onPressed: () async {
+                    const String kShoeDrawKey = 'sample_send_sequence';
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.remove(kShoeDrawKey);
+                  },
+                  child: Icon(Icons.refresh_sharp),
+                ),
+              ),
+            const SizedBox(height: 8),
             Text(
               'Current Tier: $tier',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),

@@ -295,3 +295,26 @@ class Shoe {
     }
   }
 }
+
+      // var newShoe = shoe.copyWith(
+      //   itemId: shoe.itemId,
+      //   shipmentId: shoe.shipmentId,
+      //   shoeDetail: shoe.shoeDetail,
+      //   sizeEur: shoe.sizeEur,
+      //   sizeUk: shoe.sizeUk,
+      //   condition: shoe.condition,
+      //   imagesLink: shoe.imagesLink,
+      //   documentId: shoe.documentId,
+      //   instagramLink: shoe.instagramLink,
+      //   tiktokLink: shoe.tiktokLink,
+      //   isConfirmed: shoe.isConfirmed,
+      //   isSizeLinked: shoe.isSizeLinked,
+      //   isUploaded: shoe.isUploaded,
+      //   localImagePath: shoe.localImagePath,
+      //   notes: shoe.notes,
+      //   quantity: shoe.quantity,
+      //   remoteImageUrl: shoe.remoteImageUrl,
+      //   sellingPrice: shoe.sellingPrice,
+      //   status: shoe.status,
+      // );
+

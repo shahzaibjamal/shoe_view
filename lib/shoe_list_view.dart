@@ -1,5 +1,5 @@
+import 'dart:convert';
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -39,12 +39,8 @@ class _ShoeListViewState extends State<ShoeListView>
   final List<Shoe> _manuallyFetchedShoes = [];
 
   final TextEditingController _searchController = TextEditingController();
-  // ---------------------------------------
-
-  // 🎯 NEW: Scroll Controller and Visibility State
   final ScrollController _scrollController = ScrollController();
   bool _isFabVisible = true;
-  // ---------------------------------------
 
   @override
   void initState() {
@@ -119,7 +115,6 @@ class _ShoeListViewState extends State<ShoeListView>
     setState(() {
       _isLoadingExternalData = true;
     });
-
     final firebaseService = context.read<FirebaseService>();
 
     try {
@@ -189,9 +184,48 @@ class _ShoeListViewState extends State<ShoeListView>
       return;
     }
 
-    final shuffled = List.of(_displayedShoes)..shuffle(Random());
-    final limitedShoes = shuffled.take(sampleShareCount).toList();
-    _shareData(limitedShoes);
+    const String kShoeDrawKey = 'sample_send_sequence';
+    final prefs = await SharedPreferences.getInstance();
+    final Map<String, Shoe> shoeMap = {
+      for (var shoe in _displayedShoes)
+        '${shoe.shipmentId}_${shoe.itemId}': shoe,
+    };
+
+    final List<String> availableIdsPool = shoeMap.keys.toList();
+    List<String> sequenceOfIds;
+    final String? storedJsonString = prefs.getString(kShoeDrawKey);
+    if (storedJsonString == null || storedJsonString.isEmpty) {
+      sequenceOfIds = List.of(availableIdsPool)..shuffle(Random());
+    } else {
+      try {
+        final List<dynamic> dynamicList = jsonDecode(storedJsonString);
+        sequenceOfIds = dynamicList.cast<String>();
+        sequenceOfIds.retainWhere((id) => shoeMap.containsKey(id));
+      } catch (e) {
+        sequenceOfIds = List.of(availableIdsPool)..shuffle(Random());
+      }
+    }
+
+    if (sequenceOfIds.isEmpty) {
+      sequenceOfIds = List.of(availableIdsPool)..shuffle(Random());
+    }
+
+    if (sequenceOfIds.isEmpty) {
+      return;
+    }
+
+    final int itemsToTake = min(sampleShareCount, sequenceOfIds.length);
+    final List<String> selectedIds = sequenceOfIds.take(itemsToTake).toList();
+    final List<Shoe> selectedItems = selectedIds
+        .map((id) => shoeMap[id]!)
+        .toList();
+
+    sequenceOfIds.removeRange(0, itemsToTake);
+
+    _shareData(selectedItems);
+    AppLogger.log('Remaining - ${sequenceOfIds.length}');
+    final String updatedJsonString = jsonEncode(sequenceOfIds);
+    await prefs.setString(kShoeDrawKey, updatedJsonString);
   }
 
   void _openInApp() async {
@@ -338,6 +372,8 @@ class _ShoeListViewState extends State<ShoeListView>
       buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
     }
 
+    final isSold = _sortField.toLowerCase().contains('sold');
+
     for (int i = 0; i < shoeList.length; i++) {
       final shoe = shoeList[i];
       final numbering = shoeList.length > 1 ? '${i + 1}. ' : '';
@@ -349,41 +385,51 @@ class _ShoeListViewState extends State<ShoeListView>
         for (var size in shoe.sizeEur!) {
           line += '$size, ';
         }
-        buffer.writeln(
-          line.trim().replaceAll(RegExp(r',$'), ''),
-        ); // Clean trailing comma
+        buffer.writeln(line.trim().replaceAll(RegExp(r',$'), ''));
       } else {
         buffer.writeln(
           '${indent}Sizes: EUR ${shoe.sizeEur?.first}, UK ${shoe.sizeUk?.first}',
         );
       }
+
       final appStatus = context.read<AppStatusNotifier>();
       final currencyCode = appStatus.currencyCode;
       final isReparedInfoAvailable = appStatus.isRepairedInfoAvailable;
       final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
-      buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
-      buffer.writeln('${indent}Condition: ${shoe.condition}/10');
+
+      if (isSold) {
+        // buffer.writeln('${indent}❌ SOLD ❌');
+      } else {
+        buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
+        buffer.writeln('${indent}Condition: ${shoe.condition}/10');
+      }
       if (shoe.instagramLink.isNotEmpty) {
         buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
       }
       if (shoe.tiktokLink.isNotEmpty) {
         buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       }
-      if (isReparedInfoAvailable) {
-        if (shoe.status == 'Repaired') {
-          String notes = shoe.notes;
-          if (shoe.notes.contains("Not repaired")) {
-            notes = notes.replaceAll("Not repaired", "").trim();
-          } else {
-            buffer.writeln('$indent❌❌ Repaired ❌❌');
-          }
-          buffer.writeln('${indent}Note: ✨$notes✨');
-          buffer.writeln('${indent}Images: ${shoe.imagesLink}');
+      if (isReparedInfoAvailable && shoe.status == 'Repaired') {
+        String notes = shoe.notes;
+        if (shoe.notes.contains("Not repaired")) {
+          notes = notes.replaceAll("Not repaired", "").trim();
+        } else {
+          buffer.writeln('$indent❌❌ Repaired ❌❌');
         }
+        buffer.writeln('${indent}Note: ✨$notes✨');
+        buffer.writeln('${indent}Images: ${shoe.imagesLink}');
+      }
+      if (isSold) {
+        buffer.writeln(); // blank line for separation
+        buffer.writeln('${indent}❌ SOLD ❌');
       }
       buffer.writeln(); // blank line for separation
     }
-    buffer.writeln('Tap to claim 📦');
+
+    // Only add "Tap to claim" if none are sold
+    if (!isSold) {
+      buffer.writeln('Tap to claim 📦');
+    }
 
     return buffer.toString();
   }

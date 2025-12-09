@@ -240,6 +240,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
 
   Widget _buildShoeTile(Shoe shoe, int index, double itemSize, int imageCount) {
     // Extracted tile content for cleaner code
+    final isSold = shoe.status == 'Sold';
     return SizedBox(
       width: itemSize,
       height: itemSize,
@@ -271,6 +272,37 @@ class _CollageBuilderState extends State<CollageBuilder> {
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          if (isSold)
+            Align(
+              alignment: Alignment.bottomCenter, // ✅ bottom center
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  bottom: 8,
+                ), // move up a bit from bottom
+                child: Transform.rotate(
+                  angle: -0.3, // ~ -17 degrees, subtle slant
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black54, // ✅ subtle background
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Text(
+                      'SOLD',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 16, // compact size
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
                   ),
                 ),
               ),
