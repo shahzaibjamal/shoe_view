@@ -391,7 +391,6 @@ class _ShoeListViewState extends State<ShoeListView>
         line = line.trim().replaceAll(RegExp(r',$'), '');
 
         // Append CM if available
-        AppLogger.log('${shoe.sizeCm}');
         if (shoe.sizeCm != null && shoe.sizeCm!.isNotEmpty) {
           line += ' | CM ${shoe.sizeCm!.join(", ")}';
         }
@@ -403,7 +402,6 @@ class _ShoeListViewState extends State<ShoeListView>
             '${indent}Sizes: EUR ${shoe.sizeEur?.first}, UK ${shoe.sizeUk?.first}';
 
         // Append CM if available
-        AppLogger.log('${shoe.sizeCm}');
         if (shoe.sizeCm != null && shoe.sizeCm!.isNotEmpty) {
           line += ', CM ${shoe.sizeCm!.first}';
         }
@@ -454,7 +452,6 @@ class _ShoeListViewState extends State<ShoeListView>
       buffer.writeln('Tap to claim 📦');
     }
 
-    AppLogger.log(buffer.toString());
     return buffer.toString();
   }
 
