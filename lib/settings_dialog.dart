@@ -1,19 +1,16 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
-import 'package:shoe_view/Services/analytics_service.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
-import 'error_dialog.dart';
 
 class SettingsDialog extends StatefulWidget {
   final FirebaseService firebaseService;
@@ -24,8 +21,10 @@ class SettingsDialog extends StatefulWidget {
   State<SettingsDialog> createState() => _SettingsDialogState();
 }
 
-class _SettingsDialogState extends State<SettingsDialog> {
+class _SettingsDialogState extends State<SettingsDialog>
+    with SingleTickerProviderStateMixin {
   File? _logoFile;
+
   ThemeMode _selectedTheme = ThemeMode.light;
   String _currencyCode = 'USD';
   bool _isMultiSize = false;
@@ -34,29 +33,36 @@ class _SettingsDialogState extends State<SettingsDialog> {
   bool _isRepairedInfoAvailable = false;
   int _sampleShareCount = 4;
 
-  bool _tempMultiSize = false;
-  bool _tempTest = false;
-  bool _tempSalePrice = false;
-  int _tempSampleShareCount = 4;
-  ThemeMode _tempSelectedTheme = ThemeMode.light;
-  String _tempCurrencyCode = 'USD';
-
   late TextEditingController _sampleController;
+
+  late AnimationController _animController;
+  late Animation<double> _scaleAnim;
 
   @override
   void initState() {
     super.initState();
+    _sampleController = TextEditingController();
     _loadLogo();
-    _loadDefaultSettings();
-    _sampleController = TextEditingController(
-      text: _sampleShareCount.toString(),
+    _loadSettingsFromNotifier();
+
+    // Smooth dialog animation
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
     );
+
+    _scaleAnim = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutBack,
+    );
+
+    _animController.forward();
   }
 
   @override
   void dispose() {
-    _writePrefs();
     _sampleController.dispose();
+    _animController.dispose();
     super.dispose();
   }
 
@@ -64,11 +70,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     final dir = await getApplicationDocumentsDirectory();
     final logoPath = File('${dir.path}/logo.jpg');
     if (await logoPath.exists()) {
-      final tempPath = File(
-        '${dir.path}/logo_temp_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-      await logoPath.copy(tempPath.path);
-      setState(() => _logoFile = tempPath);
+      setState(() => _logoFile = logoPath);
     }
   }
 
@@ -85,22 +87,75 @@ class _SettingsDialogState extends State<SettingsDialog> {
     final savedFile = File('${dir.path}/logo.jpg');
     await savedFile.writeAsBytes(bytes);
 
-    final tempPath = File(
-      '${dir.path}/logo_temp_${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
-    await savedFile.copy(tempPath.path);
-    setState(() => _logoFile = tempPath);
+    setState(() => _logoFile = savedFile);
   }
 
-  Future<void> _signOutAndReturnToMain() async {
-    try {
-      await GoogleSignIn.instance.signOut();
-      await FirebaseAuth.instance.signOut();
-      context.read<AppStatusNotifier>().reset();
-      Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
-    } catch (e) {
-      print('Error signing out: $e');
-    }
+  void _loadSettingsFromNotifier() {
+    final app = context.read<AppStatusNotifier>();
+
+    setState(() {
+      _selectedTheme = app.themeMode;
+      _currencyCode = app.currencyCode;
+      _isMultiSize = app.isMultiSizeModeEnabled;
+      _isTest = app.isTest;
+      _isSalePrice = app.isSalePrice;
+      _isRepairedInfoAvailable = app.isRepairedInfoAvailable;
+      _sampleShareCount = app.sampleShareCount;
+      _sampleController.text = _sampleShareCount.toString();
+    });
+  }
+
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('themeMode', _selectedTheme.name);
+    await prefs.setString('currency', _currencyCode);
+    await prefs.setBool('multiSize', _isMultiSize);
+    await prefs.setBool('isTest', _isTest);
+    await prefs.setBool('isSalePrice', _isSalePrice);
+    await prefs.setBool('isRepairedInfoAvailable', _isRepairedInfoAvailable);
+    await prefs.setInt('sampleShareCount', _sampleShareCount);
+
+    final app = context.read<AppStatusNotifier>();
+    app.updateThemeMode(_selectedTheme);
+    app.updateCurrencyCode(_currencyCode);
+    app.updateMultiSizeMode(_isMultiSize);
+    app.updateTest(_isTest);
+    app.updateSalePrice(_isSalePrice);
+    app.updateRepairedInfoAvailable(_isRepairedInfoAvailable);
+    app.updateSampleShareCount(_sampleShareCount);
+
+    await widget.firebaseService.updateUserProfile({
+      'isMultiSize': _isMultiSize,
+      'currencyCode': _currencyCode,
+    });
+
+    Navigator.pop(context);
+  }
+
+  Future<void> _confirmClearData() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Clear All Data"),
+        content: const Text(
+          "This will delete all saved data and reset the app.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("Clear"),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) _clearAppData();
   }
 
   Future<void> _clearAppData() async {
@@ -120,446 +175,271 @@ class _SettingsDialogState extends State<SettingsDialog> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
 
-      final response = await widget.firebaseService.deleteUserData();
-      Navigator.of(context).pop(); // Dismiss loader
+      await widget.firebaseService.deleteUserData();
 
-      if (response['success']) {
-        _signOutAndReturnToMain();
-      }
+      Navigator.of(context).pop();
+      Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
     } catch (e) {
-      Navigator.of(context).pop(); // Dismiss loader
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to clear app data: $e')));
     }
   }
 
-  void _showClearDataDialog() {
-    showDialog(
+  Future<void> _confirmSignOut() async {
+    final result = await showDialog<bool>(
       context: context,
-      builder: (_) => ErrorDialog(
-        title: 'Clear All Data?',
-        message:
-            'This will delete all your saved data and reset the app. Are you sure?',
-        onDismissed: () => Navigator.of(context).pop(),
-        onYesPressed: () async {
-          await _clearAppData();
-          Navigator.of(context).pop();
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/main', (route) => false);
-        },
+      builder: (_) => AlertDialog(
+        title: const Text("Sign Out"),
+        content: const Text("Are you sure you want to sign out?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Sign Out"),
+          ),
+        ],
       ),
     );
+
+    if (result == true) _signOut();
   }
 
-  Future<void> _loadDefaultSettings() async {
-    setState(() {
-      final appStatus = context.read<AppStatusNotifier>();
-      _selectedTheme = _tempSelectedTheme = appStatus.themeMode;
-      _currencyCode = _tempCurrencyCode = appStatus.currencyCode;
-      _isMultiSize = _tempMultiSize = appStatus.isMultiSizeModeEnabled;
-      _tempSampleShareCount = _sampleShareCount = appStatus.sampleShareCount;
-      _isTest = _tempTest = appStatus.isTest;
-      _isSalePrice = _tempSalePrice = appStatus.isSalePrice;
-      _isRepairedInfoAvailable = appStatus.isRepairedInfoAvailable;
-    });
-  }
-
-  void _writePrefs() async {
-    bool isDirty = false;
-    if (_tempMultiSize != _isMultiSize) {
-      isDirty = true;
-      AnalyticsService.logSettingsUpdate('multi_size_inventory', true);
+  Future<void> _signOut() async {
+    try {
+      await GoogleSignIn.instance.signOut();
+      await FirebaseAuth.instance.signOut();
+      context.read<AppStatusNotifier>().reset();
+      Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
+    } catch (e) {
+      print('Error signing out: $e');
     }
-
-    if (_tempSelectedTheme != _selectedTheme) {
-      isDirty = true;
-      AnalyticsService.logThemeChange(_selectedTheme.name);
-    }
-
-    if (_tempCurrencyCode != _currencyCode) {
-      isDirty = true;
-      AnalyticsService.logSettingsUpdate('currency_code', _currencyCode);
-    }
-
-    if (_tempSampleShareCount != _sampleShareCount) {
-      isDirty = true;
-      AnalyticsService.logSettingsUpdate(
-        'sample_share_count',
-        _sampleShareCount,
-      );
-    }
-
-    if (_tempSalePrice != _isSalePrice) {
-      isDirty = true;
-      AnalyticsService.logSettingsUpdate('is_sale_price', _isSalePrice);
-    }
-
-    if (_tempTest != _isTest) {
-      isDirty = true;
-    }
-
-    if (isDirty) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('themeMode', _selectedTheme.name);
-      await prefs.setString('currency', _currencyCode);
-      await prefs.setBool('multiSize', _isMultiSize);
-      await prefs.setBool('isTest', _isTest);
-      await prefs.setInt('sampleShareCount', _sampleShareCount);
-      await prefs.setBool('isSalePrice', _isSalePrice);
-
-      widget.firebaseService.updateUserProfile({
-        'isMultiSize': _isMultiSize,
-        'currencyCode': _currencyCode,
-      });
-    }
-  }
-
-  Future<void> _updateTheme(ThemeMode mode) async {
-    setState(() => _selectedTheme = mode);
-
-    final appStatus = context.read<AppStatusNotifier>();
-    appStatus.updateThemeMode(mode);
-  }
-
-  Future<void> _updateCurrency(String currencyCode) async {
-    setState(() {
-      _currencyCode = currencyCode;
-    });
-    final appStatus = context.read<AppStatusNotifier>();
-    appStatus.updateCurrencyCode(_currencyCode);
-  }
-
-  Future<void> _updateMultiSize(bool isMultiSizeModeEnabled) async {
-    setState(() {
-      _isMultiSize = isMultiSizeModeEnabled;
-    });
-    final appStatus = context.read<AppStatusNotifier>();
-    appStatus.updateMultiSizeMode(_isMultiSize);
-  }
-
-  Future<void> _updateTest(bool isTest) async {
-    setState(() {
-      _isTest = isTest;
-    });
-    final appStatus = context.read<AppStatusNotifier>();
-    appStatus.updateTest(_isTest);
-  }
-
-  Future<void> _updateSalePrice(bool isSalePrice) async {
-    setState(() {
-      _isSalePrice = isSalePrice;
-    });
-    final appStatus = context.read<AppStatusNotifier>();
-    appStatus.updateSalePrice(_isSalePrice);
-  }
-
-  Future<void> _updateSampleShareCount() async {
-    var intVal = int.tryParse(_sampleController.text) ?? _sampleShareCount;
-    if (intVal < 0 || intVal > 12) {
-      intVal = 4;
-      _sampleController.text = intVal.toString(); // only reset if invalid
-    }
-    setState(() {
-      _sampleShareCount = intVal;
-    });
-    context.read<AppStatusNotifier>().updateSampleShareCount(_sampleShareCount);
-  }
-
-  Future<void> _updateShowRepairedInfo(bool isRepairedInfoAvailable) async {
-    setState(() {
-      _isRepairedInfoAvailable = isRepairedInfoAvailable;
-    });
-    final appStatus = context.read<AppStatusNotifier>();
-    appStatus.updateRepairedInfoAvailable(_isRepairedInfoAvailable);
   }
 
   @override
   Widget build(BuildContext context) {
-    final appStatus = context.watch<AppStatusNotifier>();
-    final tier = appStatus.tier;
-    final isTestModeEnabled = appStatus.isTestModeEnabled;
-    final email = appStatus.email;
+    final app = context.watch<AppStatusNotifier>();
+    final tier = app.tier;
+    final email = app.email;
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: const [
-                Icon(Icons.settings, size: 32),
-                SizedBox(width: 8),
-                Text(
-                  'Settings',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Your Logo',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _logoFile != null
-                    ? Stack(
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey, width: 2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            clipBehavior: Clip.hardEdge,
-                            child: Image.file(_logoFile!, fit: BoxFit.cover),
-                          ),
-                          Positioned(
-                            top: 2,
-                            right: 2,
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _logoFile = null;
-                                });
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
-                                  shape: BoxShape.circle,
-                                ),
-                                padding: const EdgeInsets.all(4),
-                                child: const Icon(
-                                  Icons.close,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey, width: 2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.image_not_supported, size: 40),
-                      ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      ElevatedButton(
-                        onPressed: _pickLogoImage,
-                        child: const Text('Upload'),
-                      ),
-                    ],
+    return ScaleTransition(
+      scale: _scaleAnim,
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.settings, size: 32),
+                  SizedBox(width: 8),
+                  Text(
+                    'Settings',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Theme Mode',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 2),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: ThemeMode.values.map((mode) {
-                final label =
-                    mode.name[0].toUpperCase() + mode.name.substring(1);
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Radio<ThemeMode>(
-                      visualDensity: const VisualDensity(
-                        horizontal: -1,
-                        vertical: -2,
-                      ),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      value: mode,
-                      groupValue: _selectedTheme,
-                      onChanged: (ThemeMode? value) {
-                        if (value != null) _updateTheme(value);
-                      },
-                    ),
-                    Text(label, style: const TextStyle(fontSize: 14)),
-                  ],
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Currency',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: ShoeQueryUtils.currencies.map((currency) {
-                  final code = currency['code']!;
-                  final symbol = currency['symbol']!;
-                  final isSelected = _currencyCode == code;
+                ],
+              ),
+              const SizedBox(height: 24),
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ChoiceChip(
-                      label: Text('$code ($symbol)'),
-                      selected: isSelected,
-                      onSelected: (_) => _updateCurrency(code),
+              // ---------------- LOGO ----------------
+              const Text(
+                'Your Logo',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey, width: 2),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    clipBehavior: Clip.hardEdge,
+                    child: _logoFile != null
+                        ? Image.file(_logoFile!, fit: BoxFit.cover)
+                        : const Icon(Icons.image_not_supported, size: 40),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton(
+                          onPressed: _pickLogoImage,
+                          child: const Text('Upload'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // ---------------- THEME ----------------
+              const Text(
+                'Theme Mode',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Wrap(
+                spacing: 8,
+                children: ThemeMode.values.map((mode) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Radio(
+                        value: mode,
+                        groupValue: _selectedTheme,
+                        onChanged: (v) => setState(() => _selectedTheme = v!),
+                      ),
+                      Text(mode.name),
+                    ],
                   );
                 }).toList(),
               ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Multi-Size Inventory',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            ListTile(
-              title: const Text(
-                'Enable Multi-Size Inventory Mode',
-                style: TextStyle(fontSize: 16),
+
+              const SizedBox(height: 24),
+
+              // ---------------- CURRENCY ----------------
+              const Text(
+                'Currency',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              trailing: Switch(
-                value: _isMultiSize,
-                onChanged: _updateMultiSize,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              title: const Text(
-                "Sample Share Count",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-              trailing: SizedBox(
-                width: 70,
-                child: TextField(
-                  controller: _sampleController,
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  onChanged: (_) => _updateSampleShareCount(),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ShoeQueryUtils.currencies.map((currency) {
+                    final code = currency['code']!;
+                    final symbol = currency['symbol']!;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ChoiceChip(
+                        label: Text('$code ($symbol)'),
+                        selected: _currencyCode == code,
+                        onSelected: (_) => setState(() => _currencyCode = code),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
-            ),
-            if (isTestModeEnabled)
+
+              const SizedBox(height: 24),
+
+              // ---------------- MULTI SIZE ----------------
               ListTile(
-                title: const Text(
-                  'Enable Test Mode',
-                  style: TextStyle(fontSize: 16),
-                ),
-                trailing: Switch(value: _isTest, onChanged: _updateTest),
-              ),
-            const SizedBox(height: 8),
-            if (_isTest)
-              ListTile(
-                title: const Text(
-                  'Show repaired info',
-                  style: TextStyle(fontSize: 16),
-                ),
+                title: const Text('Enable Multi-Size Inventory'),
                 trailing: Switch(
-                  value: _isRepairedInfoAvailable,
-                  onChanged: _updateShowRepairedInfo,
+                  value: _isMultiSize,
+                  onChanged: (v) => setState(() => _isMultiSize = v),
                 ),
               ),
-            const SizedBox(height: 8),
-            if (_isTest)
+
+              // ---------------- SAMPLE SHARE COUNT ----------------
               ListTile(
-                title: const Text(
-                  'Reset Send Sequence',
-                  style: TextStyle(fontSize: 16),
-                ),
-                trailing: ElevatedButton(
-                  onPressed: () async {
-                    const String kShoeDrawKey = 'sample_send_sequence';
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.remove(kShoeDrawKey);
-                  },
-                  child: Icon(Icons.refresh_sharp),
-                ),
-              ),
-            const SizedBox(height: 8),
-            ListTile(
-              title: const Text(
-                'Enable Sale Price',
-                style: TextStyle(fontSize: 16),
-              ),
-              trailing: Switch(
-                value: _isSalePrice,
-                onChanged: _updateSalePrice,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Current Tier: $tier',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Flexible(
-                  child: ElevatedButton.icon(
-                    onPressed: _showClearDataDialog,
-                    icon: const Icon(Icons.delete_forever, size: 18),
-                    label: const Text('Clear Data'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 12,
-                      ),
-                      textStyle: const TextStyle(fontSize: 14),
-                    ),
+                title: const Text('Sample Share Count'),
+                trailing: SizedBox(
+                  width: 70,
+                  child: TextField(
+                    controller: _sampleController,
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) {
+                      final val = int.tryParse(_sampleController.text) ?? 4;
+                      setState(() => _sampleShareCount = val.clamp(0, 12));
+                    },
                   ),
                 ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: ElevatedButton.icon(
-                    onPressed: _signOutAndReturnToMain,
-                    icon: const Icon(Icons.logout, size: 18),
-                    label: const Text('Sign Out'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 12,
-                      ),
-                      textStyle: const TextStyle(fontSize: 14),
-                    ),
+              ),
+
+              // ---------------- TEST MODE ----------------
+              if (app.isTestModeEnabled)
+                ListTile(
+                  title: const Text('Enable Test Mode'),
+                  trailing: Switch(
+                    value: _isTest,
+                    onChanged: (v) => setState(() => _isTest = v),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const VersionFooter(),
-            const SizedBox(height: 2),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Text('signed in as: $email'),
-            ),
-          ],
+
+              if (_isTest)
+                ListTile(
+                  title: const Text('Show repaired info'),
+                  trailing: Switch(
+                    value: _isRepairedInfoAvailable,
+                    onChanged: (v) =>
+                        setState(() => _isRepairedInfoAvailable = v),
+                  ),
+                ),
+
+              if (_isTest)
+                ListTile(
+                  title: const Text('Enable Sale Price'),
+                  trailing: Switch(
+                    value: _isSalePrice,
+                    onChanged: (v) => setState(() => _isSalePrice = v),
+                  ),
+                ),
+
+              const SizedBox(height: 12),
+              Text('Current Tier: $tier'),
+
+              const SizedBox(height: 24),
+
+              // ---------------- SAVE BUTTON ----------------
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.save),
+                  label: const Text("Save Settings"),
+                  onPressed: _saveSettings,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ---------------- CLEAR DATA + SIGN OUT ----------------
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.delete_forever),
+                      label: const Text("Clear Data"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      onPressed: _confirmClearData,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.logout),
+                      label: const Text("Sign Out"),
+                      onPressed: _confirmSignOut,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+              const VersionFooter(),
+              Align(
+                alignment: Alignment.center,
+                child: Text('signed in as: $email'),
+              ),
+            ],
+          ),
         ),
       ),
     );

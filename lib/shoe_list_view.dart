@@ -381,17 +381,35 @@ class _ShoeListViewState extends State<ShoeListView>
 
       buffer.writeln('$numbering${shoe.shoeDetail}');
       if (shoe.sizeEur != null && shoe.sizeEur!.length > 1) {
+        // Multiple EUR sizes
         String line = '${indent}Sizes: EUR ';
         for (var size in shoe.sizeEur!) {
           line += '$size, ';
         }
-        buffer.writeln(line.trim().replaceAll(RegExp(r',$'), ''));
-      } else {
-        buffer.writeln(
-          '${indent}Sizes: EUR ${shoe.sizeEur?.first}, UK ${shoe.sizeUk?.first}',
-        );
-      }
 
+        // Trim trailing comma
+        line = line.trim().replaceAll(RegExp(r',$'), '');
+
+        // Append CM if available
+        AppLogger.log('${shoe.sizeCm}');
+        if (shoe.sizeCm != null && shoe.sizeCm!.isNotEmpty) {
+          line += ' | CM ${shoe.sizeCm!.join(", ")}';
+        }
+
+        buffer.writeln(line);
+      } else {
+        // Single size case
+        String line =
+            '${indent}Sizes: EUR ${shoe.sizeEur?.first}, UK ${shoe.sizeUk?.first}';
+
+        // Append CM if available
+        AppLogger.log('${shoe.sizeCm}');
+        if (shoe.sizeCm != null && shoe.sizeCm!.isNotEmpty) {
+          line += ', CM ${shoe.sizeCm!.first}';
+        }
+
+        buffer.writeln(line);
+      }
       final appStatus = context.read<AppStatusNotifier>();
       final currencyCode = appStatus.currencyCode;
       final isReparedInfoAvailable = appStatus.isRepairedInfoAvailable;
@@ -496,7 +514,6 @@ class _ShoeListViewState extends State<ShoeListView>
                   }
 
                   if (snapshot.hasError) {
-                    debugPrint('Firestore Stream Error: ${snapshot.error}');
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),

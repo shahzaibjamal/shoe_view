@@ -395,7 +395,9 @@ class ShoeQueryUtils {
       );
       if (response['success']) {
         final url = response['remoteImageUrl'];
-        AppLogger.log('successfully added - $url');
+        AppLogger.log(
+          'successfully added - ${newShoe.shipmentId}_${newShoe.itemId} Detail: ${newShoe.shoeDetail}',
+        );
       } else {
         AppLogger.log('Unable to add - ${newShoe.shoeDetail}');
       }

@@ -1,7 +1,4 @@
-import 'dart:developer';
-
 import 'package:flutter/foundation.dart';
-import 'package:shoe_view/Helpers/app_logger.dart';
 
 @immutable
 class Shoe {
@@ -11,6 +8,7 @@ class Shoe {
   final String shoeDetail;
   final List<String>? sizeEur;
   final List<String>? sizeUk;
+  final List<String>? sizeCm;
   final String status;
   final double sellingPrice;
   final double condition;
@@ -32,6 +30,7 @@ class Shoe {
     required this.shoeDetail,
     required this.sizeEur,
     required this.sizeUk,
+    required this.sizeCm,
     required this.sellingPrice,
     required this.condition,
     required this.quantity,
@@ -56,6 +55,7 @@ class Shoe {
     final shoeDetail = map['ShoeDetail']?.toString() ?? '';
     final sizeEurRaw = map['Size'];
     final sizeUkRaw = map['SizeUK'];
+    final sizeCmRaw = map['SizeCM'];
 
     final sizeEur = (sizeEurRaw is List)
         ? sizeEurRaw.map((e) => e.toString()).toList()
@@ -67,6 +67,12 @@ class Shoe {
         ? sizeUkRaw.map((e) => e.toString()).toList()
         : sizeUkRaw != null
         ? [sizeUkRaw.toString()]
+        : <String>[];
+
+    final sizeCm = (sizeCmRaw is List)
+        ? sizeCmRaw.map((e) => e.toString()).toList()
+        : sizeCmRaw != null
+        ? [sizeCmRaw.toString()]
         : <String>[];
 
     final sellingPrice =
@@ -100,6 +106,7 @@ class Shoe {
       shoeDetail: shoeDetail,
       sizeEur: sizeEur,
       sizeUk: sizeUk,
+      sizeCm: sizeCm,
       sellingPrice: sellingPrice,
       condition: condition,
       instagramLink: instagram,
@@ -124,6 +131,7 @@ class Shoe {
       'ShoeDetail': shoeDetail,
       'Size': sizeEur,
       'SizeUK': sizeUk,
+      'SizeCM': sizeCm,
       'SellingPrice': sellingPrice,
       'Condition': condition,
       'RemoteImageURL': remoteImageUrl,
@@ -148,6 +156,7 @@ class Shoe {
       shoeDetail = '',
       sizeEur = const [],
       sizeUk = const [],
+      sizeCm = const [],
       sellingPrice = 0.0,
       condition = 0.0,
       quantity = 0,
@@ -170,6 +179,7 @@ class Shoe {
     String? shoeDetail,
     List<String>? sizeEur,
     List<String>? sizeUk,
+    List<String>? sizeCm,
     double? sellingPrice,
     double? condition,
     int? quantity,
@@ -191,6 +201,7 @@ class Shoe {
       shoeDetail: shoeDetail ?? this.shoeDetail,
       sizeEur: sizeEur ?? this.sizeEur,
       sizeUk: sizeUk ?? this.sizeUk,
+      sizeCm: sizeCm ?? this.sizeCm,
       sellingPrice: sellingPrice ?? this.sellingPrice,
       condition: condition ?? this.condition,
       quantity: quantity ?? this.quantity,
@@ -212,8 +223,14 @@ class Shoe {
     final itemId = int.tryParse(map['Item ID']?.toString() ?? '') ?? 0;
     final shipmentId = map['Shipment ID']?.toString() ?? '';
     final shoeDetail = map['Shoe Detail']?.toString() ?? '';
-    final sizeEur = map['Size'] != null ? [map['Size'].toString()] : null;
-    final sizeUk = map['Size'] != null ? [map['Size UK'].toString()] : null;
+    String? eur = map['Size']?.toString().trim();
+    String? uk = map['Size UK']?.toString().trim();
+    String? cm = map['Size (cm)']?.toString().trim();
+
+    final sizeEur = (eur != null && eur.isNotEmpty) ? [eur] : null;
+    final sizeUk = (uk != null && uk.isNotEmpty) ? [uk] : null;
+    final sizeCm = (cm != null && cm.isNotEmpty) ? [cm] : null;
+
     final status = map['Status']?.toString() ?? '';
     final sellingPrice =
         double.tryParse(map['Selling Price']?.toString() ?? '') ?? 0.0;
@@ -223,7 +240,7 @@ class Shoe {
     final notes = map['Notes']?.toString() ?? '';
     final imagesLink = map['Pics']?.toString() ?? '';
     /******************************************************/
-    final desiredWidth = 500;
+    final desiredWidth = 800;
     final uri = Uri.parse(imageUrl);
     final queryParameters = Map<String, String>.from(uri.queryParameters);
     queryParameters['sz'] = 'w$desiredWidth';
@@ -257,6 +274,7 @@ class Shoe {
       shoeDetail: shoeDetail,
       sizeEur: sizeEur,
       sizeUk: sizeUk,
+      sizeCm: sizeCm,
       sellingPrice: sellingPrice,
       condition: condition,
       quantity: 1,
