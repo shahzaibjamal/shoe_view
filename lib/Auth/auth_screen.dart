@@ -233,6 +233,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final themeString = prefs.getString('themeMode') ?? 'Light';
     final isTest = prefs.getBool('isTest') ?? false;
     final sampleShareCount = prefs.getInt('sampleShareCount') ?? 0;
+    final isSalePrice = prefs.getBool('isSalePrice') ?? false;
 
     final appStatusNotifier = context.read<AppStatusNotifier>();
     ThemeMode themeMode = ThemeMode.light;
@@ -240,6 +241,7 @@ class _AuthScreenState extends State<AuthScreen> {
     appStatusNotifier.updateThemeMode(themeMode);
     appStatusNotifier.updateTest(isTest);
     appStatusNotifier.updateSampleShareCount(sampleShareCount);
+    appStatusNotifier.updateSalePrice(isSalePrice);
   }
 
   @override

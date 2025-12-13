@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -46,6 +47,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
   void initState() {
     // 🎯 Call load in initState as before
     bool isTest = context.read<AppStatusNotifier>().isTest;
+
     if (!isTest) loadRewardedAd();
     _loadLogo();
     super.initState();
@@ -128,6 +130,8 @@ class _CollageBuilderState extends State<CollageBuilder> {
     }
     final double logoLeftPosition =
         (collageWidth - logoSize) / 2; // Center horizontally
+    bool isSalePrice = context.read<AppStatusNotifier>().isSalePrice;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -231,7 +235,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : const Text('Share to WhatsApp'),
+                : const Text('Share'),
           ),
         ),
       ],
@@ -510,6 +514,8 @@ class _CollageBuilderState extends State<CollageBuilder> {
   }
 
   void _shareCollage() async {
+    Clipboard.setData(ClipboardData(text: widget.text));
+
     // ⭐️ FIX for "noisy" output: Use a high fixed pixel ratio (5.0) for oversampling.
     const double highQualityPixelRatio = 5.0;
 
@@ -526,11 +532,6 @@ class _CollageBuilderState extends State<CollageBuilder> {
     final int fileSizeBytes = pngBytes.length;
     final double fileSizeMB = fileSizeBytes / (1024 * 1024);
 
-    // The actual number of pixels rendered
-    final int pixelWidth = image.width;
-    final int pixelHeight = image.height;
-
-    AppLogger.log('  Pixel Dimensions: ${pixelWidth}x${pixelHeight}');
     AppLogger.log(
       '  PNG File Size: ${fileSizeBytes} bytes (${fileSizeMB.toStringAsFixed(2)} MB)',
     );
@@ -539,9 +540,11 @@ class _CollageBuilderState extends State<CollageBuilder> {
     final tempDir = await getTemporaryDirectory();
     final file = await File('${tempDir.path}/collage.png').create();
     await file.writeAsBytes(pngBytes);
+
     await SharePlus.instance.share(
       ShareParams(text: widget.text, files: [XFile(file.path)]),
     );
+
     if (mounted) Navigator.of(context).pop();
   }
 }

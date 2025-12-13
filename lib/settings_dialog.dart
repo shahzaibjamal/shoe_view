@@ -30,11 +30,13 @@ class _SettingsDialogState extends State<SettingsDialog> {
   String _currencyCode = 'USD';
   bool _isMultiSize = false;
   bool _isTest = false;
+  bool _isSalePrice = false;
   bool _isRepairedInfoAvailable = false;
   int _sampleShareCount = 4;
 
   bool _tempMultiSize = false;
   bool _tempTest = false;
+  bool _tempSalePrice = false;
   int _tempSampleShareCount = 4;
   ThemeMode _tempSelectedTheme = ThemeMode.light;
   String _tempCurrencyCode = 'USD';
@@ -119,7 +121,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
       await prefs.clear();
 
       final response = await widget.firebaseService.deleteUserData();
-      AppLogger.log('reposen - $response');
       Navigator.of(context).pop(); // Dismiss loader
 
       if (response['success']) {
@@ -160,6 +161,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       _isMultiSize = _tempMultiSize = appStatus.isMultiSizeModeEnabled;
       _tempSampleShareCount = _sampleShareCount = appStatus.sampleShareCount;
       _isTest = _tempTest = appStatus.isTest;
+      _isSalePrice = _tempSalePrice = appStatus.isSalePrice;
       _isRepairedInfoAvailable = appStatus.isRepairedInfoAvailable;
     });
   }
@@ -189,6 +191,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
       );
     }
 
+    if (_tempSalePrice != _isSalePrice) {
+      isDirty = true;
+      AnalyticsService.logSettingsUpdate('is_sale_price', _isSalePrice);
+    }
+
     if (_tempTest != _isTest) {
       isDirty = true;
     }
@@ -200,6 +207,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
       await prefs.setBool('multiSize', _isMultiSize);
       await prefs.setBool('isTest', _isTest);
       await prefs.setInt('sampleShareCount', _sampleShareCount);
+      await prefs.setBool('isSalePrice', _isSalePrice);
 
       widget.firebaseService.updateUserProfile({
         'isMultiSize': _isMultiSize,
@@ -237,6 +245,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
     });
     final appStatus = context.read<AppStatusNotifier>();
     appStatus.updateTest(_isTest);
+  }
+
+  Future<void> _updateSalePrice(bool isSalePrice) async {
+    setState(() {
+      _isSalePrice = isSalePrice;
+    });
+    final appStatus = context.read<AppStatusNotifier>();
+    appStatus.updateSalePrice(_isSalePrice);
   }
 
   Future<void> _updateSampleShareCount() async {
@@ -484,6 +500,17 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   child: Icon(Icons.refresh_sharp),
                 ),
               ),
+            const SizedBox(height: 8),
+            ListTile(
+              title: const Text(
+                'Enable Sale Price',
+                style: TextStyle(fontSize: 16),
+              ),
+              trailing: Switch(
+                value: _isSalePrice,
+                onChanged: _updateSalePrice,
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
               'Current Tier: $tier',

@@ -395,12 +395,17 @@ class _ShoeListViewState extends State<ShoeListView>
       final appStatus = context.read<AppStatusNotifier>();
       final currencyCode = appStatus.currencyCode;
       final isReparedInfoAvailable = appStatus.isRepairedInfoAvailable;
+      final isSalePrice = appStatus.isSalePrice;
       final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
 
-      if (isSold) {
-        // buffer.writeln('${indent}❌ SOLD ❌');
-      } else {
-        buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
+      if (!isSold) {
+        if (isSalePrice) {
+          buffer.writeln(
+            '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(shoe.sellingPrice)}~ ✅ $symbol${shoe.sellingPrice}/-',
+          );
+        } else {
+          buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
+        }
         buffer.writeln('${indent}Condition: ${shoe.condition}/10');
       }
       if (shoe.instagramLink.isNotEmpty) {
@@ -431,6 +436,7 @@ class _ShoeListViewState extends State<ShoeListView>
       buffer.writeln('Tap to claim 📦');
     }
 
+    AppLogger.log(buffer.toString());
     return buffer.toString();
   }
 

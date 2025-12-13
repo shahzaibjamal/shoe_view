@@ -16,6 +16,7 @@ class AppStatusNotifier extends ChangeNotifier {
   String _purchasedOffer = 'none'; // Default currency
   String _email = 'none'; // Default currency
   int _sampleShareCount = 0; // Default state
+  bool _isSalePrice = false;
 
   bool get isTrial => _isTrial;
   bool get isTest => _isTest;
@@ -32,6 +33,7 @@ class AppStatusNotifier extends ChangeNotifier {
   String get purchasedOffer => _purchasedOffer;
   String get email => _email;
   int get sampleShareCount => _sampleShareCount;
+  bool get isSalePrice => _isSalePrice;
 
   void reset() {
     _isTrial = false;
@@ -125,6 +127,11 @@ class AppStatusNotifier extends ChangeNotifier {
 
   void updateSampleShareCount(int sampleShareCount) {
     _sampleShareCount = sampleShareCount;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateSalePrice(bool salePrice) {
+    _isSalePrice = salePrice;
     notifyListeners(); // Notify all listeners to rebuild
   }
 }

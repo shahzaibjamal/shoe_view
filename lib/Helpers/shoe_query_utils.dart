@@ -440,4 +440,36 @@ class ShoeQueryUtils {
         return field[0].toUpperCase() + field.substring(1);
     }
   }
+
+  static int generateOriginalPrice(
+    double actualPrice, {
+    double minPercent = 7,
+    double maxPercent = 10,
+  }) {
+    // pick a random percentage between min and max
+    final random = Random();
+    final percent =
+        minPercent + (random.nextDouble() * (maxPercent - minPercent));
+
+    // apply percentage
+    double inflated = actualPrice + (actualPrice * percent / 100);
+
+    // round to nearest 0, 50, or 100
+    int rounded = _roundToNearest(inflated.toInt());
+
+    return rounded;
+  }
+
+  static int _roundToNearest(int value) {
+    int remainder = value % 100;
+
+    if (remainder < 25) return value - remainder; // nearest 0
+    if (remainder < 75) return value - remainder + 50; // nearest 50
+    return value - remainder + 100; // nearest 100
+  }
+
+  static String removeSalePrice(String text) {
+    final regex = RegExp(r'^.*Price:\s*~.*?~\s*X\s*.*?✅.*$', multiLine: true);
+    return text.replaceAll(regex, '').trim();
+  }
 }
