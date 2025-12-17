@@ -67,9 +67,9 @@ class FirebaseService {
         for (var item in data) {
           try {
             final shoe = Shoe.fromJson(item);
-            if (shoe.status != 'Sold') {
-              shoes.add(shoe);
-            }
+            //            if (shoe.status != 'Sold') {
+            shoes.add(shoe);
+            //            }
           } catch (e) {
             debugPrint('Error mapping shoe: $e');
           }

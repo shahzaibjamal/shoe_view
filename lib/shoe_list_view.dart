@@ -129,9 +129,7 @@ class _ShoeListViewState extends State<ShoeListView>
 
       for (final shoe in fetchedShoes) {
         final key = '${shoe.itemId}_${shoe.shipmentId}';
-        final isNew =
-            !existingKeys.containsKey(key) &&
-            (shoe.status == 'N/A' || shoe.status == 'Repaired');
+        final isNew = !existingKeys.containsKey(key);
 
         if (isNew) {
           newAvailableShoes.add(shoe);
@@ -179,53 +177,86 @@ class _ShoeListViewState extends State<ShoeListView>
 
   Future<void> _onSampleSend() async {
     final sampleShareCount = context.read<AppStatusNotifier>().sampleShareCount;
+    if (_displayedShoes.isEmpty || sampleShareCount <= 0) return;
 
-    if (_displayedShoes.isEmpty || sampleShareCount <= 0) {
-      return;
-    }
+    const String kSequenceKey = 'sample_send_sequence';
+    const String kSentHistoryKey =
+        'sample_send_history'; // New key to track sent items
 
-    const String kShoeDrawKey = 'sample_send_sequence';
     final prefs = await SharedPreferences.getInstance();
+
+    // 1. Create a map for quick lookup
     final Map<String, Shoe> shoeMap = {
       for (var shoe in _displayedShoes)
         '${shoe.shipmentId}_${shoe.itemId}': shoe,
     };
+    final List<String> currentInventoryIds = shoeMap.keys.toList();
 
-    final List<String> availableIdsPool = shoeMap.keys.toList();
-    List<String> sequenceOfIds;
-    final String? storedJsonString = prefs.getString(kShoeDrawKey);
-    if (storedJsonString == null || storedJsonString.isEmpty) {
-      sequenceOfIds = List.of(availableIdsPool)..shuffle(Random());
-    } else {
-      try {
-        final List<dynamic> dynamicList = jsonDecode(storedJsonString);
-        sequenceOfIds = dynamicList.cast<String>();
-        sequenceOfIds.retainWhere((id) => shoeMap.containsKey(id));
-      } catch (e) {
-        sequenceOfIds = List.of(availableIdsPool)..shuffle(Random());
-      }
+    // 2. Load existing Sequence and History
+    List<String> sequenceOfIds = _getListFromPrefs(prefs, kSequenceKey);
+    List<String> sentHistoryIds = _getListFromPrefs(prefs, kSentHistoryKey);
+
+    // 3. CLEANUP: Remove items that no longer exist in the physical inventory
+    sequenceOfIds.retainWhere((id) => currentInventoryIds.contains(id));
+    sentHistoryIds.retainWhere((id) => currentInventoryIds.contains(id));
+
+    // 4. IDENTIFY NEW ITEMS: Shoes in inventory that are NOT in the queue and NOT in history
+    final Set<String> existingKnownIds = {...sequenceOfIds, ...sentHistoryIds};
+    final List<String> brandNewIds = currentInventoryIds
+        .where((id) => !existingKnownIds.contains(id))
+        .toList();
+
+    if (brandNewIds.isNotEmpty) {
+      AppLogger.log('Found ${brandNewIds.length} new items. Adding to queue.');
+      brandNewIds.shuffle(Random());
+      sequenceOfIds.addAll(
+        brandNewIds,
+      ); // Add new items to the back of the line
     }
 
+    // 5. EMERGENCY RESET: If everything was sent or inventory changed drastically
     if (sequenceOfIds.isEmpty) {
-      sequenceOfIds = List.of(availableIdsPool)..shuffle(Random());
+      AppLogger.log('Sequence empty, starting new cycle.');
+      sequenceOfIds = List.of(currentInventoryIds)..shuffle(Random());
+      sentHistoryIds.clear();
     }
 
-    if (sequenceOfIds.isEmpty) {
-      return;
-    }
-
+    // 6. SELECT ITEMS TO SEND
     final int itemsToTake = min(sampleShareCount, sequenceOfIds.length);
     final List<String> selectedIds = sequenceOfIds.take(itemsToTake).toList();
     final List<Shoe> selectedItems = selectedIds
         .map((id) => shoeMap[id]!)
         .toList();
 
+    // 7. UPDATE LOCAL LISTS
+    // Move selected from sequence to history
     sequenceOfIds.removeRange(0, itemsToTake);
+    sentHistoryIds.addAll(selectedIds);
 
+    // 8. EXECUTE SHARE & SAVE
     _shareData(selectedItems);
-    AppLogger.log('Remaining - ${sequenceOfIds.length}');
-    final String updatedJsonString = jsonEncode(sequenceOfIds);
-    await prefs.setString(kShoeDrawKey, updatedJsonString);
+
+    await prefs.setString(kSequenceKey, jsonEncode(sequenceOfIds));
+    await prefs.setString(kSentHistoryKey, jsonEncode(sentHistoryIds));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Sent: ${selectedIds.length} | Remaining in Queue: ${sequenceOfIds.length}',
+        ),
+      ),
+    );
+  }
+
+  // Helper to handle JSON decoding safely
+  List<String> _getListFromPrefs(SharedPreferences prefs, String key) {
+    final String? jsonString = prefs.getString(key);
+    if (jsonString == null || jsonString.isEmpty) return [];
+    try {
+      return (jsonDecode(jsonString) as List).cast<String>();
+    } catch (e) {
+      return [];
+    }
   }
 
   void _openInApp() async {
