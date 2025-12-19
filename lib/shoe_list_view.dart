@@ -448,7 +448,7 @@ class _ShoeListViewState extends State<ShoeListView>
       if (!isSold) {
         if (isSalePrice) {
           buffer.writeln(
-            '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(shoe.sellingPrice)}~ ✅ $symbol${shoe.sellingPrice}/-',
+            '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(shoe.sellingPrice)}/-~ ✅ $symbol${shoe.sellingPrice}/-',
           );
         } else {
           buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');

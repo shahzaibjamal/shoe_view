@@ -13,6 +13,7 @@ class AppStatusNotifier extends ChangeNotifier {
   String _currencyCode = 'USD'; // Default currency
   bool _isMultiSizeModeEnabled = false;
   bool _isRepairedInfoAvailable = true;
+  bool _isHighResCollage = false;
   String _purchasedOffer = 'none'; // Default currency
   String _email = 'none'; // Default currency
   int _sampleShareCount = 0; // Default state
@@ -30,6 +31,7 @@ class AppStatusNotifier extends ChangeNotifier {
   String get currencyCode => _currencyCode;
   bool get isMultiSizeModeEnabled => _isMultiSizeModeEnabled;
   bool get isRepairedInfoAvailable => _isRepairedInfoAvailable;
+  bool get isHighResCollage => _isHighResCollage;
   String get purchasedOffer => _purchasedOffer;
   String get email => _email;
   int get sampleShareCount => _sampleShareCount;
@@ -111,6 +113,13 @@ class AppStatusNotifier extends ChangeNotifier {
   void updateRepairedInfoAvailable(bool value) {
     if (_isRepairedInfoAvailable != value) {
       _isRepairedInfoAvailable = value;
+      notifyListeners();
+    }
+  }
+
+  void updateHighResCollage(bool value) {
+    if (_isHighResCollage != value) {
+      _isHighResCollage = value;
       notifyListeners();
     }
   }

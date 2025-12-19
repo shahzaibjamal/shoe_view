@@ -1,15 +1,14 @@
 import 'dart:io';
 import 'dart:math';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/Image/collage_utils.dart';
 import 'package:shoe_view/Image/shoe_network_image.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/error_dialog.dart';
@@ -84,7 +83,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
       );
     }
 
-    final int crossAxisCount = _calculateGridSize(imageCount);
+    final int crossAxisCount = CollageUtils.calculateGridSize(imageCount);
     final int actualRowCount = (imageCount / crossAxisCount).ceil();
 
     const double spacing = 4.0;
@@ -345,27 +344,6 @@ class _CollageBuilderState extends State<CollageBuilder> {
     return min(calculatedItemSize, requestedCap);
   }
 
-  int _calculateGridSize(int count) {
-    if (count <= 1) return 1;
-
-    int bestCols = 1;
-    double bestScore = double.infinity;
-
-    for (int cols = 1; cols <= 4; cols++) {
-      int rows = (count / cols).ceil();
-      if (rows > 4) continue;
-
-      double score = (cols - rows).abs() + ((cols * rows) - count) * 0.1;
-
-      if (score < bestScore) {
-        bestScore = score;
-        bestCols = cols;
-      }
-    }
-
-    return bestCols;
-  }
-
   void _canShareCollage() {
     if (_isSaving) {
       return;
@@ -514,37 +492,38 @@ class _CollageBuilderState extends State<CollageBuilder> {
   }
 
   void _shareCollage() async {
-    Clipboard.setData(ClipboardData(text: widget.text));
+    // 🎯 TOGGLE: Change this to false to use the old RepaintBoundary method
+    bool useCanvasMethod = context.read<AppStatusNotifier>().isHighResCollage;
 
-    // ⭐️ FIX for "noisy" output: Use a high fixed pixel ratio (5.0) for oversampling.
-    const double highQualityPixelRatio = 5.0;
+    setState(() => _isSaving = true);
+    Uint8List pngBytes;
 
-    final boundary =
-        _collageKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    try {
+      if (useCanvasMethod) {
+        // METHOD 2: Manual Canvas Generation (High Res)
+        pngBytes = await CollageUtils.generateCollageWithCanvas(
+          shoes: widget.shoes,
+          logoFile: _logoFile,
+        );
+      } else {
+        pngBytes = await CollageUtils.generateCollageFromWidget(_collageKey);
+      }
 
-    // Captures the widget as an image using the high-quality pixel ratio
-    final image = await boundary.toImage(pixelRatio: highQualityPixelRatio);
+      // --- Share Logic ---
+      Clipboard.setData(ClipboardData(text: widget.text));
+      final tempDir = await getTemporaryDirectory();
+      final file = await File('${tempDir.path}/collage.png').create();
+      await file.writeAsBytes(pngBytes);
 
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    final pngBytes = byteData!.buffer.asUint8List();
+      await SharePlus.instance.share(
+        ShareParams(text: widget.text, files: [XFile(file.path)]),
+      );
 
-    // 2. ⭐ File Size Calculation and Logging ⭐
-    final int fileSizeBytes = pngBytes.length;
-    final double fileSizeMB = fileSizeBytes / (1024 * 1024);
-
-    AppLogger.log(
-      '  PNG File Size: ${fileSizeBytes} bytes (${fileSizeMB.toStringAsFixed(2)} MB)',
-    );
-    // ⭐ End File Size Calculation and Logging ⭐
-
-    final tempDir = await getTemporaryDirectory();
-    final file = await File('${tempDir.path}/collage.png').create();
-    await file.writeAsBytes(pngBytes);
-
-    await SharePlus.instance.share(
-      ShareParams(text: widget.text, files: [XFile(file.path)]),
-    );
-
-    if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      AppLogger.log("Error generating collage: $e");
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 }

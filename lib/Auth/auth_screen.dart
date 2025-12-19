@@ -232,6 +232,9 @@ class _AuthScreenState extends State<AuthScreen> {
     final prefs = await SharedPreferences.getInstance();
     final themeString = prefs.getString('themeMode') ?? 'Light';
     final isTest = prefs.getBool('isTest') ?? false;
+    final isRepairedInfoAvailable =
+        prefs.getBool('isRepairedInfoAvailable') ?? true;
+    final isHighResCollage = prefs.getBool('isHighResCollage') ?? false;
     final sampleShareCount = prefs.getInt('sampleShareCount') ?? 0;
     final isSalePrice = prefs.getBool('isSalePrice') ?? false;
 
@@ -241,6 +244,8 @@ class _AuthScreenState extends State<AuthScreen> {
     appStatusNotifier.updateThemeMode(themeMode);
     appStatusNotifier.updateTest(isTest);
     appStatusNotifier.updateSampleShareCount(sampleShareCount);
+    appStatusNotifier.updateRepairedInfoAvailable(isRepairedInfoAvailable);
+    appStatusNotifier.updateHighResCollage(isHighResCollage);
     appStatusNotifier.updateSalePrice(isSalePrice);
   }
 

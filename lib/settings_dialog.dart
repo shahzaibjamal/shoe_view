@@ -31,6 +31,7 @@ class _SettingsDialogState extends State<SettingsDialog>
   bool _isTest = false;
   bool _isSalePrice = false;
   bool _isRepairedInfoAvailable = false;
+  bool _isHighResCollage = false;
   int _sampleShareCount = 4;
 
   late TextEditingController _sampleController;
@@ -90,6 +91,17 @@ class _SettingsDialogState extends State<SettingsDialog>
     setState(() => _logoFile = savedFile);
   }
 
+  Future<void> _removeLogo() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final logoPath = File('${dir.path}/logo.jpg');
+
+    if (await logoPath.exists()) {
+      await logoPath.delete();
+    }
+
+    setState(() => _logoFile = null);
+  }
+
   void _loadSettingsFromNotifier() {
     final app = context.read<AppStatusNotifier>();
 
@@ -114,6 +126,7 @@ class _SettingsDialogState extends State<SettingsDialog>
     await prefs.setBool('isTest', _isTest);
     await prefs.setBool('isSalePrice', _isSalePrice);
     await prefs.setBool('isRepairedInfoAvailable', _isRepairedInfoAvailable);
+    await prefs.setBool('isHighResCollage', _isHighResCollage);
     await prefs.setInt('sampleShareCount', _sampleShareCount);
 
     final app = context.read<AppStatusNotifier>();
@@ -123,14 +136,15 @@ class _SettingsDialogState extends State<SettingsDialog>
     app.updateTest(_isTest);
     app.updateSalePrice(_isSalePrice);
     app.updateRepairedInfoAvailable(_isRepairedInfoAvailable);
+    app.updateHighResCollage(_isHighResCollage);
     app.updateSampleShareCount(_sampleShareCount);
+
+    if (mounted) Navigator.pop(context);
 
     await widget.firebaseService.updateUserProfile({
       'isMultiSize': _isMultiSize,
       'currencyCode': _currencyCode,
     });
-
-    Navigator.pop(context);
   }
 
   Future<void> _confirmClearData() async {
@@ -255,35 +269,87 @@ class _SettingsDialogState extends State<SettingsDialog>
               const SizedBox(height: 12),
               Row(
                 children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOut,
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey, width: 2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    clipBehavior: Clip.hardEdge,
-                    child: _logoFile != null
-                        ? Image.file(_logoFile!, fit: BoxFit.cover)
-                        : const Icon(Icons.image_not_supported, size: 40),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ElevatedButton(
-                          onPressed: _pickLogoImage,
-                          child: const Text('Upload'),
+                  Tooltip(
+                    message: _logoFile != null
+                        ? 'Long press to remove logo'
+                        : 'Tap to upload logo',
+                    child: GestureDetector(
+                      onTap: _pickLogoImage, // Simple tap to upload or change
+                      onLongPress: () async {
+                        if (_logoFile != null) {
+                          // Haptic feedback makes the long-press feel "real"
+                          await HapticFeedback.mediumImpact();
+                          _removeLogo();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Logo removed'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        width: 80, // Increased size for better UX/Tapping
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          border: Border.all(
+                            color: _logoFile != null
+                                ? Colors.blue.withOpacity(0.5)
+                                : Colors.grey.shade400,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            if (_logoFile != null)
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                          ],
                         ),
-                      ],
+                        clipBehavior: Clip.hardEdge,
+                        child: _logoFile != null
+                            ? Image.file(_logoFile!, fit: BoxFit.cover)
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_a_photo_outlined,
+                                    color: Colors.grey.shade600,
+                                    size: 30,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Upload',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'Tap the box to upload.\nLong-press to remove.',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
                     ),
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
 
               // ---------------- THEME ----------------
@@ -379,6 +445,14 @@ class _SettingsDialogState extends State<SettingsDialog>
                     value: _isRepairedInfoAvailable,
                     onChanged: (v) =>
                         setState(() => _isRepairedInfoAvailable = v),
+                  ),
+                ),
+              if (_isTest)
+                ListTile(
+                  title: const Text('Share High Res Collage'),
+                  trailing: Switch(
+                    value: _isHighResCollage,
+                    onChanged: (v) => setState(() => _isHighResCollage = v),
                   ),
                 ),
 
