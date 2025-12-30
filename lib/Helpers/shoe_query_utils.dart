@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
@@ -160,24 +163,35 @@ class ShoeQueryUtils {
     required String rawQuery,
     required String sortField,
     required bool sortAscending,
+    bool applyStatusFilter = true,
   }) {
     List<Shoe> displayedShoes = List<Shoe>.from(shoes);
 
-    if (sortField.toLowerCase().contains('sold')) {
-      displayedShoes = displayedShoes.where((a) => a.status == 'Sold').toList();
-    } else if (sortField.toLowerCase().contains('n/a')) {
-      displayedShoes = displayedShoes.where((a) => a.status == 'N/A').toList();
-    } else if (sortField.toLowerCase().contains('repaired')) {
-      displayedShoes = displayedShoes
-          .where((a) => a.status == 'Repaired')
-          .toList();
+    if (applyStatusFilter) {
+      if (sortField.toLowerCase().contains('sold')) {
+        displayedShoes = displayedShoes
+            .where((a) => a.status == 'Sold')
+            .toList();
+      } else if (sortField.toLowerCase().contains('n/a')) {
+        displayedShoes = displayedShoes
+            .where((a) => a.status == 'N/A')
+            .toList();
+      } else if (sortField.toLowerCase().contains('repaired')) {
+        displayedShoes = displayedShoes
+            .where((a) => a.status == 'Repaired')
+            .toList();
+      } else {
+        // Default: show only Available
+        displayedShoes = displayedShoes
+            .where((a) => a.status == 'Available')
+            .toList();
+      }
     } else {
-      // Default: show only Available
+      // 👇 Always exclude Sold and Repaired when skipping status filter
       displayedShoes = displayedShoes
-          .where((a) => a.status == 'Available')
+          .where((a) => a.status != 'Sold' && a.status != 'Repaired')
           .toList();
-    }
-    // --- 1. Sorting ---
+    } // --- 1. Sorting ---
     final isStatusFiltered = [
       'sold',
       'n/a',
@@ -473,5 +487,29 @@ class ShoeQueryUtils {
   static String removeSalePrice(String text) {
     final regex = RegExp(r'^.*Price:\s*~.*?~\s*X\s*.*?✅.*$', multiLine: true);
     return text.replaceAll(regex, '').trim();
+  }
+
+  static Future<void> saveShoesToAppExternal(List<Shoe> shoes) async {
+    // Get the external storage directory for your app
+    final Directory? extDir = await getExternalStorageDirectory();
+
+    if (extDir != null) {
+      // Create a "downloads" subfolder inside your app's external files dir
+      final downloadsDir = Directory('${extDir.path}/downloads');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+
+      // Encode your list to JSON
+      final jsonContent = jsonEncode(shoes.map((s) => s.toMap()).toList());
+
+      // Save file
+      final file = File('${downloadsDir.path}/shoes.json');
+      await file.writeAsString(jsonContent);
+
+      print("✅ File saved at: ${file.path}");
+    } else {
+      print("❌ Could not get external storage directory");
+    }
   }
 }

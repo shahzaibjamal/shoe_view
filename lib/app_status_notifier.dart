@@ -14,10 +14,17 @@ class AppStatusNotifier extends ChangeNotifier {
   bool _isMultiSizeModeEnabled = false;
   bool _isRepairedInfoAvailable = true;
   bool _isHighResCollage = false;
+  bool _isAllShoesShare = false;
   String _purchasedOffer = 'none'; // Default currency
   String _email = 'none'; // Default currency
   int _sampleShareCount = 0; // Default state
   bool _isSalePrice = false;
+  bool _isFlatSale = false;
+  bool _isPriceHidden = false;
+
+  double _lowDiscount = 7;
+  double _highDiscount = 10;
+  double _flatDiscount = 0;
 
   bool get isTrial => _isTrial;
   bool get isTest => _isTest;
@@ -32,10 +39,16 @@ class AppStatusNotifier extends ChangeNotifier {
   bool get isMultiSizeModeEnabled => _isMultiSizeModeEnabled;
   bool get isRepairedInfoAvailable => _isRepairedInfoAvailable;
   bool get isHighResCollage => _isHighResCollage;
+  bool get isAllShoesShare => _isAllShoesShare;
   String get purchasedOffer => _purchasedOffer;
   String get email => _email;
   int get sampleShareCount => _sampleShareCount;
   bool get isSalePrice => _isSalePrice;
+  bool get isFlatSale => _isFlatSale;
+  bool get isPriceHidden => _isPriceHidden;
+  double get flatDiscount => _flatDiscount;
+  double get lowDiscount => _lowDiscount;
+  double get highDiscount => _highDiscount;
 
   void reset() {
     _isTrial = false;
@@ -124,6 +137,13 @@ class AppStatusNotifier extends ChangeNotifier {
     }
   }
 
+  void updateAllShoesShare(bool value) {
+    if (_isAllShoesShare != value) {
+      _isAllShoesShare = value;
+      notifyListeners();
+    }
+  }
+
   void updatePurchasedOffer(String offer) {
     _purchasedOffer = offer;
     notifyListeners();
@@ -142,5 +162,65 @@ class AppStatusNotifier extends ChangeNotifier {
   void updateSalePrice(bool salePrice) {
     _isSalePrice = salePrice;
     notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateFlatSale(bool flatSale) {
+    _isFlatSale = flatSale;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updatePriceHidden(bool priceHidden) {
+    _isPriceHidden = priceHidden;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateFlatDiscountPercent(double flatDiscount) {
+    _flatDiscount = flatDiscount;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateLowDiscountPercent(double lowDiscount) {
+    _lowDiscount = lowDiscount;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateHighDiscountPercent(double highDiscount) {
+    _highDiscount = highDiscount;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
+  void updateAllSettings({
+    required ThemeMode themeMode,
+    required String currencyCode,
+    required bool isMultiSize,
+    required bool isTest,
+    required bool isSalePrice,
+    required bool isRepairedInfoAvailable,
+    required bool isHighResCollage,
+    required bool isAllShoesShare,
+    required bool isPriceHidden,
+    required int sampleShareCount,
+    required bool isFlatSale,
+    required double lowDiscount,
+    required double highDiscount,
+    required double flatDiscount,
+  }) {
+    _themeMode = themeMode;
+    _currencyCode = currencyCode;
+    _isMultiSizeModeEnabled = isMultiSize;
+    _isTest = isTest;
+    _isSalePrice = isSalePrice;
+    _isRepairedInfoAvailable = isRepairedInfoAvailable;
+    _isHighResCollage = isHighResCollage;
+    _isAllShoesShare = isAllShoesShare;
+    _sampleShareCount = sampleShareCount;
+    _isFlatSale = isFlatSale;
+    _lowDiscount = lowDiscount;
+    _highDiscount = highDiscount;
+    _flatDiscount = flatDiscount;
+    _isPriceHidden = isPriceHidden;
+
+    // This is the magic line: one call, one rebuild for everything.
+    notifyListeners();
   }
 }

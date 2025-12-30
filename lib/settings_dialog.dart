@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
@@ -32,6 +33,7 @@ class _SettingsDialogState extends State<SettingsDialog>
   bool _isSalePrice = false;
   bool _isRepairedInfoAvailable = false;
   bool _isHighResCollage = false;
+  bool _isAllShoesShare = false;
   int _sampleShareCount = 4;
 
   late TextEditingController _sampleController;
@@ -39,10 +41,26 @@ class _SettingsDialogState extends State<SettingsDialog>
   late AnimationController _animController;
   late Animation<double> _scaleAnim;
 
+  bool _isPriceHidden = false;
+
+  bool _isFlatSale = false;
+  double _lowDiscount = 0.0;
+  double _highDiscount = 0.0;
+  double _flatDiscount = 0.0;
+
+  // New Controllers
+  late TextEditingController _lowDiscountController;
+  late TextEditingController _highDiscountController;
+  late TextEditingController _flatDiscountController;
+
   @override
   void initState() {
     super.initState();
     _sampleController = TextEditingController();
+    _lowDiscountController = TextEditingController();
+    _highDiscountController = TextEditingController();
+    _flatDiscountController = TextEditingController();
+
     _loadLogo();
     _loadSettingsFromNotifier();
 
@@ -64,6 +82,9 @@ class _SettingsDialogState extends State<SettingsDialog>
   void dispose() {
     _sampleController.dispose();
     _animController.dispose();
+    _lowDiscountController.dispose();
+    _highDiscountController.dispose();
+    _flatDiscountController.dispose();
     super.dispose();
   }
 
@@ -113,7 +134,18 @@ class _SettingsDialogState extends State<SettingsDialog>
       _isSalePrice = app.isSalePrice;
       _isRepairedInfoAvailable = app.isRepairedInfoAvailable;
       _sampleShareCount = app.sampleShareCount;
+      _isHighResCollage = app.isHighResCollage;
+      _isAllShoesShare = app.isAllShoesShare;
       _sampleController.text = _sampleShareCount.toString();
+      _isFlatSale = app.isFlatSale;
+      _lowDiscount = app.lowDiscount;
+      _highDiscount = app.highDiscount;
+      _flatDiscount = app.flatDiscount;
+      _isPriceHidden = app.isPriceHidden;
+
+      _lowDiscountController.text = _lowDiscount.toString();
+      _highDiscountController.text = _highDiscount.toString();
+      _flatDiscountController.text = _flatDiscount.toString();
     });
   }
 
@@ -127,17 +159,46 @@ class _SettingsDialogState extends State<SettingsDialog>
     await prefs.setBool('isSalePrice', _isSalePrice);
     await prefs.setBool('isRepairedInfoAvailable', _isRepairedInfoAvailable);
     await prefs.setBool('isHighResCollage', _isHighResCollage);
+    await prefs.setBool('isAllShoesShare', _isAllShoesShare);
     await prefs.setInt('sampleShareCount', _sampleShareCount);
+    await prefs.setBool('isFlatSale', _isFlatSale);
+    await prefs.setBool('isPriceHidden', _isPriceHidden);
+    await prefs.setDouble('lowDiscount', _lowDiscount);
+    await prefs.setDouble('highDiscount', _highDiscount);
+    await prefs.setDouble('flatDiscount', _flatDiscount);
 
     final app = context.read<AppStatusNotifier>();
-    app.updateThemeMode(_selectedTheme);
-    app.updateCurrencyCode(_currencyCode);
-    app.updateMultiSizeMode(_isMultiSize);
-    app.updateTest(_isTest);
-    app.updateSalePrice(_isSalePrice);
-    app.updateRepairedInfoAvailable(_isRepairedInfoAvailable);
-    app.updateHighResCollage(_isHighResCollage);
-    app.updateSampleShareCount(_sampleShareCount);
+    // app.updateThemeMode(_selectedTheme);
+    // app.updateCurrencyCode(_currencyCode);
+    // app.updateMultiSizeMode(_isMultiSize);
+    // app.updateTest(_isTest);
+    // app.updateSalePrice(_isSalePrice);
+    // app.updateRepairedInfoAvailable(_isRepairedInfoAvailable);
+    // app.updateHighResCollage(_isHighResCollage);
+    // app.updateAllShoesShare(_isAllShoesShare);
+    // app.updateSampleShareCount(_sampleShareCount);
+    // app.updateFlatSale(_isFlatSale);
+    // app.updatePriceHidden(_isPriceHidden);
+    // app.updateFlatDiscountPercent(_flatDiscount);
+    // app.updateLowDiscountPercent(_lowDiscount);
+    // app.updateHighDiscountPercent(_highDiscount);
+
+    app.updateAllSettings(
+      themeMode: _selectedTheme,
+      currencyCode: _currencyCode,
+      isMultiSize: _isMultiSize,
+      isTest: _isTest,
+      isSalePrice: _isSalePrice,
+      isRepairedInfoAvailable: _isRepairedInfoAvailable,
+      isHighResCollage: _isHighResCollage,
+      isAllShoesShare: _isAllShoesShare,
+      sampleShareCount: _sampleShareCount,
+      isFlatSale: _isFlatSale,
+      lowDiscount: _lowDiscount,
+      highDiscount: _highDiscount,
+      flatDiscount: _flatDiscount,
+      isPriceHidden: _isPriceHidden,
+    );
 
     if (mounted) Navigator.pop(context);
 
@@ -232,6 +293,23 @@ class _SettingsDialogState extends State<SettingsDialog>
     } catch (e) {
       print('Error signing out: $e');
     }
+  }
+
+  Widget _buildNumField(
+    String label,
+    TextEditingController ctrl,
+    Function(double) onUpdate,
+  ) {
+    return TextField(
+      controller: ctrl,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: '%',
+        border: const OutlineInputBorder(),
+      ),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onChanged: (v) => onUpdate(double.tryParse(v) ?? 0.0),
+    );
   }
 
   @override
@@ -440,11 +518,19 @@ class _SettingsDialogState extends State<SettingsDialog>
 
               if (_isTest)
                 ListTile(
-                  title: const Text('Show repaired info'),
+                  title: const Text('Show Repaired Info'),
                   trailing: Switch(
                     value: _isRepairedInfoAvailable,
                     onChanged: (v) =>
                         setState(() => _isRepairedInfoAvailable = v),
+                  ),
+                ),
+              if (_isTest)
+                ListTile(
+                  title: const Text('Hide Prices'),
+                  trailing: Switch(
+                    value: _isPriceHidden,
+                    onChanged: (v) => setState(() => _isPriceHidden = v),
                   ),
                 ),
               if (_isTest)
@@ -455,16 +541,84 @@ class _SettingsDialogState extends State<SettingsDialog>
                     onChanged: (v) => setState(() => _isHighResCollage = v),
                   ),
                 ),
-
               if (_isTest)
                 ListTile(
-                  title: const Text('Enable Sale Price'),
+                  title: const Text('Share All Shoes'),
+                  trailing: Switch(
+                    value: _isAllShoesShare,
+                    onChanged: (v) => setState(() => _isAllShoesShare = v),
+                  ),
+                ),
+              // ---------------- SALE SETTINGS ----------------
+              // ---------------- PRICING & DISCOUNTS ----------------
+              if (_isTest) ...[
+                const Divider(),
+                const Text(
+                  "Pricing Display Settings",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+
+                // SECTION 1: Sale Price (Crossed Out)
+                ListTile(
+                  title: const Text('Show Crossed-out Price'),
+                  subtitle: const Text(
+                    'Displays a higher market price above actual',
+                  ),
                   trailing: Switch(
                     value: _isSalePrice,
                     onChanged: (v) => setState(() => _isSalePrice = v),
                   ),
                 ),
+                if (_isSalePrice)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildNumField(
+                            "Min Markup %",
+                            _lowDiscountController,
+                            (v) => _lowDiscount = v,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildNumField(
+                            "Max Markup %",
+                            _highDiscountController,
+                            (v) => _highDiscount = v,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
+                const SizedBox(height: 16),
+
+                // SECTION 2: Flat Discount (Actual Price Reduction)
+                ListTile(
+                  title: const Text('Enable Flat Discount'),
+                  subtitle: const Text(
+                    'Applies a real discount to the final price',
+                  ),
+                  trailing: Switch(
+                    value: _isFlatSale,
+                    onChanged: (v) => setState(() => _isFlatSale = v),
+                  ),
+                ),
+                if (_isFlatSale)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildNumField(
+                      "Flat Discount %",
+                      _flatDiscountController,
+                      (v) => _flatDiscount = v,
+                    ),
+                  ),
+              ],
               const SizedBox(height: 12),
               Text('Current Tier: $tier'),
 

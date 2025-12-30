@@ -259,6 +259,10 @@ class _ShoeListViewState extends State<ShoeListView>
     }
   }
 
+  Future<void> _onSaveData() async {
+    ShoeQueryUtils.saveShoesToAppExternal(streamShoes);
+  }
+
   void _openInApp() async {
     final subscriptionManager = context.read<SubscriptionManager>();
     Navigator.of(context).push(
@@ -337,7 +341,31 @@ class _ShoeListViewState extends State<ShoeListView>
       contentType: 'button',
       itemId: '_onShareAll',
     );
-    _shareData(_displayedShoes);
+
+    var isAllShoesShare = context.read<AppStatusNotifier>().isAllShoesShare;
+
+    if (isAllShoesShare) {
+      final query = _searchController.text.toLowerCase();
+      final filteredShoes = streamShoes
+          .where(
+            (shoe) =>
+                shoe.status != 'repaired' &&
+                ShoeQueryUtils.doesShoeMatchSmartQuery(shoe, query),
+          )
+          .toList();
+
+      final allShoesSet = ShoeQueryUtils.sortAndLimitShoes(
+        shoes: filteredShoes,
+        rawQuery: query,
+        sortField: _sortField,
+        sortAscending: _sortAscending,
+        applyStatusFilter: false,
+      );
+
+      _shareData(allShoesSet);
+    } else {
+      _shareData(_displayedShoes);
+    }
   }
 
   void _shareData(List<Shoe> shoesToShare) {
@@ -443,15 +471,25 @@ class _ShoeListViewState extends State<ShoeListView>
       final currencyCode = appStatus.currencyCode;
       final isReparedInfoAvailable = appStatus.isRepairedInfoAvailable;
       final isSalePrice = appStatus.isSalePrice;
+      final isFlatSale = appStatus.isFlatSale;
+      final isPriceHidden = appStatus.isPriceHidden;
       final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
-
+      final sellingPrice = isFlatSale
+          ? shoe.sellingPrice * (1 - appStatus.flatDiscount / 100)
+          : shoe.sellingPrice;
       if (!isSold) {
-        if (isSalePrice) {
-          buffer.writeln(
-            '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(shoe.sellingPrice)}/-~ ✅ $symbol${shoe.sellingPrice}/-',
-          );
-        } else {
-          buffer.writeln('${indent}Price: $symbol${shoe.sellingPrice}/-');
+        if (!isPriceHidden) {
+          if (isSalePrice) {
+            buffer.writeln(
+              '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(sellingPrice, minPercent: appStatus.lowDiscount, maxPercent: appStatus.highDiscount)}/-~ ✅ $symbol${sellingPrice}/-',
+            );
+          } else if (isFlatSale) {
+            buffer.writeln(
+              '${indent}Price: ❌ ~$symbol${shoe.sellingPrice}/-~ ✅ $symbol${sellingPrice}/-',
+            );
+          } else {
+            buffer.writeln('${indent}Price: $symbol${sellingPrice}/-');
+          }
         }
         buffer.writeln('${indent}Condition: ${shoe.condition}/10');
       }
@@ -461,14 +499,16 @@ class _ShoeListViewState extends State<ShoeListView>
       if (shoe.tiktokLink.isNotEmpty) {
         buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       }
-      if (isReparedInfoAvailable && shoe.status == 'Repaired') {
-        String notes = shoe.notes;
-        if (shoe.notes.contains("Not repaired")) {
-          notes = notes.replaceAll("Not repaired", "").trim();
-        } else {
-          buffer.writeln('$indent❌❌ Repaired ❌❌');
+      if (shoe.status == 'Repaired') {
+        if (isReparedInfoAvailable) {
+          String notes = shoe.notes;
+          if (shoe.notes.contains("Not repaired")) {
+            notes = notes.replaceAll("Not repaired", "").trim();
+          } else {
+            buffer.writeln('$indent❌❌ Repaired ❌❌');
+          }
+          buffer.writeln('${indent}Note: ✨$notes✨');
         }
-        buffer.writeln('${indent}Note: ✨$notes✨');
         buffer.writeln('${indent}Images: ${shoe.imagesLink}');
       }
       if (isSold) {
@@ -529,6 +569,7 @@ class _ShoeListViewState extends State<ShoeListView>
               onInAppButtonPressed: _openInApp,
               onSettingsButtonPressed: _openSettingsDialog,
               onSampleSendPressed: _onSampleSend,
+              onSaveDataPressed: _onSaveData,
             ),
             if (_isLoadingExternalData) const LinearProgressIndicator(),
             Expanded(

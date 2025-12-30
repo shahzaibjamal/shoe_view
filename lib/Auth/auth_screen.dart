@@ -232,21 +232,51 @@ class _AuthScreenState extends State<AuthScreen> {
     final prefs = await SharedPreferences.getInstance();
     final themeString = prefs.getString('themeMode') ?? 'Light';
     final isTest = prefs.getBool('isTest') ?? false;
+    final isMultiSize = prefs.getBool('multiSize') ?? false;
+    final currencyCode = prefs.getString('currency') ?? 'USD';
     final isRepairedInfoAvailable =
         prefs.getBool('isRepairedInfoAvailable') ?? true;
     final isHighResCollage = prefs.getBool('isHighResCollage') ?? false;
+    final isAllShoesShare = prefs.getBool('isAllShoesShare') ?? false;
     final sampleShareCount = prefs.getInt('sampleShareCount') ?? 0;
     final isSalePrice = prefs.getBool('isSalePrice') ?? false;
+    final isFlatSale = prefs.getBool('isFlatSale') ?? false;
+    final isPriceHidden = prefs.getBool('isPriceHidden') ?? false;
+    final lowDiscount = prefs.getDouble('lowDiscount') ?? 0;
+    final highDiscount = prefs.getDouble('highDiscount') ?? 0;
+    final flatDiscount = prefs.getDouble('flatDiscount') ?? 0;
 
     final appStatusNotifier = context.read<AppStatusNotifier>();
     ThemeMode themeMode = ThemeMode.light;
     themeMode = ThemeMode.values.firstWhere((m) => m.name == themeString);
-    appStatusNotifier.updateThemeMode(themeMode);
-    appStatusNotifier.updateTest(isTest);
-    appStatusNotifier.updateSampleShareCount(sampleShareCount);
-    appStatusNotifier.updateRepairedInfoAvailable(isRepairedInfoAvailable);
-    appStatusNotifier.updateHighResCollage(isHighResCollage);
-    appStatusNotifier.updateSalePrice(isSalePrice);
+    // appStatusNotifier.updateThemeMode(themeMode);
+    // appStatusNotifier.updateTest(isTest);
+    // appStatusNotifier.updateSampleShareCount(sampleShareCount);
+    // appStatusNotifier.updateRepairedInfoAvailable(isRepairedInfoAvailable);
+    // appStatusNotifier.updateHighResCollage(isHighResCollage);
+    // appStatusNotifier.updateAllShoesShare(isAllShoesShare);
+    // appStatusNotifier.updateSalePrice(isSalePrice);
+    // appStatusNotifier.updateFlatSale(isFlatSale);
+    // appStatusNotifier.updatePriceHidden(isPriceHidden);
+    // appStatusNotifier.updateFlatDiscountPercent(flatDiscount);
+    // appStatusNotifier.updateLowDiscountPercent(lowDiscount);
+    // appStatusNotifier.updateHighDiscountPercent(highDiscount);
+    appStatusNotifier.updateAllSettings(
+      themeMode: themeMode,
+      currencyCode: currencyCode,
+      isMultiSize: isMultiSize,
+      isTest: isTest,
+      isSalePrice: isSalePrice,
+      isRepairedInfoAvailable: isRepairedInfoAvailable,
+      isHighResCollage: isHighResCollage,
+      isAllShoesShare: isAllShoesShare,
+      sampleShareCount: sampleShareCount,
+      isFlatSale: isFlatSale,
+      lowDiscount: lowDiscount,
+      highDiscount: highDiscount,
+      flatDiscount: flatDiscount,
+      isPriceHidden: isPriceHidden,
+    );
   }
 
   @override

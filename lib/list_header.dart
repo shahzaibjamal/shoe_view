@@ -17,6 +17,7 @@ class ListHeader extends StatefulWidget {
   final VoidCallback onInAppButtonPressed;
   final VoidCallback onSettingsButtonPressed;
   final VoidCallback onSampleSendPressed;
+  final VoidCallback onSaveDataPressed;
 
   const ListHeader({
     super.key,
@@ -33,6 +34,7 @@ class ListHeader extends StatefulWidget {
     required this.onInAppButtonPressed,
     required this.onSettingsButtonPressed,
     required this.onSampleSendPressed,
+    required this.onSaveDataPressed,
   });
 
   @override
@@ -95,6 +97,14 @@ class _ListHeaderState extends State<ListHeader> {
                       onPressed: () {
                         _toggleOverlay();
                         widget.onSampleSendPressed();
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.save),
+                      tooltip: 'Save Data',
+                      onPressed: () {
+                        _toggleOverlay();
+                        widget.onSaveDataPressed();
                       },
                     ),
                   ],
