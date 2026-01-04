@@ -260,6 +260,27 @@ class _CollageBuilderState extends State<CollageBuilder> {
               ),
             ),
           ),
+          // 2. NEW: Shoe Size in Top Right Corner
+          if (shoe.sizeEur!.isNotEmpty)
+            Positioned(
+              right: 4,
+              top: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.black45, // Slightly more transparent than index
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  shoe.sizeEur![0],
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 6, // Smaller than the index
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           if (imageCount > 1)
             Positioned(
               left: 5,

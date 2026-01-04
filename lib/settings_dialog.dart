@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
@@ -26,6 +25,7 @@ class _SettingsDialogState extends State<SettingsDialog>
     with SingleTickerProviderStateMixin {
   File? _logoFile;
 
+  // Local State
   ThemeMode _selectedTheme = ThemeMode.light;
   String _currencyCode = 'USD';
   bool _isMultiSize = false;
@@ -34,24 +34,17 @@ class _SettingsDialogState extends State<SettingsDialog>
   bool _isRepairedInfoAvailable = false;
   bool _isHighResCollage = false;
   bool _isAllShoesShare = false;
-  int _sampleShareCount = 4;
-
-  late TextEditingController _sampleController;
-
-  late AnimationController _animController;
-  late Animation<double> _scaleAnim;
-
+  bool _isFlatSale = false;
   bool _isPriceHidden = false;
 
-  bool _isFlatSale = false;
-  double _lowDiscount = 0.0;
-  double _highDiscount = 0.0;
-  double _flatDiscount = 0.0;
-
-  // New Controllers
+  // Controllers
+  late TextEditingController _sampleController;
   late TextEditingController _lowDiscountController;
   late TextEditingController _highDiscountController;
   late TextEditingController _flatDiscountController;
+
+  late AnimationController _animController;
+  late Animation<double> _scaleAnim;
 
   @override
   void initState() {
@@ -64,28 +57,48 @@ class _SettingsDialogState extends State<SettingsDialog>
     _loadLogo();
     _loadSettingsFromNotifier();
 
-    // Smooth dialog animation
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 180),
     );
-
     _scaleAnim = CurvedAnimation(
       parent: _animController,
       curve: Curves.easeOutBack,
     );
-
     _animController.forward();
   }
 
   @override
   void dispose() {
     _sampleController.dispose();
-    _animController.dispose();
     _lowDiscountController.dispose();
     _highDiscountController.dispose();
     _flatDiscountController.dispose();
+    _animController.dispose();
     super.dispose();
+  }
+
+  // --- Data Loading ---
+
+  void _loadSettingsFromNotifier() {
+    final app = context.read<AppStatusNotifier>();
+    setState(() {
+      _selectedTheme = app.themeMode;
+      _currencyCode = app.currencyCode;
+      _isMultiSize = app.isMultiSizeModeEnabled;
+      _isTest = app.isTest;
+      _isSalePrice = app.isSalePrice;
+      _isRepairedInfoAvailable = app.isRepairedInfoAvailable;
+      _isHighResCollage = app.isHighResCollage;
+      _isAllShoesShare = app.isAllShoesShare;
+      _isFlatSale = app.isFlatSale;
+      _isPriceHidden = app.isPriceHidden;
+
+      _sampleController.text = app.sampleShareCount.toString();
+      _lowDiscountController.text = app.lowDiscount.toString();
+      _highDiscountController.text = app.highDiscount.toString();
+      _flatDiscountController.text = app.flatDiscount.toString();
+    });
   }
 
   Future<void> _loadLogo() async {
@@ -93,6 +106,151 @@ class _SettingsDialogState extends State<SettingsDialog>
     final logoPath = File('${dir.path}/logo.jpg');
     if (await logoPath.exists()) {
       setState(() => _logoFile = logoPath);
+    }
+  }
+
+  // --- Confirmation Helpers ---
+
+  Future<bool> _showConfirmDialog({
+    required String title,
+    required String content,
+    required String confirmLabel,
+    Color confirmColor = Colors.red,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(content),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(
+                  confirmLabel,
+                  style: TextStyle(color: confirmColor),
+                ),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  // --- Logic Actions ---
+
+  Future<void> _saveSettings() async {
+    final int finalSampleCount = int.tryParse(_sampleController.text) ?? 4;
+    final double finalLow = double.tryParse(_lowDiscountController.text) ?? 7.0;
+    final double finalHigh =
+        double.tryParse(_highDiscountController.text) ?? 10.0;
+    final double finalFlat =
+        double.tryParse(_flatDiscountController.text) ?? 0.0;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    await Future.wait([
+      prefs.setString('themeMode', _selectedTheme.name),
+      prefs.setString('currency', _currencyCode),
+      prefs.setBool('multiSize', _isMultiSize),
+      prefs.setBool('isTest', _isTest),
+      prefs.setBool('isSalePrice', _isSalePrice),
+      prefs.setBool('isFlatSale', _isFlatSale),
+      prefs.setBool('isPriceHidden', _isPriceHidden),
+      prefs.setDouble('lowDiscount', finalLow),
+      prefs.setDouble('highDiscount', finalHigh),
+      prefs.setDouble('flatDiscount', finalFlat),
+      prefs.setInt('sampleShareCount', finalSampleCount),
+    ]);
+
+    if (mounted) {
+      context.read<AppStatusNotifier>().updateAllSettings(
+        themeMode: _selectedTheme,
+        currencyCode: _currencyCode,
+        isMultiSize: _isMultiSize,
+        isTest: _isTest,
+        isSalePrice: _isSalePrice,
+        isRepairedInfoAvailable: _isRepairedInfoAvailable,
+        isHighResCollage: _isHighResCollage,
+        isAllShoesShare: _isAllShoesShare,
+        sampleShareCount: finalSampleCount,
+        isFlatSale: _isFlatSale,
+        lowDiscount: finalLow,
+        highDiscount: finalHigh,
+        flatDiscount: finalFlat,
+        isPriceHidden: _isPriceHidden,
+      );
+      Navigator.pop(context);
+    }
+
+    await widget.firebaseService.updateUserProfile({
+      'isMultiSize': _isMultiSize,
+      'currencyCode': _currencyCode,
+    });
+  }
+
+  Future<void> _handleClearData() async {
+    final confirmed = await _showConfirmDialog(
+      title: 'Clear Data',
+      content:
+          'This will delete all local settings, your business logo, and your cloud data. This cannot be undone.',
+      confirmLabel: 'Clear Everything',
+    );
+
+    if (confirmed && mounted) {
+      _performClearAppData();
+    }
+  }
+
+  Future<void> _performClearAppData() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      await _removeLogo();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      await widget.firebaseService.deleteUserData();
+
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/main', (route) => false);
+      }
+    } catch (e) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _handleSignOut() async {
+    final confirmed = await _showConfirmDialog(
+      title: 'Sign Out',
+      content: 'Are you sure you want to sign out of your account?',
+      confirmLabel: 'Sign Out',
+      confirmColor: Colors.blue,
+    );
+
+    if (confirmed && mounted) {
+      try {
+        await GoogleSignIn.instance.signOut();
+        await FirebaseAuth.instance.signOut();
+        if (mounted) {
+          context.read<AppStatusNotifier>().reset();
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/main', (route) => false);
+        }
+      } catch (e) {
+        debugPrint('Sign out error: $e');
+      }
     }
   }
 
@@ -108,563 +266,310 @@ class _SettingsDialogState extends State<SettingsDialog>
     final dir = await getApplicationDocumentsDirectory();
     final savedFile = File('${dir.path}/logo.jpg');
     await savedFile.writeAsBytes(bytes);
-
     setState(() => _logoFile = savedFile);
   }
 
   Future<void> _removeLogo() async {
     final dir = await getApplicationDocumentsDirectory();
     final logoPath = File('${dir.path}/logo.jpg');
-
-    if (await logoPath.exists()) {
-      await logoPath.delete();
-    }
-
+    if (await logoPath.exists()) await logoPath.delete();
     setState(() => _logoFile = null);
   }
 
-  void _loadSettingsFromNotifier() {
-    final app = context.read<AppStatusNotifier>();
-
-    setState(() {
-      _selectedTheme = app.themeMode;
-      _currencyCode = app.currencyCode;
-      _isMultiSize = app.isMultiSizeModeEnabled;
-      _isTest = app.isTest;
-      _isSalePrice = app.isSalePrice;
-      _isRepairedInfoAvailable = app.isRepairedInfoAvailable;
-      _sampleShareCount = app.sampleShareCount;
-      _isHighResCollage = app.isHighResCollage;
-      _isAllShoesShare = app.isAllShoesShare;
-      _sampleController.text = _sampleShareCount.toString();
-      _isFlatSale = app.isFlatSale;
-      _lowDiscount = app.lowDiscount;
-      _highDiscount = app.highDiscount;
-      _flatDiscount = app.flatDiscount;
-      _isPriceHidden = app.isPriceHidden;
-
-      _lowDiscountController.text = _lowDiscount.toString();
-      _highDiscountController.text = _highDiscount.toString();
-      _flatDiscountController.text = _flatDiscount.toString();
-    });
-  }
-
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString('themeMode', _selectedTheme.name);
-    await prefs.setString('currency', _currencyCode);
-    await prefs.setBool('multiSize', _isMultiSize);
-    await prefs.setBool('isTest', _isTest);
-    await prefs.setBool('isSalePrice', _isSalePrice);
-    await prefs.setBool('isRepairedInfoAvailable', _isRepairedInfoAvailable);
-    await prefs.setBool('isHighResCollage', _isHighResCollage);
-    await prefs.setBool('isAllShoesShare', _isAllShoesShare);
-    await prefs.setInt('sampleShareCount', _sampleShareCount);
-    await prefs.setBool('isFlatSale', _isFlatSale);
-    await prefs.setBool('isPriceHidden', _isPriceHidden);
-    await prefs.setDouble('lowDiscount', _lowDiscount);
-    await prefs.setDouble('highDiscount', _highDiscount);
-    await prefs.setDouble('flatDiscount', _flatDiscount);
-
-    final app = context.read<AppStatusNotifier>();
-    // app.updateThemeMode(_selectedTheme);
-    // app.updateCurrencyCode(_currencyCode);
-    // app.updateMultiSizeMode(_isMultiSize);
-    // app.updateTest(_isTest);
-    // app.updateSalePrice(_isSalePrice);
-    // app.updateRepairedInfoAvailable(_isRepairedInfoAvailable);
-    // app.updateHighResCollage(_isHighResCollage);
-    // app.updateAllShoesShare(_isAllShoesShare);
-    // app.updateSampleShareCount(_sampleShareCount);
-    // app.updateFlatSale(_isFlatSale);
-    // app.updatePriceHidden(_isPriceHidden);
-    // app.updateFlatDiscountPercent(_flatDiscount);
-    // app.updateLowDiscountPercent(_lowDiscount);
-    // app.updateHighDiscountPercent(_highDiscount);
-
-    app.updateAllSettings(
-      themeMode: _selectedTheme,
-      currencyCode: _currencyCode,
-      isMultiSize: _isMultiSize,
-      isTest: _isTest,
-      isSalePrice: _isSalePrice,
-      isRepairedInfoAvailable: _isRepairedInfoAvailable,
-      isHighResCollage: _isHighResCollage,
-      isAllShoesShare: _isAllShoesShare,
-      sampleShareCount: _sampleShareCount,
-      isFlatSale: _isFlatSale,
-      lowDiscount: _lowDiscount,
-      highDiscount: _highDiscount,
-      flatDiscount: _flatDiscount,
-      isPriceHidden: _isPriceHidden,
-    );
-
-    if (mounted) Navigator.pop(context);
-
-    await widget.firebaseService.updateUserProfile({
-      'isMultiSize': _isMultiSize,
-      'currencyCode': _currencyCode,
-    });
-  }
-
-  Future<void> _confirmClearData() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Clear All Data"),
-        content: const Text(
-          "This will delete all saved data and reset the app.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("Clear"),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true) _clearAppData();
-  }
-
-  Future<void> _clearAppData() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final logoFile = File('${dir.path}/logo.jpg');
-      if (await logoFile.exists()) {
-        await logoFile.delete();
-      }
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-
-      await widget.firebaseService.deleteUserData();
-
-      Navigator.of(context).pop();
-      Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
-    } catch (e) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to clear app data: $e')));
-    }
-  }
-
-  Future<void> _confirmSignOut() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Sign Out"),
-        content: const Text("Are you sure you want to sign out?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Sign Out"),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true) _signOut();
-  }
-
-  Future<void> _signOut() async {
-    try {
-      await GoogleSignIn.instance.signOut();
-      await FirebaseAuth.instance.signOut();
-      context.read<AppStatusNotifier>().reset();
-      Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
-    } catch (e) {
-      print('Error signing out: $e');
-    }
-  }
+  // --- UI Builders ---
 
   Widget _buildNumField(
     String label,
-    TextEditingController ctrl,
-    Function(double) onUpdate,
-  ) {
+    TextEditingController ctrl, {
+    String suffix = '%',
+  }) {
     return TextField(
       controller: ctrl,
       decoration: InputDecoration(
         labelText: label,
-        suffixText: '%',
+        suffixText: suffix,
         border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      onChanged: (v) => onUpdate(double.tryParse(v) ?? 0.0),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppStatusNotifier>();
-    final tier = app.tier;
-    final email = app.email;
 
     return ScaleTransition(
       scale: _scaleAnim,
       child: Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: const [
-                  Icon(Icons.settings, size: 32),
+              const Row(
+                children: [
+                  Icon(Icons.settings, size: 28),
                   SizedBox(width: 8),
                   Text(
                     'Settings',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
 
-              // ---------------- LOGO ----------------
+              // Logo Section
               const Text(
-                'Your Logo',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Business Logo',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Row(
                 children: [
-                  Tooltip(
-                    message: _logoFile != null
-                        ? 'Long press to remove logo'
-                        : 'Tap to upload logo',
-                    child: GestureDetector(
-                      onTap: _pickLogoImage, // Simple tap to upload or change
-                      onLongPress: () async {
-                        if (_logoFile != null) {
-                          // Haptic feedback makes the long-press feel "real"
-                          await HapticFeedback.mediumImpact();
-                          _removeLogo();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Logo removed'),
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        width: 80, // Increased size for better UX/Tapping
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
-                          border: Border.all(
-                            color: _logoFile != null
-                                ? Colors.blue.withOpacity(0.5)
-                                : Colors.grey.shade400,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            if (_logoFile != null)
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                          ],
-                        ),
-                        clipBehavior: Clip.hardEdge,
-                        child: _logoFile != null
-                            ? Image.file(_logoFile!, fit: BoxFit.cover)
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_a_photo_outlined,
-                                    color: Colors.grey.shade600,
-                                    size: 30,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Upload',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                  GestureDetector(
+                    onTap: _pickLogoImage,
+                    onLongPress: () async {
+                      if (_logoFile != null) {
+                        await HapticFeedback.mediumImpact();
+                        _removeLogo();
+                      }
+                    },
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
+                      child: _logoFile != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(_logoFile!, fit: BoxFit.cover),
+                            )
+                          : const Icon(
+                              Icons.add_a_photo,
+                              size: 20,
+                              color: Colors.grey,
+                            ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'Tap the box to upload.\nLong-press to remove.',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
+                      'Tap to upload.\nLong-press to remove.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
 
-              // ---------------- THEME ----------------
+              const Divider(height: 32),
+
+              // Appearance
               const Text(
-                'Theme Mode',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Appearance',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              Wrap(
-                spacing: 8,
-                children: ThemeMode.values.map((mode) {
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Radio(
-                        value: mode,
-                        groupValue: _selectedTheme,
-                        onChanged: (v) => setState(() => _selectedTheme = v!),
+              Row(
+                children: ThemeMode.values
+                    .map(
+                      (mode) => Expanded(
+                        child: RadioListTile<ThemeMode>(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            mode.name,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          value: mode,
+                          groupValue: _selectedTheme,
+                          onChanged: (v) => setState(() => _selectedTheme = v!),
+                        ),
                       ),
-                      Text(mode.name),
-                    ],
-                  );
-                }).toList(),
+                    )
+                    .toList(),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-              // ---------------- CURRENCY ----------------
+              // Currency
               const Text(
                 'Currency',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
+              const SizedBox(height: 8),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ShoeQueryUtils.currencies.map((currency) {
-                    final code = currency['code']!;
-                    final symbol = currency['symbol']!;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ChoiceChip(
-                        label: Text('$code ($symbol)'),
-                        selected: _currencyCode == code,
-                        onSelected: (_) => setState(() => _currencyCode = code),
-                      ),
-                    );
-                  }).toList(),
+                  children: ShoeQueryUtils.currencies
+                      .map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(c['code']!),
+                            selected: _currencyCode == c['code'],
+                            onSelected: (_) =>
+                                setState(() => _currencyCode = c['code']!),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const Divider(height: 32),
 
-              // ---------------- MULTI SIZE ----------------
-              ListTile(
-                title: const Text('Enable Multi-Size Inventory'),
-                trailing: Switch(
-                  value: _isMultiSize,
-                  onChanged: (v) => setState(() => _isMultiSize = v),
-                ),
+              // Inventory
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Multi-Size Inventory'),
+                value: _isMultiSize,
+                onChanged: (v) => setState(() => _isMultiSize = v),
               ),
-
-              // ---------------- SAMPLE SHARE COUNT ----------------
               ListTile(
+                contentPadding: EdgeInsets.zero,
                 title: const Text('Sample Share Count'),
                 trailing: SizedBox(
-                  width: 70,
+                  width: 50,
                   child: TextField(
                     controller: _sampleController,
                     textAlign: TextAlign.center,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (_) {
-                      final val = int.tryParse(_sampleController.text) ?? 4;
-                      setState(() => _sampleShareCount = val.clamp(0, 12));
-                    },
                   ),
                 ),
               ),
 
-              // ---------------- TEST MODE ----------------
-              if (app.isTestModeEnabled)
-                ListTile(
-                  title: const Text('Enable Test Mode'),
-                  trailing: Switch(
-                    value: _isTest,
-                    onChanged: (v) => setState(() => _isTest = v),
+              // Test Mode
+              if (app.isTestModeEnabled) ...[
+                const Divider(height: 32),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Enable Test Mode',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  value: _isTest,
+                  onChanged: (v) => setState(() => _isTest = v),
                 ),
-
-              if (_isTest)
-                ListTile(
-                  title: const Text('Show Repaired Info'),
-                  trailing: Switch(
+                if (_isTest) ...[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show Repaired Info'),
                     value: _isRepairedInfoAvailable,
                     onChanged: (v) =>
                         setState(() => _isRepairedInfoAvailable = v),
                   ),
-                ),
-              if (_isTest)
-                ListTile(
-                  title: const Text('Hide Prices'),
-                  trailing: Switch(
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Hide Prices'),
                     value: _isPriceHidden,
                     onChanged: (v) => setState(() => _isPriceHidden = v),
                   ),
-                ),
-              if (_isTest)
-                ListTile(
-                  title: const Text('Share High Res Collage'),
-                  trailing: Switch(
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('High Res Collage'),
                     value: _isHighResCollage,
                     onChanged: (v) => setState(() => _isHighResCollage = v),
                   ),
-                ),
-              if (_isTest)
-                ListTile(
-                  title: const Text('Share All Shoes'),
-                  trailing: Switch(
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Share All Shoes'),
                     value: _isAllShoesShare,
                     onChanged: (v) => setState(() => _isAllShoesShare = v),
                   ),
-                ),
-              // ---------------- SALE SETTINGS ----------------
-              // ---------------- PRICING & DISCOUNTS ----------------
-              if (_isTest) ...[
-                const Divider(),
-                const Text(
-                  "Pricing Display Settings",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
 
-                // SECTION 1: Sale Price (Crossed Out)
-                ListTile(
-                  title: const Text('Show Crossed-out Price'),
-                  subtitle: const Text(
-                    'Displays a higher market price above actual',
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Pricing Simulation',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
-                  trailing: Switch(
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Crossed-out Sale Price'),
                     value: _isSalePrice,
                     onChanged: (v) => setState(() => _isSalePrice = v),
                   ),
-                ),
-                if (_isSalePrice)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildNumField(
-                            "Min Markup %",
-                            _lowDiscountController,
-                            (v) => _lowDiscount = v,
+                  if (_isSalePrice)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildNumField(
+                              "Min %",
+                              _lowDiscountController,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildNumField(
-                            "Max Markup %",
-                            _highDiscountController,
-                            (v) => _highDiscount = v,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildNumField(
+                              "Max %",
+                              _highDiscountController,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-
-                const SizedBox(height: 16),
-
-                // SECTION 2: Flat Discount (Actual Price Reduction)
-                ListTile(
-                  title: const Text('Enable Flat Discount'),
-                  subtitle: const Text(
-                    'Applies a real discount to the final price',
-                  ),
-                  trailing: Switch(
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Apply Flat Discount'),
                     value: _isFlatSale,
                     onChanged: (v) => setState(() => _isFlatSale = v),
                   ),
-                ),
-                if (_isFlatSale)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildNumField(
-                      "Flat Discount %",
+                  if (_isFlatSale)
+                    _buildNumField(
+                      "Discount Percentage",
                       _flatDiscountController,
-                      (v) => _flatDiscount = v,
                     ),
-                  ),
+                ],
               ],
-              const SizedBox(height: 12),
-              Text('Current Tier: $tier'),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // ---------------- SAVE BUTTON ----------------
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.save),
-                  label: const Text("Save Settings"),
-                  onPressed: _saveSettings,
+              // Actions
+              ElevatedButton.icon(
+                onPressed: _saveSettings,
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Save and Apply Changes'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // ---------------- CLEAR DATA + SIGN OUT ----------------
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.delete_forever),
-                      label: const Text("Clear Data"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
+                    child: OutlinedButton(
+                      onPressed: _handleClearData,
+                      child: const Text(
+                        'Clear Data',
+                        style: TextStyle(color: Colors.red),
                       ),
-                      onPressed: _confirmClearData,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.logout),
-                      label: const Text("Sign Out"),
-                      onPressed: _confirmSignOut,
+                    child: OutlinedButton(
+                      onPressed: _handleSignOut,
+                      child: const Text('Sign Out'),
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               const VersionFooter(),
-              Align(
-                alignment: Alignment.center,
-                child: Text('signed in as: $email'),
+              Center(
+                child: Text(
+                  'User: ${app.email}',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
               ),
             ],
           ),

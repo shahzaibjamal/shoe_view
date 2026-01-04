@@ -134,7 +134,7 @@ class _ShoeListViewState extends State<ShoeListView>
         if (isNew) {
           newAvailableShoes.add(shoe);
           AppLogger.log(
-            'NEW → ID: ${shoe.itemId}, Shipment: ${shoe.shipmentId}, Detail: ${shoe.shoeDetail}',
+            'NEW → ID: ${shoe.itemId}, Shipment: ${shoe.shipmentId}, Detail: ${shoe.shoeDetail} Status: ${shoe.status}',
           );
         }
       }
@@ -350,6 +350,7 @@ class _ShoeListViewState extends State<ShoeListView>
           .where(
             (shoe) =>
                 shoe.status != 'repaired' &&
+                shoe.status != 'in' &&
                 ShoeQueryUtils.doesShoeMatchSmartQuery(shoe, query),
           )
           .toList();
@@ -423,12 +424,25 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   String _copyData(List<Shoe> shoeList) {
+    final appStatus = context.read<AppStatusNotifier>();
+    final currencyCode = appStatus.currencyCode;
+    final isReparedInfoAvailable = appStatus.isRepairedInfoAvailable;
+    final isSalePrice = appStatus.isSalePrice;
+    final isFlatSale = appStatus.isFlatSale;
+    final isPriceHidden = appStatus.isPriceHidden;
+    final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
+
     final buffer = StringBuffer();
     final gap = shoeList.length > 1 ? '    ' : '';
 
     shoeList = shoeList.take(CollageBuilder.maxImages).toList();
     if (shoeList.length > 1) {
       buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
+    }
+    if (isFlatSale) {
+      buffer.writeln(
+        '🔥 *Flat ${appStatus.flatDiscount}% OFF* 🔥\nOffer ends soon! \n',
+      );
     }
 
     final isSold = _sortField.toLowerCase().contains('sold');
@@ -467,13 +481,6 @@ class _ShoeListViewState extends State<ShoeListView>
 
         buffer.writeln(line);
       }
-      final appStatus = context.read<AppStatusNotifier>();
-      final currencyCode = appStatus.currencyCode;
-      final isReparedInfoAvailable = appStatus.isRepairedInfoAvailable;
-      final isSalePrice = appStatus.isSalePrice;
-      final isFlatSale = appStatus.isFlatSale;
-      final isPriceHidden = appStatus.isPriceHidden;
-      final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
       final sellingPrice = isFlatSale
           ? shoe.sellingPrice * (1 - appStatus.flatDiscount / 100)
           : shoe.sellingPrice;

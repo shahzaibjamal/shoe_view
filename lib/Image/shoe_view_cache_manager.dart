@@ -28,4 +28,14 @@ class ShoeViewCacheManager extends CacheManager {
       return null;
     }
   }
+
+  Future<File?> getCachedFileOnly(String url) async {
+    // getFileFromCache is purely local and doesn't trigger a network call
+    final FileInfo? fileInfo = await getFileFromCache(url);
+
+    if (fileInfo != null && await fileInfo.file.exists()) {
+      return fileInfo.file;
+    }
+    return null;
+  }
 }

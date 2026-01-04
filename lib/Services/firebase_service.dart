@@ -13,6 +13,14 @@ class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  FirebaseService() {
+    // Enable offline persistence for Firestore
+    _firestore.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+  }
+
   // Uses the currently authenticated user ID or a default for canvas testing.
   String get _userId {
     final uid = _auth.currentUser?.uid;
@@ -68,12 +76,13 @@ class FirebaseService {
           try {
             final shoe = Shoe.fromJson(item);
             //            if (shoe.status != 'Sold') {
-            shoes.add(shoe);
+            if (shoe.itemId > 0) shoes.add(shoe);
             //            }
           } catch (e) {
             debugPrint('Error mapping shoe: $e');
           }
         }
+
         // You can now use the data as a Map or List
       } else {
         print('Error: ${response.statusCode}');

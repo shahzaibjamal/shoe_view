@@ -180,6 +180,10 @@ class ShoeQueryUtils {
         displayedShoes = displayedShoes
             .where((a) => a.status == 'Repaired')
             .toList();
+      } else if (sortField.toLowerCase().contains('in')) {
+        displayedShoes = displayedShoes
+            .where((a) => a.status == 'Internal')
+            .toList();
       } else {
         // Default: show only Available
         displayedShoes = displayedShoes
@@ -450,6 +454,8 @@ class ShoeQueryUtils {
         return 'Price';
       case 'n/a':
         return 'N/A';
+      case 'in':
+        return 'Internal';
       case 'repaired':
         return 'Repaired';
       default:

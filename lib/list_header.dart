@@ -269,6 +269,7 @@ class _ListHeaderState extends State<ListHeader> {
                             'sold',
                             'n/a',
                             'repaired',
+                            'in',
                           ].map((field) {
                             return DropdownMenuItem(
                               value: field,

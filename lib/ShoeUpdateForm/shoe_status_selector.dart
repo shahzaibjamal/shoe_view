@@ -24,6 +24,7 @@ class ShoeStatusSelector extends StatelessWidget {
     'Available',
     'Sold',
     'N/A',
+    'Internal',
     'Repaired',
   ];
 

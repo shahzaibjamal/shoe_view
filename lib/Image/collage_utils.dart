@@ -180,8 +180,10 @@ class CollageUtils {
       final x = internalPadding + (col * (tileSize + spacing));
       final y = internalPadding + (row * (tileSize + spacing));
       final rect = Rect.fromLTWH(x, y, tileSize, tileSize);
-
       paintCanvasImage(canvas, img, rect, radius: 6.0 * scale);
+      if (shoe.sizeEur != null && shoe.sizeEur!.isNotEmpty) {
+        paintCanvasSize(canvas, shoe.sizeEur![0], rect, scale: scale);
+      }
       if (imageCount > 1) {
         paintCanvasIndex(canvas, "${i + 1}", rect, scale: scale);
       }
@@ -241,6 +243,45 @@ class CollageUtils {
     );
 
     return byteData!.buffer.asUint8List();
+  }
+
+  static void paintCanvasSize(
+    Canvas canvas,
+    String size,
+    Rect tileRect, {
+    required double scale,
+  }) {
+    if (size.isEmpty) return;
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: size,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 10 * scale, // Smaller than index (matching UI)
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    // Position: Top Right with 4 logical px margin (matching UI)
+    final bgRect = Rect.fromLTWH(
+      tileRect.right - tp.width - (8 * scale), // Right-aligned
+      tileRect.top + (4 * scale), // Top-aligned
+      tp.width + (4 * scale),
+      tp.height + (2 * scale),
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, Radius.circular(3 * scale)),
+      Paint()..color = Colors.black45, // Slightly lighter transparency
+    );
+
+    tp.paint(
+      canvas,
+      Offset(bgRect.left + (2 * scale), bgRect.top + (1 * scale)),
+    );
   }
 
   static int calculateGridSize(int count) {

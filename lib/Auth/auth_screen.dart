@@ -57,6 +57,10 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
@@ -249,18 +253,6 @@ class _AuthScreenState extends State<AuthScreen> {
     final appStatusNotifier = context.read<AppStatusNotifier>();
     ThemeMode themeMode = ThemeMode.light;
     themeMode = ThemeMode.values.firstWhere((m) => m.name == themeString);
-    // appStatusNotifier.updateThemeMode(themeMode);
-    // appStatusNotifier.updateTest(isTest);
-    // appStatusNotifier.updateSampleShareCount(sampleShareCount);
-    // appStatusNotifier.updateRepairedInfoAvailable(isRepairedInfoAvailable);
-    // appStatusNotifier.updateHighResCollage(isHighResCollage);
-    // appStatusNotifier.updateAllShoesShare(isAllShoesShare);
-    // appStatusNotifier.updateSalePrice(isSalePrice);
-    // appStatusNotifier.updateFlatSale(isFlatSale);
-    // appStatusNotifier.updatePriceHidden(isPriceHidden);
-    // appStatusNotifier.updateFlatDiscountPercent(flatDiscount);
-    // appStatusNotifier.updateLowDiscountPercent(lowDiscount);
-    // appStatusNotifier.updateHighDiscountPercent(highDiscount);
     appStatusNotifier.updateAllSettings(
       themeMode: themeMode,
       currencyCode: currencyCode,
