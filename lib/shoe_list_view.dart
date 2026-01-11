@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
+import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
 import 'package:shoe_view/Services/analytics_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/error_dialog.dart';
@@ -130,7 +131,11 @@ class _ShoeListViewState extends State<ShoeListView>
       for (final shoe in fetchedShoes) {
         final key = '${shoe.itemId}_${shoe.shipmentId}';
         final isNew = !existingKeys.containsKey(key);
-
+        if (shoe.shoeDetail.contains('etcon')) {
+          AppLogger.log(
+            '${shoe.shoeDetail} ${shoe.itemId} ${shoe.shipmentId} ${shoe.imagesLink} ${isNew}',
+          );
+        }
         if (isNew) {
           newAvailableShoes.add(shoe);
           AppLogger.log(
@@ -482,7 +487,9 @@ class _ShoeListViewState extends State<ShoeListView>
         buffer.writeln(line);
       }
       final sellingPrice = isFlatSale
-          ? shoe.sellingPrice * (1 - appStatus.flatDiscount / 100)
+          ? ShoeQueryUtils.roundToNearestDouble(
+              shoe.sellingPrice * (1 - appStatus.flatDiscount / 100),
+            )
           : shoe.sellingPrice;
       if (!isSold) {
         if (!isPriceHidden) {
@@ -531,6 +538,17 @@ class _ShoeListViewState extends State<ShoeListView>
     }
 
     return buffer.toString();
+  }
+
+  void _warmUpImages(List<Shoe> shoes) {
+    final cache = ShoeViewCacheManager(); // This is your singleton
+    for (var shoe in shoes) {
+      if (shoe.remoteImageUrl.isNotEmpty) {
+        // This will check local cache first (instant)
+        // and only download if missing (background)
+        cache.getCachedOrDownloadFile(shoe.remoteImageUrl);
+      }
+    }
   }
 
   @override
@@ -642,7 +660,11 @@ class _ShoeListViewState extends State<ShoeListView>
                       child: Text('No shoes found matching "$_searchQuery".'),
                     );
                   }
-
+                  if (_displayedShoes.isNotEmpty) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _warmUpImages(_displayedShoes);
+                    });
+                  }
                   return ListView.builder(
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,

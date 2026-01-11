@@ -256,12 +256,16 @@ class _CollageBuilderState extends State<CollageBuilder> {
               color: Colors.grey[200],
               child: ShoeNetworkImage(
                 imageUrl: shoe.remoteImageUrl,
-                fit: BoxFit.cover,
+                fit: BoxFit.fitWidth,
+                width: itemSize,
+                height: itemSize,
               ),
             ),
           ),
           // 2. NEW: Shoe Size in Top Right Corner
-          if (shoe.sizeEur!.isNotEmpty)
+          if (imageCount > 1 &&
+              shoe.sizeEur != null &&
+              shoe.sizeEur!.isNotEmpty)
             Positioned(
               right: 4,
               top: 4,
@@ -515,6 +519,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
   void _shareCollage() async {
     // 🎯 TOGGLE: Change this to false to use the old RepaintBoundary method
     bool useCanvasMethod = context.read<AppStatusNotifier>().isHighResCollage;
+    bool isInfoCopied = context.read<AppStatusNotifier>().isInfoCopied;
 
     setState(() => _isSaving = true);
     Uint8List pngBytes;
@@ -531,7 +536,10 @@ class _CollageBuilderState extends State<CollageBuilder> {
       }
 
       // --- Share Logic ---
-      Clipboard.setData(ClipboardData(text: widget.text));
+
+      if (isInfoCopied) {
+        Clipboard.setData(ClipboardData(text: widget.text));
+      }
       final tempDir = await getTemporaryDirectory();
       final file = await File('${tempDir.path}/collage.png').create();
       await file.writeAsBytes(pngBytes);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shoe_view/Helpers/shoe_response.dart';
 
 class AppStatusNotifier extends ChangeNotifier {
   bool _isTest = false; // Default state
@@ -15,6 +16,7 @@ class AppStatusNotifier extends ChangeNotifier {
   bool _isRepairedInfoAvailable = true;
   bool _isHighResCollage = false;
   bool _isAllShoesShare = false;
+  bool _isInfoCopied = false;
   String _purchasedOffer = 'none'; // Default currency
   String _email = 'none'; // Default currency
   int _sampleShareCount = 0; // Default state
@@ -46,6 +48,7 @@ class AppStatusNotifier extends ChangeNotifier {
   bool get isSalePrice => _isSalePrice;
   bool get isFlatSale => _isFlatSale;
   bool get isPriceHidden => _isPriceHidden;
+  bool get isInfoCopied => _isInfoCopied;
   double get flatDiscount => _flatDiscount;
   double get lowDiscount => _lowDiscount;
   double get highDiscount => _highDiscount;
@@ -174,6 +177,11 @@ class AppStatusNotifier extends ChangeNotifier {
     notifyListeners(); // Notify all listeners to rebuild
   }
 
+  void updateInfoCopied(bool infoCopied) {
+    _isInfoCopied = infoCopied;
+    notifyListeners(); // Notify all listeners to rebuild
+  }
+
   void updateFlatDiscountPercent(double flatDiscount) {
     _flatDiscount = flatDiscount;
     notifyListeners(); // Notify all listeners to rebuild
@@ -189,6 +197,22 @@ class AppStatusNotifier extends ChangeNotifier {
     notifyListeners(); // Notify all listeners to rebuild
   }
 
+  void updateFromResponse(ShoeResponse response, String email) {
+    _isTrial = response.isTrial;
+    _isTestModeEnabled = response.isTestModeEnabled;
+    _dailyShares = response.dailySharesUsed;
+    _dailySharesLimit = response.dailySharesLimit;
+    _dailyWrites = response.dailyWritesUsed;
+    _dailyWritesLimit = response.dailyWritesLimit;
+    _tier = response.tier;
+    _isMultiSizeModeEnabled = response.isMultiSize;
+    _currencyCode = response.currencyCode;
+    _purchasedOffer = response.purchasedOffer;
+    _email = email;
+
+    notifyListeners(); // This updates the whole app at once
+  }
+
   void updateAllSettings({
     required ThemeMode themeMode,
     required String currencyCode,
@@ -201,6 +225,7 @@ class AppStatusNotifier extends ChangeNotifier {
     required bool isPriceHidden,
     required int sampleShareCount,
     required bool isFlatSale,
+    required bool isInfoCopied,
     required double lowDiscount,
     required double highDiscount,
     required double flatDiscount,
@@ -219,6 +244,7 @@ class AppStatusNotifier extends ChangeNotifier {
     _highDiscount = highDiscount;
     _flatDiscount = flatDiscount;
     _isPriceHidden = isPriceHidden;
+    _isInfoCopied = isInfoCopied;
 
     // This is the magic line: one call, one rebuild for everything.
     notifyListeners();

@@ -181,7 +181,9 @@ class CollageUtils {
       final y = internalPadding + (row * (tileSize + spacing));
       final rect = Rect.fromLTWH(x, y, tileSize, tileSize);
       paintCanvasImage(canvas, img, rect, radius: 6.0 * scale);
-      if (shoe.sizeEur != null && shoe.sizeEur!.isNotEmpty) {
+      if (loadedImages.length > 1 &&
+          shoe.sizeEur != null &&
+          shoe.sizeEur!.isNotEmpty) {
         paintCanvasSize(canvas, shoe.sizeEur![0], rect, scale: scale);
       }
       if (imageCount > 1) {

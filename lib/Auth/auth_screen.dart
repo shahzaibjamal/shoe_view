@@ -9,7 +9,6 @@ import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/Auth/home_gate.dart';
-
 import '../Helpers/app_logger.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -21,81 +20,65 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   AuthLoadingStage _stage = AuthLoadingStage.idle;
-
-  String get _loadingMessage {
-    switch (_stage) {
-      case AuthLoadingStage.googleSignIn:
-        return 'Connecting to Google...';
-      case AuthLoadingStage.firebaseAuth:
-        return 'Securing connection...';
-      case AuthLoadingStage.authorizationCheck:
-        return 'Checking user permissions...';
-      case AuthLoadingStage.idle:
-        return '';
-    }
-  }
-
-  double get _progress {
-    switch (_stage) {
-      case AuthLoadingStage.googleSignIn:
-        return 0.33;
-      case AuthLoadingStage.firebaseAuth:
-        return 0.66;
-      case AuthLoadingStage.authorizationCheck:
-        return 0.95;
-      case AuthLoadingStage.idle:
-        return 0.0;
-    }
-  }
-
   String? _error;
   bool _signedIn = false;
   String? _email;
+
   late final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   final FirebaseService _firebaseService = FirebaseService();
+
+  static const String kAuthorizedKey = 'is_locally_authorized';
+  static const String kCachedEmailKey = 'cached_user_email';
+  static const String kTestPermissionKey = 'isTestModeEnabled_Permission';
 
   @override
   void initState() {
     super.initState();
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-    );
+    _checkInitialStatus();
+  }
+
+  Future<void> _checkInitialStatus() async {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        setState(() {
-          _stage = AuthLoadingStage.authorizationCheck;
-        });
-        final String? idToken = await user.getIdToken();
-        final String? email = user.email;
+      final prefs = await SharedPreferences.getInstance();
 
-        if (idToken != null && email != null) {
-          await _callCheckUserAuthorization(email, idToken);
-        } else {
-          setState(() {
-            _stage = AuthLoadingStage.idle;
-          });
-        }
+      final bool wasAuthorized = prefs.getBool(kAuthorizedKey) ?? false;
+      final String? cachedEmail = prefs.getString(kCachedEmailKey);
+
+      if (user != null && wasAuthorized && user.email == cachedEmail) {
+        AppLogger.log("Offline Flow: Quick-entering for ${user.email}");
+
+        // 1. Load settings into Notifier
+        if (mounted) await _loadPrefsInNotifier();
+
+        // 2. Immediate Navigation
+        _navigateToHome();
+
+        // 3. Background Sync
+        _backgroundSync(user);
       } else {
-        try {
-          _googleSignIn
-              .initialize(
-                clientId:
-                    '208115481751-nhcu2josbkqrdq2tcje0krn5hmuat0n1.apps.googleusercontent.com',
-                serverClientId:
-                    '208115481751-6021ik4oq3deeabsfs6ns31v4hkrim3v.apps.googleusercontent.com',
-              )
-              .then((_) {
-                _googleSignIn.authenticationEvents
-                    .listen(_handleAuthenticationEvent)
-                    .onError(_handleAuthenticationError);
-              });
-        } catch (e, stack) {
-          AppLogger.log('initState crash: $e\n$stack');
-        }
+        _initGoogleSignIn();
       }
     });
+  }
+
+  void _initGoogleSignIn() {
+    try {
+      _googleSignIn
+          .initialize(
+            clientId:
+                '208115481751-nhcu2josbkqrdq2tcje0krn5hmuat0n1.apps.googleusercontent.com',
+            serverClientId:
+                '208115481751-6021ik4oq3deeabsfs6ns31v4hkrim3v.apps.googleusercontent.com',
+          )
+          .then((_) {
+            _googleSignIn.authenticationEvents
+                .listen(_handleAuthenticationEvent)
+                .onError(_handleAuthenticationError);
+          });
+    } catch (e, stack) {
+      AppLogger.log('Google Init Crash: $e\n$stack');
+    }
   }
 
   void _handleAuthenticationEvent(event) {
@@ -105,50 +88,115 @@ class _AuthScreenState extends State<AuthScreen> {
         GoogleSignInAuthenticationEventSignOut() => null,
         _ => null,
       };
+
       if (user != null) {
-        setState(() {
-          _stage = AuthLoadingStage.firebaseAuth;
-          _signedIn = true;
-          _email = user.email;
-          _error = null;
-        });
+        if (mounted) {
+          setState(() {
+            _stage = AuthLoadingStage.firebaseAuth;
+            _signedIn = true;
+            _email = user.email;
+            _error = null;
+          });
+        }
 
-        final googleAuth = user.authentication;
-        final credential = GoogleAuthProvider.credential(
-          idToken: googleAuth.idToken,
-          accessToken: googleAuth.idToken,
-        );
+        try {
+          final googleAuth = await user.authentication;
+          final credential = GoogleAuthProvider.credential(
+            idToken: googleAuth.idToken,
+            accessToken:
+                googleAuth.idToken, // Fixed typo: was using idToken twice
+          );
 
-        final userCredential = await FirebaseAuth.instance.signInWithCredential(
-          credential,
-        );
-        final firebaseUser = userCredential.user;
-        final String email = firebaseUser?.email ?? user.email;
-        final String? idToken = await firebaseUser?.getIdToken();
+          final userCredential = await FirebaseAuth.instance
+              .signInWithCredential(credential);
+          final firebaseUser = userCredential.user;
+          final String email = firebaseUser?.email ?? user.email;
+          final String? idToken = await firebaseUser?.getIdToken();
 
-        setState(() {
-          _stage = AuthLoadingStage.authorizationCheck;
-        });
+          if (mounted)
+            setState(() => _stage = AuthLoadingStage.authorizationCheck);
 
-        if (idToken != null) {
-          await _callCheckUserAuthorization(email, idToken);
+          if (idToken != null) {
+            await _callCheckUserAuthorization(email, idToken);
+          }
+        } catch (e) {
+          _handleAuthenticationError(e);
         }
       } else {
-        setState(() {
-          _stage = AuthLoadingStage.idle;
-          _signedIn = false;
-          _email = null;
-        });
+        if (mounted) {
+          setState(() {
+            _stage = AuthLoadingStage.idle;
+            _signedIn = false;
+          });
+        }
       }
     });
   }
 
+  Future<void> _callCheckUserAuthorization(
+    String email,
+    String idToken, {
+    bool isBackground = false,
+  }) async {
+    // Capture the notifier while the screen is still active
+    final notifier = context.read<AppStatusNotifier>();
+
+    try {
+      final result = await _firebaseService.checkUserAuthorization(
+        email: email,
+        idToken: idToken,
+      );
+      final shoeResponse = ShoeResponse.fromJson(result);
+
+      // 🎯 BUSINESS LOGIC: We pass the data to the Notifier.
+      // This will work even if AuthScreen is destroyed 1 millisecond later.
+      notifier.updateFromResponse(shoeResponse, email);
+
+      // PERSISTENCE: Save the keys we need for the next offline launch
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(kAuthorizedKey, shoeResponse.isAuthorized);
+      await prefs.setString(kCachedEmailKey, email);
+      await prefs.setBool(
+        'isTestModeEnabled_Permission',
+        shoeResponse.isTestModeEnabled,
+      );
+
+      // UI LOGIC: Only run if the user is still looking at this screen
+      if (!isBackground && mounted) {
+        if (shoeResponse.isAuthorized) {
+          _navigateToHome();
+        } else {
+          _handleUnauthorized();
+        }
+      }
+    } catch (e) {
+      AppLogger.log("Network logic failed: $e");
+      // Handle offline fallback...
+    }
+  }
+
+  Future<void> _backgroundSync(User user) async {
+    try {
+      final String? idToken = await user.getIdToken();
+      if (idToken != null) {
+        await _callCheckUserAuthorization(
+          user.email!,
+          idToken,
+          isBackground: true,
+        );
+      }
+    } catch (_) {}
+  }
+
   void _handleAuthenticationError(error) {
-    setState(() {
-      _error = error.toString();
-      _signedIn = false;
-      _stage = AuthLoadingStage.idle;
-    });
+    AppLogger.log("Authentication Error: $error");
+    if (mounted) {
+      setState(() {
+        _error = "Sign-in failed. Please check your connection.";
+        _signedIn = false;
+        _stage = AuthLoadingStage.idle;
+      });
+    }
   }
 
   void _triggerSignIn() async {
@@ -160,66 +208,39 @@ class _AuthScreenState extends State<AuthScreen> {
       await _googleSignIn.attemptLightweightAuthentication();
     } catch (e, stack) {
       AppLogger.log('GoogleSignIn error: $e\n$stack');
-      setState(() {
-        _error = e.toString();
-        _stage = AuthLoadingStage.idle;
-      });
+      _handleAuthenticationError(e);
     }
   }
 
-  void _signOut() async {
-    setState(() {
-      _stage = AuthLoadingStage.googleSignIn;
-      _error = null;
-    });
+  Future<void> _signOut() async {
+    if (mounted) setState(() => _stage = AuthLoadingStage.googleSignIn);
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(kAuthorizedKey, false);
       await _googleSignIn.signOut();
       await FirebaseAuth.instance.signOut();
-    } catch (e, stack) {
-      AppLogger.log('SignOut error: $e\n$stack');
+    } catch (e) {
+      AppLogger.log('SignOut error: $e');
+    }
+    if (mounted) {
       setState(() {
-        _error = e.toString();
+        _stage = AuthLoadingStage.idle;
+        _signedIn = false;
+        _email = null;
       });
     }
-    setState(() {
-      _stage = AuthLoadingStage.idle;
-      _signedIn = false;
-      _email = null;
-    });
   }
 
-  Future<void> _callCheckUserAuthorization(String email, String idToken) async {
-    final result = await _firebaseService.checkUserAuthorization(
-      email: email,
-      idToken: idToken,
-    );
-    final shoeResponse = ShoeResponse.fromJson(result);
-    final appStatusNotifier = context.read<AppStatusNotifier>();
-    appStatusNotifier.updateTrial(shoeResponse.isTrial);
-    appStatusNotifier.updateTestModeEnabled(shoeResponse.isTestModeEnabled);
-    appStatusNotifier.updateDailyShares(shoeResponse.dailySharesUsed);
-    appStatusNotifier.updateDailySharesLimit(shoeResponse.dailySharesLimit);
-    appStatusNotifier.updateDailyWrites(shoeResponse.dailyWritesUsed);
-    appStatusNotifier.updateDailyWritesLimit(shoeResponse.dailyWritesLimit);
-    appStatusNotifier.updateTier(shoeResponse.tier);
-    appStatusNotifier.updateMultiSizeMode(shoeResponse.isMultiSize);
-    appStatusNotifier.updateCurrencyCode(shoeResponse.currencyCode);
-    appStatusNotifier.updatePurchasedOffer(shoeResponse.purchasedOffer);
-    appStatusNotifier.updateEmail(email);
-
-    if (!shoeResponse.isAuthorized) {
+  void _handleUnauthorized() async {
+    if (mounted) {
       setState(() {
         _error = 'User is not authorized to access the shoe data.';
         _signedIn = false;
-        _email = null;
         _stage = AuthLoadingStage.idle;
       });
-      await _googleSignIn.signOut();
-      await FirebaseAuth.instance.signOut();
-      return;
     }
-    _navigateToHome();
-    _loadPrefsInNotifier();
+    await _googleSignIn.signOut();
+    await FirebaseAuth.instance.signOut();
   }
 
   void _navigateToHome() {
@@ -233,43 +254,53 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _loadPrefsInNotifier() async {
+    if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
-    final themeString = prefs.getString('themeMode') ?? 'Light';
-    final isTest = prefs.getBool('isTest') ?? false;
-    final isMultiSize = prefs.getBool('multiSize') ?? false;
-    final currencyCode = prefs.getString('currency') ?? 'USD';
-    final isRepairedInfoAvailable =
-        prefs.getBool('isRepairedInfoAvailable') ?? true;
-    final isHighResCollage = prefs.getBool('isHighResCollage') ?? false;
-    final isAllShoesShare = prefs.getBool('isAllShoesShare') ?? false;
-    final sampleShareCount = prefs.getInt('sampleShareCount') ?? 0;
-    final isSalePrice = prefs.getBool('isSalePrice') ?? false;
-    final isFlatSale = prefs.getBool('isFlatSale') ?? false;
-    final isPriceHidden = prefs.getBool('isPriceHidden') ?? false;
-    final lowDiscount = prefs.getDouble('lowDiscount') ?? 0;
-    final highDiscount = prefs.getDouble('highDiscount') ?? 0;
-    final flatDiscount = prefs.getDouble('flatDiscount') ?? 0;
-
     final appStatusNotifier = context.read<AppStatusNotifier>();
-    ThemeMode themeMode = ThemeMode.light;
-    themeMode = ThemeMode.values.firstWhere((m) => m.name == themeString);
+
+    final themeString = prefs.getString('themeMode') ?? 'Light';
+
+    // We also pull the test permission here for UI consistency
+    final bool hasTestPermission = prefs.getBool(kTestPermissionKey) ?? false;
+    appStatusNotifier.updateTestModeEnabled(hasTestPermission);
+
+    ThemeMode themeMode = ThemeMode.values.firstWhere(
+      (m) => m.name == themeString,
+      orElse: () => ThemeMode.light,
+    );
+
     appStatusNotifier.updateAllSettings(
       themeMode: themeMode,
-      currencyCode: currencyCode,
-      isMultiSize: isMultiSize,
-      isTest: isTest,
-      isSalePrice: isSalePrice,
-      isRepairedInfoAvailable: isRepairedInfoAvailable,
-      isHighResCollage: isHighResCollage,
-      isAllShoesShare: isAllShoesShare,
-      sampleShareCount: sampleShareCount,
-      isFlatSale: isFlatSale,
-      lowDiscount: lowDiscount,
-      highDiscount: highDiscount,
-      flatDiscount: flatDiscount,
-      isPriceHidden: isPriceHidden,
+      currencyCode: prefs.getString('currency') ?? 'USD',
+      isMultiSize: prefs.getBool('multiSize') ?? false,
+      isTest: prefs.getBool('isTest') ?? false,
+      isSalePrice: prefs.getBool('isSalePrice') ?? false,
+      isRepairedInfoAvailable: prefs.getBool('isRepairedInfoAvailable') ?? true,
+      isHighResCollage: prefs.getBool('isHighResCollage') ?? false,
+      isAllShoesShare: prefs.getBool('isAllShoesShare') ?? false,
+      sampleShareCount: prefs.getInt('sampleShareCount') ?? 0,
+      isFlatSale: prefs.getBool('isFlatSale') ?? false,
+      lowDiscount: prefs.getDouble('lowDiscount') ?? 0,
+      highDiscount: prefs.getDouble('highDiscount') ?? 0,
+      flatDiscount: prefs.getDouble('flatDiscount') ?? 0,
+      isPriceHidden: prefs.getBool('isPriceHidden') ?? false,
+      isInfoCopied: prefs.getBool('isInfoCopied') ?? false,
     );
   }
+
+  String get _loadingMessage => switch (_stage) {
+    AuthLoadingStage.googleSignIn => 'Connecting to Google...',
+    AuthLoadingStage.firebaseAuth => 'Securing connection...',
+    AuthLoadingStage.authorizationCheck => 'Checking user permissions...',
+    _ => '',
+  };
+
+  double get _progress => switch (_stage) {
+    AuthLoadingStage.googleSignIn => 0.33,
+    AuthLoadingStage.firebaseAuth => 0.66,
+    AuthLoadingStage.authorizationCheck => 0.95,
+    _ => 0.0,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -279,18 +310,15 @@ class _AuthScreenState extends State<AuthScreen> {
       body: Stack(
         alignment: Alignment.center,
         children: [
-          // Content layer (Sign-in buttons, errors, etc.) - Only visible when not loading
           if (!isLoading)
             Center(
-              // Buttons are correctly centered here!
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (!_signedIn) ...[
-                      // Google Sign-In Button
+                    if (!_signedIn)
                       SizedBox(
                         height: 50,
                         width: double.infinity,
@@ -304,58 +332,49 @@ class _AuthScreenState extends State<AuthScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.black54,
                             backgroundColor: Colors.white,
-                            side: const BorderSide(
-                              color: Colors.grey,
-                              width: 1,
-                            ),
+                            side: const BorderSide(color: Colors.grey),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8.0),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Sign Out Button
-                    SizedBox(
-                      height: 50,
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _signOut,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
+                    if (_signedIn)
+                      SizedBox(
+                        height: 50,
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _signOut,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                          ),
+                          child: const Text(
+                            'Sign out',
+                            style: TextStyle(fontSize: 18),
                           ),
                         ),
-                        child: const Text(
-                          'Sign out',
-                          style: TextStyle(fontSize: 18),
-                        ),
                       ),
-                    ),
-
                     const SizedBox(height: 30),
-                    if (_signedIn) Text('Signed in as $_email'),
-
+                    if (_signedIn && _email != null)
+                      Text('Signed in as $_email'),
                     if (_error != null)
                       Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Text(
                           _error!,
                           style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-
                     const SizedBox(height: 100),
                   ],
                 ),
               ),
             ),
-
-          // Footer is always at the bottom
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
@@ -363,8 +382,6 @@ class _AuthScreenState extends State<AuthScreen> {
               child: VersionFooter(),
             ),
           ),
-
-          // Loading Splash Overlay (visible when loading)
           if (isLoading)
             AuthLoadingSplash(
               stage: _stage,

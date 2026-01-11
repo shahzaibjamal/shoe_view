@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shoe_view/Helpers/quota_circle.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
@@ -25,6 +26,7 @@ class _SettingsDialogState extends State<SettingsDialog>
     with SingleTickerProviderStateMixin {
   File? _logoFile;
 
+  bool _hasTestModePermission = false;
   // Local State
   ThemeMode _selectedTheme = ThemeMode.light;
   String _currencyCode = 'USD';
@@ -36,6 +38,7 @@ class _SettingsDialogState extends State<SettingsDialog>
   bool _isAllShoesShare = false;
   bool _isFlatSale = false;
   bool _isPriceHidden = false;
+  bool _isInfoCopied = false;
 
   // Controllers
   late TextEditingController _sampleController;
@@ -80,9 +83,13 @@ class _SettingsDialogState extends State<SettingsDialog>
 
   // --- Data Loading ---
 
-  void _loadSettingsFromNotifier() {
+  void _loadSettingsFromNotifier() async {
     final app = context.read<AppStatusNotifier>();
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
+      _hasTestModePermission =
+          prefs.getBool('isTestModeEnabled_Permission') ??
+          app.isTestModeEnabled;
       _selectedTheme = app.themeMode;
       _currencyCode = app.currencyCode;
       _isMultiSize = app.isMultiSizeModeEnabled;
@@ -93,6 +100,7 @@ class _SettingsDialogState extends State<SettingsDialog>
       _isAllShoesShare = app.isAllShoesShare;
       _isFlatSale = app.isFlatSale;
       _isPriceHidden = app.isPriceHidden;
+      _isInfoCopied = app.isInfoCopied;
 
       _sampleController.text = app.sampleShareCount.toString();
       _lowDiscountController.text = app.lowDiscount.toString();
@@ -108,8 +116,6 @@ class _SettingsDialogState extends State<SettingsDialog>
       setState(() => _logoFile = logoPath);
     }
   }
-
-  // --- Confirmation Helpers ---
 
   Future<bool> _showConfirmDialog({
     required String title,
@@ -160,6 +166,7 @@ class _SettingsDialogState extends State<SettingsDialog>
       prefs.setBool('isSalePrice', _isSalePrice),
       prefs.setBool('isFlatSale', _isFlatSale),
       prefs.setBool('isPriceHidden', _isPriceHidden),
+      prefs.setBool('isInfoCopied', _isInfoCopied),
       prefs.setDouble('lowDiscount', finalLow),
       prefs.setDouble('highDiscount', finalHigh),
       prefs.setDouble('flatDiscount', finalFlat),
@@ -182,6 +189,7 @@ class _SettingsDialogState extends State<SettingsDialog>
         highDiscount: finalHigh,
         flatDiscount: finalFlat,
         isPriceHidden: _isPriceHidden,
+        isInfoCopied: _isInfoCopied,
       );
       Navigator.pop(context);
     }
@@ -461,9 +469,23 @@ class _SettingsDialogState extends State<SettingsDialog>
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Show Repaired Info'),
+                    subtitle: const Text(
+                      'Also include repaired notes',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     value: _isRepairedInfoAvailable,
                     onChanged: (v) =>
                         setState(() => _isRepairedInfoAvailable = v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Copy Info'),
+                    subtitle: const Text(
+                      'Copies data to clipboard when sharing',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    value: _isInfoCopied,
+                    onChanged: (v) => setState(() => _isInfoCopied = v),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -480,10 +502,13 @@ class _SettingsDialogState extends State<SettingsDialog>
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Share All Shoes'),
+                    subtitle: const Text(
+                      'Active, Unreleased and repaired',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     value: _isAllShoesShare,
                     onChanged: (v) => setState(() => _isAllShoesShare = v),
                   ),
-
                   const SizedBox(height: 16),
                   const Text(
                     'Pricing Simulation',
@@ -492,8 +517,15 @@ class _SettingsDialogState extends State<SettingsDialog>
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Crossed-out Sale Price'),
+                    subtitle: const Text(
+                      'Shows range: Min% - Max%',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     value: _isSalePrice,
-                    onChanged: (v) => setState(() => _isSalePrice = v),
+                    onChanged: (v) => setState(() {
+                      _isSalePrice = v;
+                      if (v) _isFlatSale = false;
+                    }),
                   ),
                   if (_isSalePrice)
                     Padding(
@@ -519,8 +551,15 @@ class _SettingsDialogState extends State<SettingsDialog>
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Apply Flat Discount'),
+                    subtitle: const Text(
+                      'Applies single % to all',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     value: _isFlatSale,
-                    onChanged: (v) => setState(() => _isFlatSale = v),
+                    onChanged: (v) => setState(() {
+                      _isFlatSale = v;
+                      if (v) _isSalePrice = false;
+                    }),
                   ),
                   if (_isFlatSale)
                     _buildNumField(
@@ -529,9 +568,7 @@ class _SettingsDialogState extends State<SettingsDialog>
                     ),
                 ],
               ],
-
               const SizedBox(height: 32),
-
               // Actions
               ElevatedButton.icon(
                 onPressed: _saveSettings,
@@ -562,14 +599,78 @@ class _SettingsDialogState extends State<SettingsDialog>
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
-              const VersionFooter(),
-              Center(
-                child: Text(
-                  'User: ${app.email}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Bottom Left: Shares Used
+                  QuotaCircle(
+                    label: "SHARES",
+                    used: app.dailyShares,
+                    limit: app.dailySharesLimit,
+                    color: Colors.green,
+                  ),
+
+                  // Center: Tier & Version
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'TIER: ',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight:
+                                    FontWeight.w400, // Lighter for the label
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                            Text(
+                              '${app.tier}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight
+                                    .bold, // Heavier for the actual value
+                                color: Colors.blue,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const VersionFooter(),
+                      Text(
+                        'User: ${app.email}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Bottom Right: Writes Used
+                  QuotaCircle(
+                    label: "WRITES",
+                    used: app.dailyWrites,
+                    limit: app.dailyWritesLimit,
+                    color: Colors.blue,
+                  ),
+                ],
               ),
             ],
           ),

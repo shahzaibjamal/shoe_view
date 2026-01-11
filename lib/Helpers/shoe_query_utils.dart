@@ -477,17 +477,21 @@ class ShoeQueryUtils {
     double inflated = actualPrice + (actualPrice * percent / 100);
 
     // round to nearest 0, 50, or 100
-    int rounded = _roundToNearest(inflated.toInt());
+    int rounded = roundToNearest(inflated.toInt());
 
     return rounded;
   }
 
-  static int _roundToNearest(int value) {
+  static int roundToNearest(int value) {
     int remainder = value % 100;
 
     if (remainder < 25) return value - remainder; // nearest 0
     if (remainder < 75) return value - remainder + 50; // nearest 50
     return value - remainder + 100; // nearest 100
+  }
+
+  static double roundToNearestDouble(double value) {
+    return roundToNearest(value.toInt()).toDouble();
   }
 
   static String removeSalePrice(String text) {
