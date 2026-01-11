@@ -1,5 +1,6 @@
 👟 ShoeView
-ShoeView is am inventory management system built for footwear retailers. It is designed with an offline-first architecture to ensure business continuity regardless of network stability, while maintaining real-time consistency across multiple devices.
+
+ShoeView is an inventory management system built for footwear retailers. It is designed with an offline-first architecture to ensure business continuity regardless of network stability, while maintaining real-time consistency across multiple devices.
 
 Core Capabilities
 Offline-First Synchronization: The app intelligently persists user configurations, application state, and smart suggestions locally using SharedPreferences. This allows for near-instant app launches and full functionality in low-connectivity environments.
