@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart'; // Needed for debugPrint in non-Flutter environments
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shoe_view/Helpers/app_info.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
@@ -63,9 +64,8 @@ class FirebaseService {
   }
 
   Future<List<Shoe>> fetchData() async {
-    final url = Uri.parse(
-      'https://script.google.com/macros/s/AKfycbwBgB963HyYAYmTdgURQwdj3yat23MerEc3FHbfiFL04DSv9_yMizJlYoDhl_HTk1xBAg/exec',
-    );
+    final url = Uri.parse(dotenv.env['TEST_URI_DATA'] ?? '');
+
     List<Shoe> shoes = [];
     try {
       final response = await http.get(url);

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -410,8 +411,8 @@ class _CollageBuilderState extends State<CollageBuilder> {
   }
 
   void loadRewardedAd() {
-    const testAdUnit = "ca-app-pub-3940256099942544/5224354917";
-    const releaseAdUnit = "ca-app-pub-3489872370282662/3859555894";
+    final testAdUnit = dotenv.env['ADMOB_TEST_AD_UNIT'] ?? '';
+    final releaseAdUnit = dotenv.env['ADMOB_RELEASE_AD_UNIT'] ?? '';
 
     isAdLoading.value = true;
     _rewardedAd?.dispose();

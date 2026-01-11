@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,13 +65,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _initGoogleSignIn() {
     try {
+      final clientId = dotenv.env['CLIENT_ID'];
+      final serverClientId = dotenv.env['SERVER_CLIENT_ID'];
       _googleSignIn
-          .initialize(
-            clientId:
-                '208115481751-nhcu2josbkqrdq2tcje0krn5hmuat0n1.apps.googleusercontent.com',
-            serverClientId:
-                '208115481751-6021ik4oq3deeabsfs6ns31v4hkrim3v.apps.googleusercontent.com',
-          )
+          .initialize(clientId: clientId, serverClientId: serverClientId)
           .then((_) {
             _googleSignIn.authenticationEvents
                 .listen(_handleAuthenticationEvent)
