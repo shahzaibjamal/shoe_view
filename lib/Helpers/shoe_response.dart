@@ -30,6 +30,8 @@ class ShoeResponse {
   });
 
   factory ShoeResponse.fromJson(Map<String, dynamic> json) {
+    // 🎯 DEBUG LOG: Verify parsing
+    // print("☁️ PARSING JSON: $json");
     return ShoeResponse(
       isAuthorized: json['isAuthorized'] ?? false,
       isTrial: json['isTrial'] ?? false,
@@ -37,11 +39,12 @@ class ShoeResponse {
       tier: json['tier'] ?? 0,
       trialStartedMillis: json['trialStarted'] ?? 0,
       lastLoginMillis: json['lastLoginTime'] ?? 0,
-      dailySharesUsed: json['dailySharesUsed'] ?? 0,
-      dailySharesLimit: json['dailySharesLimit'] ?? 0,
-      dailyWritesUsed: json['dailyWritesUsed'] ?? 0,
-      dailyWritesLimit: json['dailyWritesLimit'] ?? 0,
-      isMultiSize: json['isMultiSize'] ?? 0,
+      // Force int parsing if it comes as double/string from some weird serialization
+      dailySharesUsed: int.tryParse(json['dailySharesUsed'].toString()) ?? 0,
+      dailySharesLimit: int.tryParse(json['dailySharesLimit'].toString()) ?? 0,
+      dailyWritesUsed: int.tryParse(json['dailyWritesUsed'].toString()) ?? 0,
+      dailyWritesLimit: int.tryParse(json['dailyWritesLimit'].toString()) ?? 0,
+      isMultiSize: json['isMultiSize'] ?? false,
       currencyCode: json['currencyCode'] ?? 'USD',
       purchasedOffer: json['purchasedOffer'] ?? 'none',
     );

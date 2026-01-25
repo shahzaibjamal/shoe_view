@@ -11,14 +11,37 @@ import 'package:shoe_view/shoe_model.dart';
 
 class CollageUtils {
   static Future<ui.Image> getUiImageFromCache(String url) async {
-    final cacheManager = ShoeViewCacheManager();
-    final fileInfo = await cacheManager.getFileFromCache(url);
-    final file = fileInfo?.file ?? await cacheManager.getSingleFile(url);
+    try {
+      final cacheManager = ShoeViewCacheManager();
+      final cacheKey = ShoeViewCacheManager.getStableKey(url);
 
-    final bytes = await file.readAsBytes();
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-    return frame.image;
+      // 1. Try to get from cache first (very fast)
+      FileInfo? fileInfo = await cacheManager.getFileFromCache(cacheKey);
+      
+      File file;
+      if (fileInfo != null && await fileInfo.file.exists()) {
+        file = fileInfo.file;
+      } else {
+        // 2. If not in cache, try to download with a strict timeout
+        // This prevents the "stuck" behavior in poor connectivity.
+        file = await cacheManager
+            .getSingleFile(url, key: cacheKey)
+            .timeout(const Duration(seconds: 10));
+      }
+
+      final bytes = await file.readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      return frame.image;
+    } catch (e) {
+      AppLogger.log("Error loading image for collage: $e");
+      // Return a 1x1 transparent placeholder on failure so canvas doesn't crash
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.drawColor(Colors.grey.shade200, BlendMode.src); // Light grey placeholder
+      final picture = recorder.endRecording();
+      return picture.toImage(100, 100); // 100x100 placeholder
+    }
   }
 
   static void paintCanvasImage(
@@ -305,7 +328,7 @@ class CollageUtils {
   static Future<Uint8List> generateCollageFromWidget(GlobalKey key) async {
     final boundary =
         key.currentContext!.findRenderObject() as RenderRepaintBoundary;
-    final image = await boundary.toImage(pixelRatio: 4.0);
+    final image = await boundary.toImage(pixelRatio: 7.0);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     AppLogger.log(
       'Repaint generated - Width: ${image.width} height: ${image.height}',

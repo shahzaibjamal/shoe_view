@@ -40,24 +40,27 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _checkInitialStatus() async {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      AppLogger.log("🚀 App Launched - Initial Check");
       final user = FirebaseAuth.instance.currentUser;
       final prefs = await SharedPreferences.getInstance();
 
       final bool wasAuthorized = prefs.getBool(kAuthorizedKey) ?? false;
       final String? cachedEmail = prefs.getString(kCachedEmailKey);
 
+      AppLogger.log(
+          "User: ${user?.email}, Auth: $wasAuthorized, Cached: $cachedEmail");
+
       if (user != null && wasAuthorized && user.email == cachedEmail) {
-        AppLogger.log("Offline Flow: Quick-entering for ${user.email}");
+        AppLogger.log("✅ Offline Flow Triggered for ${user.email}");
 
         // 1. Load settings into Notifier
         if (mounted) await _loadPrefsInNotifier();
 
         // 2. Immediate Navigation
+        // We defer the background sync to ShoeListView to ensure the UI is up first.
         _navigateToHome();
-
-        // 3. Background Sync
-        _backgroundSync(user);
       } else {
+        AppLogger.log("🌐 Google Init Triggered (Not in offline state)");
         _initGoogleSignIn();
       }
     });
@@ -115,7 +118,11 @@ class _AuthScreenState extends State<AuthScreen> {
             setState(() => _stage = AuthLoadingStage.authorizationCheck);
 
           if (idToken != null) {
-            await _callCheckUserAuthorization(email, idToken);
+            await _callCheckUserAuthorization(
+              email,
+              idToken,
+              context.read<AppStatusNotifier>(), // Pass notifier explicitly
+            );
           }
         } catch (e) {
           _handleAuthenticationError(e);
@@ -131,19 +138,26 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
+  // Updated signature to accept Notifier
   Future<void> _callCheckUserAuthorization(
     String email,
-    String idToken, {
+    String idToken,
+    AppStatusNotifier notifier, {
     bool isBackground = false,
   }) async {
-    // Capture the notifier while the screen is still active
-    final notifier = context.read<AppStatusNotifier>();
+    // Note: Notifier is passed in, so we don't need 'context.read' here,
+    // which fixes the crash if AuthScreen unmounts.
 
     try {
+      AppLogger.log("☁️ calling Cloud Function...");
       final result = await _firebaseService.checkUserAuthorization(
         email: email,
         idToken: idToken,
       );
+      
+      // 🎯 DEBUG LOG: Print incoming cloud values to verify limits
+      AppLogger.log("☁️ CLOUD RESPONSE: $result");
+
       final shoeResponse = ShoeResponse.fromJson(result);
 
       // 🎯 BUSINESS LOGIC: We pass the data to the Notifier.
@@ -159,6 +173,13 @@ class _AuthScreenState extends State<AuthScreen> {
         shoeResponse.isTestModeEnabled,
       );
 
+      // 🎯 FIX: Save critical stats for offline/silent loading
+      await prefs.setInt('dailyShares', shoeResponse.dailySharesUsed);
+      await prefs.setInt('dailySharesLimit', shoeResponse.dailySharesLimit);
+      await prefs.setInt('dailyWrites', shoeResponse.dailyWritesUsed);
+      await prefs.setInt('dailyWritesLimit', shoeResponse.dailyWritesLimit);
+      await prefs.setInt('tier', shoeResponse.tier);
+
       // UI LOGIC: Only run if the user is still looking at this screen
       if (!isBackground && mounted) {
         if (shoeResponse.isAuthorized) {
@@ -173,18 +194,6 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Future<void> _backgroundSync(User user) async {
-    try {
-      final String? idToken = await user.getIdToken();
-      if (idToken != null) {
-        await _callCheckUserAuthorization(
-          user.email!,
-          idToken,
-          isBackground: true,
-        );
-      }
-    } catch (_) {}
-  }
 
   void _handleAuthenticationError(error) {
     AppLogger.log("Authentication Error: $error");
@@ -284,6 +293,19 @@ class _AuthScreenState extends State<AuthScreen> {
       isPriceHidden: prefs.getBool('isPriceHidden') ?? false,
       isInfoCopied: prefs.getBool('isInfoCopied') ?? false,
     );
+
+    // 🎯 FIX: Load critical user stats for offline/silent mode
+    appStatusNotifier.updateDailyShares(prefs.getInt('dailyShares') ?? 0);
+    appStatusNotifier.updateDailySharesLimit(prefs.getInt('dailySharesLimit') ?? 0);
+    appStatusNotifier.updateDailyWrites(prefs.getInt('dailyWrites') ?? 0);
+    appStatusNotifier.updateDailyWritesLimit(prefs.getInt('dailyWritesLimit') ?? 0);
+    appStatusNotifier.updateTier(prefs.getInt('tier') ?? 0);
+    
+    // Also restore cached email if available
+    final cachedEmail = prefs.getString(kCachedEmailKey);
+    if (cachedEmail != null) {
+      appStatusNotifier.updateEmail(cachedEmail);
+    }
   }
 
   String get _loadingMessage => switch (_stage) {

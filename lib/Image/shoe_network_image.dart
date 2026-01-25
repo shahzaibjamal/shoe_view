@@ -6,58 +6,92 @@ import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
 
 class ShoeNetworkImage extends StatelessWidget {
   final String imageUrl;
-  final double? height; // Changed to nullable for better layout flexibility
+  final double? height;
   final double? width;
   final BoxFit fit;
+  final bool disableMemCache;
+  final BorderRadius? borderRadius;
 
   const ShoeNetworkImage({
     super.key,
     required this.imageUrl,
     this.height = 100,
     this.width = 100,
-    this.fit =
-        BoxFit.cover, // Changed default to cover for better collage looks
+    this.fit = BoxFit.cover,
+    this.disableMemCache = false,
+    this.borderRadius,
   });
 
   @override
   Widget build(BuildContext context) {
     if (imageUrl.isEmpty) {
-      return _buildErrorWidget();
+      return _buildClipped(_buildErrorWidget());
     }
 
     // Use the static helper from our manager for consistency
     final stableKey = ShoeViewCacheManager.getStableKey(imageUrl);
 
+    // 🎯 Optimization: Resize image in memory to save RAM
+    final int? memCacheWidth =
+        disableMemCache || width == null ? null : (width! * 2.5).toInt();
+
     return CachedNetworkImage(
       imageUrl: imageUrl,
       cacheKey: stableKey,
-      cacheManager:
-          ShoeViewCacheManager(), // 🎯 Ensures it uses our 60-day config
+      cacheManager: ShoeViewCacheManager(),
       height: height,
       width: width,
       fit: fit,
-      // 🎯 This is key for offline: if the URL changes (token change),
-      // it keeps showing the one it has in cache for that stableKey.
+      memCacheWidth: memCacheWidth,
       useOldImageOnUrlChange: true,
+      // 🎯 Performance: Disable fade animations to prevent "refresh" flicker on scroll rebuilds
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      placeholderFadeInDuration: Duration.zero,
+      
+      // 🎯 Fix: Use imageBuilder to apply borderRadius during paint/fade
+      imageBuilder: (context, imageProvider) {
+        // Use ClipRRect around an Image widget so it sizes to the content
+        // rather than filling the container like DecorationImage does.
+        return ClipRRect(
+          borderRadius: borderRadius ?? BorderRadius.zero,
+          child: Image(
+            image: imageProvider,
+            fit: fit,
+          ),
+        );
+      },
 
-      placeholder: (context, url) => _buildPlaceholder(),
+      placeholder: (context, url) => _buildClipped(_buildPlaceholder()),
+      
       errorWidget: (context, url, error) {
-        // Double-check: If CachedNetworkImage fails, try one last manual check
         return FutureBuilder<File?>(
           future: ShoeViewCacheManager().getCachedFileOnly(url),
           builder: (context, snapshot) {
             if (snapshot.hasData && snapshot.data != null) {
-              return Image.file(
-                snapshot.data!,
-                height: height,
-                width: width,
-                fit: fit,
+              // Local fallback image
+              return _buildClipped(
+                Image.file(
+                  snapshot.data!,
+                  height: height,
+                  width: width,
+                  fit: fit,
+                ),
               );
             }
-            return _buildErrorWidget();
+            return _buildClipped(_buildErrorWidget());
           },
         );
       },
+    );
+  }
+
+  // 🎯 Helper to apply border radius to non-image widgets (placeholders/errors)
+  Widget _buildClipped(Widget child) {
+    if (borderRadius == null) return child;
+    return ClipRRect(
+      borderRadius: borderRadius!,
+      child: child,
     );
   }
 

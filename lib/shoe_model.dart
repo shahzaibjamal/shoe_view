@@ -240,7 +240,7 @@ class Shoe {
     final notes = map['Notes']?.toString() ?? '';
     final imagesLink = map['Pics']?.toString() ?? '';
     /******************************************************/
-    final desiredWidth = 800;
+    final desiredWidth = 1200;
     final uri = Uri.parse(imageUrl);
     final queryParameters = Map<String, String>.from(uri.queryParameters);
     queryParameters['sz'] = 'w$desiredWidth';

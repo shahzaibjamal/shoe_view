@@ -257,9 +257,10 @@ class _CollageBuilderState extends State<CollageBuilder> {
               color: Colors.grey[200],
               child: ShoeNetworkImage(
                 imageUrl: shoe.remoteImageUrl,
-                fit: BoxFit.fitWidth,
+                fit: BoxFit.cover,
                 width: itemSize,
                 height: itemSize,
+                disableMemCache: true, // 🎯 High Quality for Collage Capture
               ),
             ),
           ),

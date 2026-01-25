@@ -522,4 +522,135 @@ class ShoeQueryUtils {
       print("❌ Could not get external storage directory");
     }
   }
+
+  static String generateCopyText({
+    required List<Shoe> shoes,
+    required String currencyCode,
+    required bool isRepairedInfoAvailable,
+    required bool isSalePrice,
+    required bool isFlatSale,
+    required bool isPriceHidden,
+    required double flatDiscount,
+    required double lowDiscount,
+    required double highDiscount,
+    required String sortField,
+  }) {
+    final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
+
+    final buffer = StringBuffer();
+    final gap = shoes.length > 1 ? '    ' : '';
+
+    final shoeList = shoes.take(30).toList(); // Hardcoded maxImages match
+    if (shoeList.length > 1) {
+      buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
+    }
+    if (isFlatSale) {
+      buffer.writeln(
+        '🔥 *Flat $flatDiscount% OFF* 🔥\nOffer ends soon! \n',
+      );
+    }
+
+    final isSold = sortField.toLowerCase().contains('sold');
+
+    for (int i = 0; i < shoeList.length; i++) {
+      final shoe = shoeList[i];
+      final numbering = shoeList.length > 1 ? '${i + 1}. ' : '';
+      final indent = ' ' * (numbering.length) + gap;
+
+      String displayDetail = shoe.shoeDetail;
+      // Check for regex match directly since contains('no insoles') misses 'no insole'
+      final noInsoleRegex = RegExp(r'no insoles?', caseSensitive: false);
+      final bool hasNoInsoles = noInsoleRegex.hasMatch(displayDetail);
+      
+      if (hasNoInsoles) {
+        displayDetail = displayDetail
+            .replaceAll(noInsoleRegex, '')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
+      }
+
+      buffer.writeln('$numbering$displayDetail');
+      if (shoe.sizeEur != null && shoe.sizeEur!.length > 1) {
+        // Multiple EUR sizes
+        String line = '${indent}Sizes: EUR ';
+        for (var size in shoe.sizeEur!) {
+          line += '$size, ';
+        }
+
+        // Trim trailing comma
+        line = line.trim().replaceAll(RegExp(r',$'), '');
+
+        // Append CM if available
+        if (shoe.sizeCm != null && shoe.sizeCm!.isNotEmpty) {
+          line += ' | CM ${shoe.sizeCm!.join(", ")}';
+        }
+
+        buffer.writeln(line);
+      } else {
+        // Single size case
+        String line =
+            '${indent}Sizes: EUR ${shoe.sizeEur?.first}, UK ${shoe.sizeUk?.first}';
+
+        // Append CM if available
+        if (shoe.sizeCm != null && shoe.sizeCm!.isNotEmpty) {
+          line += ', CM ${shoe.sizeCm!.first}';
+        }
+
+        buffer.writeln(line);
+      }
+      final sellingPrice = isFlatSale
+          ? ShoeQueryUtils.roundToNearestDouble(
+              shoe.sellingPrice * (1 - flatDiscount / 100),
+            )
+          : shoe.sellingPrice;
+      if (!isSold) {
+        if (!isPriceHidden) {
+          if (isSalePrice) {
+            buffer.writeln(
+              '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(sellingPrice, minPercent: lowDiscount, maxPercent: highDiscount)}/-~ ✅ $symbol${sellingPrice}/-',
+            );
+          } else if (isFlatSale) {
+            buffer.writeln(
+              '${indent}Price: ❌ ~$symbol${shoe.sellingPrice}/-~ ✅ $symbol${sellingPrice}/-',
+            );
+          } else {
+            buffer.writeln('${indent}Price: $symbol${sellingPrice}/-');
+          }
+        }
+        buffer.writeln(
+          '${indent}Condition: ${shoe.condition}/10${hasNoInsoles ? " (no insoles)" : ""}',
+        );
+      }
+      if (shoe.instagramLink.isNotEmpty) {
+        buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
+      }
+      if (shoe.tiktokLink.isNotEmpty) {
+        buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
+      }
+      if (shoe.status == 'Repaired') {
+        if (isRepairedInfoAvailable) {
+          String notes = shoe.notes;
+          if (shoe.notes.contains("Not repaired")) {
+            notes = notes.replaceAll("Not repaired", "").trim();
+          } else {
+            buffer.writeln('$indent❌❌ Repaired ❌❌');
+          }
+          buffer.writeln('${indent}Note: ✨$notes✨');
+        }
+        buffer.writeln('${indent}Images: ${shoe.imagesLink}');
+      }
+      if (isSold) {
+        buffer.writeln(); // blank line for separation
+        buffer.writeln('${indent}❌ SOLD ❌');
+      }
+      buffer.writeln(); // blank line for separation
+    }
+
+    // Only add "Tap to claim" if none are sold
+    if (!isSold) {
+      buffer.writeln('Tap to claim 📦');
+    }
+
+    return buffer.toString();
+  }
 }
