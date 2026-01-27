@@ -272,95 +272,170 @@ class ShoeListItem extends StatelessWidget {
             HapticFeedback.selectionClick();
             _showFullScreenImage(context, shoe.remoteImageUrl);
           },
-        child: ListTile(
-          isThreeLine: true,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 10.0,
-            horizontal: 12.0,
-          ),
-          leading: Container(
-            width: 60,
-            height: 60,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!, width: 1),
-            ),
-            child: _buildShoeImage(
-              shoe.localImagePath,
-              shoe.remoteImageUrl,
-            ),
-          ),
-          title: Text(
-            shoe.shoeDetail,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-              Text(
-                sizeDisplay,
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-              Text(
-                'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 🖼️ Square Shoe Image
+                Container(
+                  width: 60,
+                  height: 60,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!, width: 1.5),
+                  ),
+                  child: _buildShoeImage(
+                    shoe.localImagePath,
+                    shoe.remoteImageUrl,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                
+                // 📝 Text Details (4 Lines)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        shoe.shoeDetail,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold, 
+                          fontSize: 15,
+                          height: 1.1,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'ID: ${shoe.itemId} | Ship: ${shoe.shipmentId}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        sizeDisplay,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
+                        style: TextStyle(
+                          color: Colors.grey[800],
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(width: 8),
+
+                // ⚙️ Action Buttons (2x2 Compact Grid)
+                Container(
+                  height: 40,
+                  child: const VerticalDivider(width: 1, thickness: 0.5, indent: 2, endIndent: 2),
+                ),
+                const SizedBox(width: 8),
+                
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _CompactActionButton(
+                          icon: Icons.content_copy_rounded,
+                          tooltip: 'Copy',
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            onCopyDataPressed(shoe);
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        _CompactActionButton(
+                          icon: Icons.share_rounded,
+                          tooltip: 'Share',
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            onShareDataPressed(shoe);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _CompactActionButton(
+                          icon: Icons.edit_rounded,
+                          color: Colors.blueGrey,
+                          tooltip: 'Edit',
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            onEdit();
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        _CompactActionButton(
+                          icon: Icons.delete_outline_rounded,
+                          color: Colors.red[400],
+                          tooltip: 'Delete',
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            onDelete();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-trailing: SizedBox(
-  width: 120, // give enough width for 4 icons
-  child: Wrap(
-    spacing: 8,        // horizontal spacing between icons
-    runSpacing: 4,     // vertical spacing if wrapping occurs
-    alignment: WrapAlignment.center,
-    children: [
-      IconButton(
-        icon: const Icon(Icons.content_copy_rounded, size: 22),
-        onPressed: () {
-          HapticFeedback.lightImpact();
-          onCopyDataPressed(shoe);
-        },
-        tooltip: 'Copy',
-      ),
-      IconButton(
-        icon: const Icon(Icons.share_rounded, size: 22),
-        onPressed: () {
-          HapticFeedback.lightImpact();
-          onShareDataPressed(shoe);
-        },
-        tooltip: 'Share',
-      ),
-      IconButton(
-        icon: const Icon(Icons.edit_rounded, size: 22, color: Colors.blueGrey),
-        onPressed: () {
-          HapticFeedback.lightImpact();
-          onEdit();
-        },
-        tooltip: 'Edit',
-      ),
-      IconButton(
-        icon: Icon(Icons.delete_outline_rounded, size: 22, color: Colors.red[400]),
-        onPressed: () {
-          HapticFeedback.mediumImpact();
-          onDelete();
-        },
-        tooltip: 'Delete',
-      ),
-    ],
-  ),
-),
         ),
+      ),
+    );
+  }
+}
+
+/// A highly compact action button designed for 2x2 grids
+class _CompactActionButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String tooltip;
+  final Color? color;
+
+  const _CompactActionButton({
+    required this.icon,
+    required this.onPressed,
+    required this.tooltip,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onPressed,
+          child: Center(
+            child: Icon(
+              icon,
+              size: 20,
+              color: color ?? Colors.grey[700],
+            ),
+          ),
         ),
       ),
     );
