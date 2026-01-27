@@ -43,7 +43,9 @@ class ShoeNetworkImage extends StatelessWidget {
       width: width,
       fit: fit,
       memCacheWidth: memCacheWidth,
-      useOldImageOnUrlChange: true,
+      // 🎯 Fix: Disable "ghosting". If the URL changes (e.g., during search), 
+      // show the placeholder immediately instead of keeping the previous shoe's image.
+      useOldImageOnUrlChange: false,
       // 🎯 Performance: Disable fade animations to prevent "refresh" flicker on scroll rebuilds
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,

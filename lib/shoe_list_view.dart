@@ -42,6 +42,7 @@ class _ShoeListViewState extends State<ShoeListView>
   // --- Data State ---
   List<Shoe> _streamShoes = []; // Raw data from stream
   List<Shoe> _displayedShoes = []; // Processed data (filtered & sorted)
+  late Stream<List<Shoe>> _shoeStream; // 🎯 Memoize the stream
 
   // --- Memoization Utilities ---
   String _lastProcessedQuery = '';
@@ -66,6 +67,9 @@ class _ShoeListViewState extends State<ShoeListView>
       // 🎯 Trigger Background Sync logic (moved from AuthScreen)
       _triggerBackgroundSync();
     });
+
+    // 🎯 Initialize stream once to prevent restarts on search/rebuild
+    _shoeStream = context.read<FirebaseService>().streamShoes();
   }
 
   Future<void> _triggerBackgroundSync() async {
@@ -534,7 +538,7 @@ class _ShoeListViewState extends State<ShoeListView>
             if (_isLoadingExternalData) const LinearProgressIndicator(),
             Expanded(
               child: StreamBuilder<List<Shoe>>(
-                stream: firebaseService.streamShoes(),
+                stream: _shoeStream, // 🎯 Use memoized stream
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting &&
                       !snapshot.hasData) {
@@ -565,7 +569,10 @@ class _ShoeListViewState extends State<ShoeListView>
                     itemCount: _displayedShoes.length,
                     itemBuilder: (context, index) {
                       final shoe = _displayedShoes[index];
+                      // 🎯 ADD KEY: Using a unique key prevents "ghosting" or 
+                      // cross-pollination of images when the list filters/shuffles.
                       return ShoeListItem(
+                        key: ValueKey('${shoe.itemId}_${shoe.shipmentId}'),
                         shoe: shoe,
                         onCopyDataPressed: _onCopyShoe,
                         onShareDataPressed: (s) => _shareData([s]),

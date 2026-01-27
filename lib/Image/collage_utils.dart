@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
 import 'package:shoe_view/shoe_model.dart';
