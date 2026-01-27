@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart'; // Needed for debugPrint in non-Flutter environments
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,6 +9,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shoe_view/Helpers/app_info.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/shared/constants/app_constants.dart';
 import '../shoe_model.dart'; // Assuming this contains the Shoe class with itemId
 
 /// A service class to handle all interactions with Firebase Firestore and Storage.
@@ -65,31 +68,43 @@ class FirebaseService {
 
   Future<List<Shoe>> fetchData() async {
     final url = Uri.parse(dotenv.env['TEST_URI_DATA'] ?? '');
+    
+    if (url.toString().isEmpty) {
+      throw Exception('Data URL not configured');
+    }
 
     List<Shoe> shoes = [];
     try {
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(
+        AppConstants.networkTimeout,
+        onTimeout: () {
+          throw TimeoutException('Request timed out');
+        },
+      );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = json.decode(response.body) as List;
         for (var item in data) {
           try {
-            final shoe = Shoe.fromJson(item);
-            //            if (shoe.status != 'Sold') {
+            final shoe = Shoe.fromJson(item as Map<String, dynamic>);
             if (shoe.itemId > 0) shoes.add(shoe);
-            //            }
           } catch (e) {
-            debugPrint('Error mapping shoe: $e');
+            AppLogger.log('Error mapping shoe: $e');
+            // Continue processing other items
           }
         }
-
-        // You can now use the data as a Map or List
       } else {
-        print('Error: ${response.statusCode}');
+        throw HttpException('Failed to fetch data: ${response.statusCode}');
       }
+    } on TimeoutException {
+      rethrow;
+    } on HttpException {
+      rethrow;
     } catch (e) {
-      print('Exception: $e');
+      AppLogger.log('Unexpected error fetching data: $e');
+      throw Exception('Failed to fetch shoe data: ${e.toString()}');
     }
+    
     return shoes;
   }
 

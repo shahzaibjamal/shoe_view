@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Image/shoe_network_image.dart';
 import 'package:shoe_view/app_status_notifier.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'shoe_model.dart';
+
+
 
 class ShoeListItem extends StatelessWidget {
   final Shoe shoe;
@@ -26,18 +30,40 @@ class ShoeListItem extends StatelessWidget {
   Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
     // Priority 1: Remote URL (from Firestore)
     if (remoteImageUrl.isNotEmpty) {
-      return ShoeNetworkImage(
-        imageUrl: remoteImageUrl,
+      return Container(
         width: 60,
         height: 60,
-        fit: BoxFit.cover,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.grey[400]!,
+            width: 1.5,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6.5),
+          child: ShoeNetworkImage(
+            imageUrl: remoteImageUrl,
+            width: 60,
+            height: 60,
+            fit: BoxFit.cover,
+          ),
+        ),
       );
     }
     // Fallback/Priority 2 can go here if needed
-    return const SizedBox(
+    return Container(
       width: 60,
       height: 60,
-      child: Icon(Icons.image_not_supported),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.grey[400]!,
+          width: 1.5,
+        ),
+        color: Colors.grey[100],
+      ),
+      child: const Icon(Icons.image_not_supported, color: Colors.grey),
     );
   }
 
@@ -67,54 +93,149 @@ class ShoeListItem extends StatelessWidget {
       sizeDisplay = 'EUR: $eurSizes, UK: $ukSizes';
     }
 
-    showDialog(
+    showGeneralDialog(
       context: context,
-      barrierColor: const Color.fromARGB(200, 0, 0, 0),
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent, // Keep this transparent
-        insetPadding: EdgeInsets.zero,
-        child: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 🎯 Fix: Use ConstrainedBox to let image size itself naturally up to a limit.
-              // We pass borderRadius to ShoeNetworkImage so it paints rounded corners 
-              // immediately (even during fade-in/loading), solving the square-pop glitch.
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: maxWidth,
-                    maxHeight: maxHeight,
-                  ),
-                  child: ShoeNetworkImage(
-                    imageUrl: imageUrl,
-                    width: null,
-                    height: null,
-                    fit: BoxFit.contain,
-                    borderRadius: BorderRadius.circular(16.0),
-                  ),
-                ),
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
               ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8.0),
-                color: Colors.black54,
-                child: Text(
-                  textAlign: TextAlign.center,
-                  '${shoe.shoeDetail}\nID: ${shoe.itemId} | #${shoe.shipmentId}\n$sizeDisplay \nPrice: $currency ${shoe.sellingPrice.toStringAsFixed(0)}/-',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+            ),
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Image with border
+                            Container(
+                              constraints: BoxConstraints(
+                                maxWidth: maxWidth,
+                                maxHeight: maxHeight,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.grey[200]!,
+                                  width: 1,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(15),
+                                child: ShoeNetworkImage(
+                                  imageUrl: imageUrl,
+                                  width: null,
+                                  height: null,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            // Info section
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    shoe.shoeDetail,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'Size: $sizeDisplay',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey[800],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ),
-                ),
+                  // Close button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Material(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.of(context).pop();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -138,87 +259,109 @@ class ShoeListItem extends StatelessWidget {
     }
 
     return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      child: Stack(
-        children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 8.0,
-              horizontal: 16.0,
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            _showFullScreenImage(context, shoe.remoteImageUrl);
+          },
+        child: ListTile(
+          isThreeLine: true,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 10.0,
+            horizontal: 12.0,
+          ),
+          leading: Container(
+            width: 60,
+            height: 60,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!, width: 1),
             ),
-            leading: GestureDetector(
-              onTap: shoe.remoteImageUrl.isNotEmpty
-                  ? () => _showFullScreenImage(context, shoe.remoteImageUrl)
-                  : null,
-              child: SizedBox(
-                width: 60,
-                height: 60,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: _buildShoeImage(
-                    shoe.localImagePath,
-                    shoe.remoteImageUrl,
-                  ),
+            child: _buildShoeImage(
+              shoe.localImagePath,
+              shoe.remoteImageUrl,
+            ),
+          ),
+          title: Text(
+            shoe.shoeDetail,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+              Text(
+                sizeDisplay,
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+              Text(
+                'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
                 ),
               ),
-            ),
-            title: Text(
-              shoe.shoeDetail,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            subtitle: Text(
-              'ID: ${shoe.itemId} | Shipment: ${shoe.shipmentId}\n'
-              '$sizeDisplay \nPrice: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
+            ],
           ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: SizedBox(
-              width: 150,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blueGrey),
-                        tooltip: 'Edit Shoe',
-                        onPressed: onEdit,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        tooltip: 'Delete Shoe',
-                        onPressed: onDelete,
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.copy, color: Colors.black87),
-                        tooltip: 'Copy Shoe Data',
-                        onPressed: () => onCopyDataPressed(shoe),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.share_rounded,
-                          color: Colors.black87,
-                        ),
-                        tooltip: 'Share Shoe',
-                        onPressed: () => onShareDataPressed(shoe),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+trailing: SizedBox(
+  width: 120, // give enough width for 4 icons
+  child: Wrap(
+    spacing: 8,        // horizontal spacing between icons
+    runSpacing: 4,     // vertical spacing if wrapping occurs
+    alignment: WrapAlignment.center,
+    children: [
+      IconButton(
+        icon: const Icon(Icons.content_copy_rounded, size: 22),
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          onCopyDataPressed(shoe);
+        },
+        tooltip: 'Copy',
+      ),
+      IconButton(
+        icon: const Icon(Icons.share_rounded, size: 22),
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          onShareDataPressed(shoe);
+        },
+        tooltip: 'Share',
+      ),
+      IconButton(
+        icon: const Icon(Icons.edit_rounded, size: 22, color: Colors.blueGrey),
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          onEdit();
+        },
+        tooltip: 'Edit',
+      ),
+      IconButton(
+        icon: Icon(Icons.delete_outline_rounded, size: 22, color: Colors.red[400]),
+        onPressed: () {
+          HapticFeedback.mediumImpact();
+          onDelete();
+        },
+        tooltip: 'Delete',
+      ),
+    ],
+  ),
+),
+        ),
+        ),
       ),
     );
   }

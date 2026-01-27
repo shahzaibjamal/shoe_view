@@ -62,13 +62,57 @@ class MyApp extends StatelessWidget {
       },
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
-        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.light,
+        ),
+        // Add consistent text styles
+        textTheme: const TextTheme(
+          headlineLarge: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+          ),
+          headlineMedium: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+          bodyLarge: TextStyle(fontSize: 16),
+          bodyMedium: TextStyle(fontSize: 14),
+          bodySmall: TextStyle(fontSize: 12),
+        ),
+        // Add consistent spacing
+        cardTheme: CardThemeData(
+          elevation: 4,
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        ),
       ),
-      darkTheme: ThemeData.dark(),
-      themeMode:
-          themeMode, // ✅ Use the dynamic theme mode from AppStatusNotifier
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+        ),
+        // Same text theme for dark mode
+        textTheme: const TextTheme(
+          headlineLarge: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+          ),
+          headlineMedium: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+          bodyLarge: TextStyle(fontSize: 16),
+          bodyMedium: TextStyle(fontSize: 14),
+          bodySmall: TextStyle(fontSize: 12),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 4,
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        ),
+      ),
+      themeMode: themeMode, // ✅ Use the dynamic theme mode from AppStatusNotifier
       home: const AuthScreen(),
     );
   }

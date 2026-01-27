@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -22,6 +23,8 @@ import 'package:shoe_view/list_header.dart';
 import 'package:shoe_view/settings_dialog.dart';
 import 'package:shoe_view/shoe_list_item.dart';
 import 'package:shoe_view/shoe_model.dart';
+import 'package:shoe_view/shared/constants/app_constants.dart';
+import 'package:shoe_view/shared/widgets/skeleton_loader.dart';
 
 class ShoeListView extends StatefulWidget {
   const ShoeListView({super.key});
@@ -36,8 +39,10 @@ class _ShoeListViewState extends State<ShoeListView>
   String _sortField = 'ItemId';
   bool _sortAscending = true;
   bool _isLoadingExternalData = false;
+  bool _isInitialLoading = true;
   String _searchQuery = '';
   final ValueNotifier<bool> _isFabVisible = ValueNotifier<bool>(true);
+  Timer? _debounceTimer;
 
   // --- Data State ---
   List<Shoe> _streamShoes = []; // Raw data from stream
@@ -53,6 +58,7 @@ class _ShoeListViewState extends State<ShoeListView>
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   double _lastScrollPosition = 0;
+  Timer? _fabVisibilityTimer;
 
   @override
   void initState() {
@@ -125,7 +131,9 @@ class _ShoeListViewState extends State<ShoeListView>
     _searchController.dispose();
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
-    _isFabVisible.dispose(); 
+    _isFabVisible.dispose();
+    _debounceTimer?.cancel();
+    _fabVisibilityTimer?.cancel();
     super.dispose();
   }
 
@@ -154,17 +162,33 @@ class _ShoeListViewState extends State<ShoeListView>
   void _scrollListener() {
     final currentPosition = _scrollController.offset;
     final scrollingDown = currentPosition > _lastScrollPosition;
-    final shouldBeVisible = !scrollingDown || currentPosition < 10.0;
-
-    if (_isFabVisible.value != shouldBeVisible) {
-      _isFabVisible.value = shouldBeVisible; // 🎯 Optimization: No setState here
+    
+    // Hide FAB immediately when scrolling down
+    if (scrollingDown && _isFabVisible.value) {
+      _fabVisibilityTimer?.cancel();
+      _isFabVisible.value = false;
+    } 
+    // Show FAB after 1000ms when scrolling stops or scrolling up
+    else if (!scrollingDown && !_isFabVisible.value) {
+      _fabVisibilityTimer?.cancel();
+      _fabVisibilityTimer = Timer(const Duration(milliseconds: 1000), () {
+        if (mounted) {
+          _isFabVisible.value = true;
+        }
+      });
     }
+    
     _lastScrollPosition = currentPosition;
   }
 
   void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text.toLowerCase().trim();
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(AppConstants.searchDebounceDelay, () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text.toLowerCase().trim();
+        });
+      }
     });
   }
 
@@ -172,51 +196,70 @@ class _ShoeListViewState extends State<ShoeListView>
     setState(() => _isLoadingExternalData = true);
     final firebaseService = context.read<FirebaseService>();
 
-    try {
-      final fetchedShoes = await firebaseService.fetchData();
-      final existingKeys = {
-        for (var shoe in _streamShoes) '${shoe.itemId}_${shoe.shipmentId}',
-      };
+    int retryCount = 0;
+    const maxRetries = AppConstants.maxRetries;
+    
+    while (retryCount < maxRetries) {
+      try {
+        final fetchedShoes = await firebaseService.fetchData();
+        final existingKeys = {
+          for (var shoe in _streamShoes) '${shoe.itemId}_${shoe.shipmentId}',
+        };
 
-      final List<Shoe> newAvailableShoes = [];
-      for (final shoe in fetchedShoes) {
-        final key = '${shoe.itemId}_${shoe.shipmentId}';
-        if (!existingKeys.contains(key)) {
-          newAvailableShoes.add(shoe);
-          AppLogger.log(
-            'NEW → ID: ${shoe.itemId}, Shipment: ${shoe.shipmentId}, Detail: ${shoe.shoeDetail}',
+        final List<Shoe> newAvailableShoes = [];
+        for (final shoe in fetchedShoes) {
+          final key = '${shoe.itemId}_${shoe.shipmentId}';
+          if (!existingKeys.contains(key)) {
+            newAvailableShoes.add(shoe);
+            AppLogger.log(
+              'NEW → ID: ${shoe.itemId}, Shipment: ${shoe.shipmentId}, Detail: ${shoe.shoeDetail}',
+            );
+          }
+        }
+
+        if (newAvailableShoes.isNotEmpty) {
+          await ShoeQueryUtils.debugAddShoesFromSheetData(
+            firebaseService,
+            newAvailableShoes,
           );
         }
-      }
 
-      if (newAvailableShoes.isNotEmpty) {
-        await ShoeQueryUtils.debugAddShoesFromSheetData(
-          firebaseService,
-          newAvailableShoes,
-        );
-      }
-
-      if (mounted) {
-        setState(() => _isLoadingExternalData = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Fetched ${fetchedShoes.length} item(s). Added ${newAvailableShoes.length} new.',
+        if (mounted) {
+          setState(() => _isLoadingExternalData = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Fetched ${fetchedShoes.length} item(s). Added ${newAvailableShoes.length} new.',
+              ),
+              backgroundColor: Colors.green,
             ),
-          ),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        setState(() => _isLoadingExternalData = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to fetch external data: $error',
-              style: const TextStyle(color: Colors.red),
-            ),
-          ),
-        );
+          );
+        }
+        return; // Success, exit retry loop
+        
+      } catch (error) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          // Final failure
+          if (mounted) {
+            setState(() => _isLoadingExternalData = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed after $maxRetries attempts: $error'),
+                backgroundColor: Colors.red,
+                action: SnackBarAction(
+                  label: 'Retry',
+                  onPressed: _onRefreshData,
+                ),
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+          return;
+        }
+        
+        // Wait before retry (exponential backoff)
+        await Future.delayed(Duration(seconds: retryCount));
       }
     }
   }
@@ -268,12 +311,23 @@ class _ShoeListViewState extends State<ShoeListView>
 
   void _warmUpImages(List<Shoe> shoes) {
     final cache = ShoeViewCacheManager();
-    // Warm up only visible range or top items to save resources?
-    // Current logic warms up all displayed items, which is okay for < 100 items.
-    for (var shoe in shoes) {
-      if (shoe.remoteImageUrl.isNotEmpty) {
-        cache.getCachedOrDownloadFile(shoe.remoteImageUrl);
-      }
+    
+    // Only warm up first 20 items (visible + buffer)
+    final itemsToWarm = shoes.take(AppConstants.imageWarmupCount).toList();
+    
+    // Load in batches to avoid overwhelming the system
+    final batchSize = AppConstants.imageBatchSize;
+    for (int i = 0; i < itemsToWarm.length; i += batchSize) {
+      final batch = itemsToWarm.skip(i).take(batchSize);
+      
+      // Small delay between batches
+      Future.delayed(Duration(milliseconds: 100 * (i ~/ batchSize)), () {
+        for (var shoe in batch) {
+          if (shoe.remoteImageUrl.isNotEmpty) {
+            cache.getCachedOrDownloadFile(shoe.remoteImageUrl);
+          }
+        }
+      });
     }
   }
 
@@ -363,6 +417,7 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   void _onShareAll() {
+    HapticFeedback.mediumImpact();
     AnalyticsService.logSelectContent(
         contentType: 'button', itemId: '_onShareAll');
     final isAllShoesShare = context.read<AppStatusNotifier>().isAllShoesShare;
@@ -417,60 +472,226 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   void _onCopyShoe(Shoe shoe) {
+    HapticFeedback.lightImpact();
     AnalyticsService.logSelectContent(
         contentType: 'button', itemId: '_onCopyShoe');
     final text = _generateShareTextHelper([shoe]);
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-          content: Text('Copied: ${shoe.shoeDetail}',
-              overflow: TextOverflow.ellipsis)),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Copied: ${shoe.shoeDetail}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
   void _copyAll() {
+    HapticFeedback.mediumImpact();
     AnalyticsService.logSelectContent(
         contentType: 'button', itemId: '_onCopyAll');
     final text = _generateShareTextHelper(_displayedShoes);
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Copied ${_displayedShoes.length} items.')),
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Text('Copied ${_displayedShoes.length} items.'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
   void _deleteShoe(Shoe shoe) async {
     final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Delete Shoe'),
-            content: Text(
-              'Delete "${shoe.shoeDetail}" (ID: ${shoe.itemId})? This is permanent.',
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 56),
+        title: const Text('Delete Shoe', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Are you sure you want to delete this shoe?',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.grey[700],
+                  ),
+              textAlign: TextAlign.center,
             ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel')),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            const SizedBox(height: 24),
+            // Shoe image
+            Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey[300]!, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                color: Colors.white,
               ),
-            ],
+              child: shoe.remoteImageUrl.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.network(
+                        shoe.remoteImageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.shopping_bag_outlined,
+                          size: 60,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    )
+                  : const Icon(
+                      Icons.shopping_bag_outlined,
+                      size: 60,
+                      color: Colors.grey,
+                    ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              shoe.shoeDetail,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'ID: ${shoe.itemId}',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'This action cannot be undone.',
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.of(context).pop(false);
+            },
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600),
+            ),
           ),
-        ) ??
-        false;
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              Navigator.of(context).pop(true);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    ) ?? false;
 
     if (confirmed && mounted) {
-      final firebaseService = context.read<FirebaseService>();
-      final response = await firebaseService.deleteShoe(shoe);
-      if (response['success'] == false && mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => ErrorDialog(
-            title: 'Error',
-            message: response['message'],
-            onDismissed: () {},
-          ),
-        );
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      try {
+        final firebaseService = context.read<FirebaseService>();
+        final response = await firebaseService.deleteShoe(shoe);
+        
+        if (mounted) {
+          Navigator.of(context).pop(); // Close loading
+        }
+        
+        if (response['success'] == false && mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => ErrorDialog(
+              title: 'Error',
+              message: response['message'] ?? 'Failed to delete shoe',
+              onDismissed: () {},
+            ),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Shoe deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.of(context).pop(); // Close loading
+          showDialog(
+            context: context,
+            builder: (context) => ErrorDialog(
+              title: 'Error',
+              message: 'Failed to delete shoe: ${e.toString()}',
+              onDismissed: () {},
+            ),
+          );
+        }
       }
     }
   }
@@ -493,6 +714,7 @@ class _ShoeListViewState extends State<ShoeListView>
               sortField: _sortField,
               sortAscending: _sortAscending,
               onSortFieldChanged: (value) {
+                HapticFeedback.selectionClick();
                 setState(() {
                   _sortField = value;
                   // Show feedback safely
@@ -501,8 +723,20 @@ class _ShoeListViewState extends State<ShoeListView>
                       ScaffoldMessenger.of(context).removeCurrentSnackBar();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(
-                              '${ShoeQueryUtils.formatLabel(_sortField)}: ${_displayedShoes.length}'),
+                          content: Row(
+                            children: [
+                              const Icon(Icons.sort, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${ShoeQueryUtils.formatLabel(_sortField)}: ${_displayedShoes.length}',
+                              ),
+                            ],
+                          ),
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           duration: const Duration(seconds: 1),
                         ),
                       );
@@ -510,8 +744,10 @@ class _ShoeListViewState extends State<ShoeListView>
                   });
                 });
               },
-              onSortDirectionToggled: () =>
-                  setState(() => _sortAscending = !_sortAscending),
+              onSortDirectionToggled: () {
+                HapticFeedback.selectionClick();
+                setState(() => _sortAscending = !_sortAscending);
+              },
               onCopyDataPressed: _copyAll,
               onShareDataPressed: _onShareAll,
               onRefreshDataPressed: _onRefreshData,
@@ -537,58 +773,153 @@ class _ShoeListViewState extends State<ShoeListView>
             ),
             if (_isLoadingExternalData) const LinearProgressIndicator(),
             Expanded(
-              child: StreamBuilder<List<Shoe>>(
-                stream: _shoeStream, // 🎯 Use memoized stream
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting &&
-                      !snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  // Trigger refresh by resetting initial loading state
+                  setState(() => _isInitialLoading = true);
+                  // Wait a bit for the stream to update
+                  await Future.delayed(const Duration(milliseconds: 500));
+                },
+                color: Theme.of(context).colorScheme.primary,
+                child: StreamBuilder<List<Shoe>>(
+                  stream: _shoeStream, // 🎯 Use memoized stream
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting && 
+                        _isInitialLoading) {
+                      // Show skeleton loaders instead of simple loading indicator
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: 5, // Show 5 skeleton items
+                        itemBuilder: (context, index) => const ShoeListItemSkeleton(),
+                      );
+                    }
+                  
                   if (snapshot.hasError) {
                     return Center(
-                        child: Text('Error: ${snapshot.error}',
-                            style: const TextStyle(color: Colors.red)));
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 48, color: Colors.red),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Error loading shoes',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                            child: Text(
+                              snapshot.error.toString(),
+                              style: Theme.of(context).textTheme.bodyMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() => _isInitialLoading = true);
+                            },
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
                   }
 
                   // Process Data
                   _processAndDisplayShoes(snapshot.data ?? []);
+                  _isInitialLoading = false;
 
                   if (_displayedShoes.isEmpty) {
-                    if (_searchQuery.isNotEmpty) {
-                      return Center(
-                          child: Text('No shoes found for "$_searchQuery"'));
-                    }
-                    return const Center(
-                        child: Text('No shoes yet. Tap + to add one!'));
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _searchQuery.isNotEmpty 
+                                ? Icons.search_off 
+                                : Icons.shopping_bag_outlined,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _searchQuery.isNotEmpty
+                                ? 'No shoes found'
+                                : 'No shoes yet',
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _searchQuery.isNotEmpty
+                                ? 'Try adjusting your search terms'
+                                : 'Tap the + button to add your first shoe!',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey[500],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (_searchQuery.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              OutlinedButton.icon(
+                                onPressed: () => _searchController.clear(),
+                                icon: const Icon(Icons.clear),
+                                label: const Text('Clear Search'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
                   }
 
-                  return ListView.builder(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    controller: _scrollController,
-                    itemCount: _displayedShoes.length,
-                    itemBuilder: (context, index) {
-                      final shoe = _displayedShoes[index];
-                      // 🎯 ADD KEY: Using a unique key prevents "ghosting" or 
-                      // cross-pollination of images when the list filters/shuffles.
-                      return ShoeListItem(
-                        key: ValueKey('${shoe.itemId}_${shoe.shipmentId}'),
-                        shoe: shoe,
-                        onCopyDataPressed: _onCopyShoe,
-                        onShareDataPressed: (s) => _shareData([s]),
-                        onEdit: () => showDialog(
-                          context: context,
-                          builder: (_) => ShoeFormDialogContent(
+                    return ListView.builder(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      controller: _scrollController,
+                      itemCount: _displayedShoes.length,
+                      itemBuilder: (context, index) {
+                        final shoe = _displayedShoes[index];
+                        // 🎯 ADD KEY: Using a unique key prevents "ghosting" or 
+                        // cross-pollination of images when the list filters/shuffles.
+                        // Add animation for list items
+                        return TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          duration: Duration(milliseconds: 150 + (index * 20)),
+                          curve: Curves.easeOut,
+                          builder: (context, value, child) {
+                            return Transform.scale(
+                              scale: 0.9 + (0.1 * value),
+                              child: Opacity(
+                                opacity: value,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: ShoeListItem(
+                            key: ValueKey('${shoe.itemId}_${shoe.shipmentId}'),
                             shoe: shoe,
-                            firebaseService: firebaseService,
-                            existingShoes: _streamShoes,
+                            onCopyDataPressed: _onCopyShoe,
+                            onShareDataPressed: (s) => _shareData([s]),
+                            onEdit: () => showDialog(
+                              context: context,
+                              builder: (_) => ShoeFormDialogContent(
+                                shoe: shoe,
+                                firebaseService: firebaseService,
+                                existingShoes: _streamShoes,
+                              ),
+                            ),
+                            onDelete: () => _deleteShoe(shoe),
                           ),
-                        ),
-                        onDelete: () => _deleteShoe(shoe),
-                      );
-                    },
-                  );
-                },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -597,21 +928,30 @@ class _ShoeListViewState extends State<ShoeListView>
       floatingActionButton: ValueListenableBuilder<bool>(
         valueListenable: _isFabVisible,
         builder: (context, isVisible, child) {
-          return IgnorePointer(
-            ignoring: !isVisible,
+          return AnimatedSlide(
+            offset: isVisible ? Offset.zero : const Offset(0, 2),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
             child: AnimatedOpacity(
               opacity: isVisible ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 300),
-              child: FloatingActionButton(
-                onPressed: () => showDialog(
-                  context: context,
-                  builder: (_) => ShoeFormDialogContent(
-                    firebaseService: firebaseService,
-                    existingShoes: _streamShoes,
-                  ),
+              child: IgnorePointer(
+                ignoring: !isVisible,
+                child: FloatingActionButton(
+                  onPressed: () {
+                    HapticFeedback.mediumImpact();
+                    showDialog(
+                      context: context,
+                      builder: (_) => ShoeFormDialogContent(
+                        firebaseService: firebaseService,
+                        existingShoes: _streamShoes,
+                      ),
+                    );
+                  },
+                  tooltip: 'Add New Shoe',
+                  child: const Icon(Icons.add),
+                  elevation: 6,
                 ),
-                tooltip: 'Add New Shoe',
-                child: const Icon(Icons.add),
               ),
             ),
           );
