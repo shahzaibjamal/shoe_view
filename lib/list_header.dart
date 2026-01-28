@@ -311,7 +311,14 @@ class _ListHeaderState extends State<ListHeader> {
               tooltip: 'Debug Mode',
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Debug Mode Activated')),
+                  SnackBar(
+                    content: const Text('Debug Mode Activated'),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 );
               },
             ),

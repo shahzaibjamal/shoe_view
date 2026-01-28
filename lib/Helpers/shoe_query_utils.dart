@@ -540,7 +540,7 @@ class ShoeQueryUtils {
     final buffer = StringBuffer();
     final gap = shoes.length > 1 ? '    ' : '';
 
-    final shoeList = shoes.take(30).toList(); // Hardcoded maxImages match
+    final shoeList = shoes.take(16).toList(); 
     if (shoeList.length > 1) {
       buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
     }

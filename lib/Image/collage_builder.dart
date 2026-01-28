@@ -75,6 +75,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
         .take(CollageBuilder.maxImages)
         .toList();
     final imageCount = imagesToDisplay.length;
+    
     if (imageCount == 0) {
       return const Center(
         child: Padding(
@@ -84,161 +85,229 @@ class _CollageBuilderState extends State<CollageBuilder> {
       );
     }
 
-    final int crossAxisCount = CollageUtils.calculateGridSize(imageCount);
-    final int actualRowCount = (imageCount / crossAxisCount).ceil();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 🎯 The New Layout Engine
+        // Use the actual width provided by the parent (SingleChildScrollView/Dialog)
+        final double availableWidth = constraints.maxWidth;
+        
+        final layout = CollageUtils.calculateBestLayout(
+          itemCount: imageCount,
+          availableWidth: availableWidth,
+        );
 
-    const double spacing = 4.0;
-    const double screenHorizontalPadding = 40.0; // 20.0 on each side
+        final bool isOddSquareGrid =
+            (layout.cols == layout.rows) && (layout.cols % 2 != 0);
+        final double logoSize = isOddSquareGrid ? 45.0 : 65.0;
+        final double logoTopPosition = isOddSquareGrid 
+            ? layout.padding 
+            : (layout.height - logoSize) / 2;
+        final double logoLeftPosition = (layout.width - logoSize) / 2;
 
-    // 🎯 Get the width available for the collage
-    final double totalAvailableWidth =
-        MediaQuery.of(context).size.width - screenHorizontalPadding;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ️ Collage Card (Moved to Top)
+            Center(
+              child: RepaintBoundary(
+                key: _collageKey,
+                child: Container(
+                  width: layout.width,
+                  height: layout.height,
+                  padding: EdgeInsets.all(layout.padding),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(layout.rows, (rowIndex) {
+                          final start = rowIndex * layout.cols;
+                          final end = min(start + layout.cols, imageCount);
+                          final rowImages = imagesToDisplay.sublist(start, end);
 
-    // 🎯 Use the new function to calculate itemSize dynamically
-    final double itemSize = _calculateItemSizeFromWidth(
-      totalAvailableWidth,
-      crossAxisCount,
-    );
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              top: rowIndex == 0 ? 0.0 : layout.spacing,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(layout.cols, (colIndex) {
+                                if (colIndex < rowImages.length) {
+                                  final shoe = rowImages[colIndex];
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                      left: colIndex == 0 ? 0.0 : layout.spacing,
+                                    ),
+                                    child: _buildShoeTile(
+                                      shoe,
+                                      start + colIndex,
+                                      layout.tileSize,
+                                      imageCount,
+                                    ),
+                                  );
+                                } else {
+                                  // Spacer for empty grid cells
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                      left: colIndex == 0 ? 0.0 : layout.spacing,
+                                    ),
+                                    child: SizedBox(
+                                      width: layout.tileSize,
+                                      height: layout.tileSize,
+                                    ),
+                                  );
+                                }
+                              }),
+                            ),
+                          );
+                        }),
+                      ),
 
-    const double internalPadding = 4.0;
-
-    // 1. Calculate the core content dimensions (Tiles + Gaps)
-    final double contentWidth =
-        (crossAxisCount * itemSize) + ((crossAxisCount - 1) * spacing);
-
-    // 2. Calculate the core content height (tiles and spacing between them)
-    final double contentHeight =
-        (actualRowCount * itemSize) +
-        // Only spacing BETWEEN rows (RowCount - 1)
-        (actualRowCount > 0 ? (actualRowCount - 1) * spacing : 0.0);
-
-    // 3. Calculate the final dimensions by adding 2 * internalPadding to the content size.
-    final double collageWidth = contentWidth + (internalPadding * 2);
-    final double collageHeight = contentHeight + (internalPadding * 2);
-
-    final bool isOddSquareGrid =
-        (crossAxisCount == actualRowCount) && (crossAxisCount % 2 != 0);
-    final double logoSize = isOddSquareGrid ? 40.0 : 60.0;
-    final double logoTopPosition;
-    if (isOddSquareGrid) {
-      // Top-aligned position: Small margin from the top edge (e.g., 5.0)
-      logoTopPosition = 0.0;
-      // Center horizontally
-    } else {
-      // Centered position (for all other grids, including 2x2, 4x4, and non-squares)
-      logoTopPosition = (collageHeight - logoSize) / 2;
-    }
-    final double logoLeftPosition =
-        (collageWidth - logoSize) / 2; // Center horizontally
-    bool isSalePrice = context.read<AppStatusNotifier>().isSalePrice;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Center(
-          child: RepaintBoundary(
-            key: _collageKey,
-            child: Container(
-              width: collageWidth,
-              height: collageHeight,
-              padding: EdgeInsets.all(internalPadding),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: Colors.white,
-              ),
-              child: Stack(
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(actualRowCount, (rowIndex) {
-                      final start = rowIndex * crossAxisCount;
-                      final end = min(start + crossAxisCount, imageCount);
-                      final rowImages = imagesToDisplay.sublist(start, end);
-
-                      return Padding(
-                        // Vertical Spacing
-                        padding: EdgeInsets.only(
-                          top: rowIndex == 0 ? 0.0 : spacing,
-                        ),
-                        child: SizedBox(
-                          width: collageWidth,
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.start, // Align to start
-                            mainAxisSize: MainAxisSize.max, // Take full width
-                            children: List.generate(crossAxisCount, (colIndex) {
-                              // Check if this cell actually contains an image
-                              if (colIndex < rowImages.length) {
-                                final shoe = rowImages[colIndex];
-                                final index = start + colIndex;
-
-                                return Padding(
-                                  // Horizontal Spacing: Only apply padding to the LEFT of items after the first one
-                                  padding: EdgeInsets.only(
-                                    left: colIndex == 0 ? 0.0 : spacing,
-                                  ),
-                                  child: _buildShoeTile(
-                                    shoe,
-                                    index,
-                                    itemSize,
-                                    imageCount,
-                                  ),
-                                );
-                              } else {
-                                // If this is an empty cell (in the last partial row)
-                                return Padding(
-                                  // Apply the same padding logic for empty cells to maintain spacing integrity
-                                  padding: EdgeInsets.only(
-                                    left: colIndex == 0 ? 0.0 : spacing,
-                                  ),
-                                  child: SizedBox(
-                                    width: itemSize,
-                                    height: itemSize,
-                                  ),
-                                );
-                              }
-                            }),
+                      if (_logoFile != null)
+                        Positioned(
+                          left: logoLeftPosition,
+                          top: logoTopPosition,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 10,
+                                ),
+                              ],
+                            ),
+                            child: Image.file(
+                              _logoFile!,
+                              width: logoSize,
+                              height: logoSize,
+                            ),
                           ),
                         ),
-                      );
-                    }),
+                    ],
                   ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // 📝 Text Summary (Moved to Bottom)
+            _buildTextPreview(),
+            const SizedBox(height: 24),
+            
+            // 🚀 Action Button
+            _buildShareButton(),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
+  }
 
-                  // Logo Centering is correct with the precise collageHeight
-                  if (_logoFile != null)
-                    Positioned(
-                      left: logoLeftPosition, // Centered horizontally
-
-                      top: logoTopPosition,
-                      child: Image.file(
-                        _logoFile!,
-                        width: logoSize,
-                        height: logoSize,
-                      ),
-                    ),
-                ],
+  Widget _buildTextPreview() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.description_outlined, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 8),
+              Text(
+                'Text Summary',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 120),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.zero,
+              child: RichText(
+                text: _parseStyledText(widget.text),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: ElevatedButton(
-            onPressed: _canShareCollage,
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text('Share'),
+        ],
+      ),
+    );
+  }
+
+  TextSpan _parseStyledText(String text) {
+    final List<TextSpan> spans = [];
+    // Look for text between single tildes ~ for strikethrough (matching share format)
+    final RegExp exp = RegExp(r'(~.*?~)|([^~]+)', dotAll: true);
+    final matches = exp.allMatches(text);
+
+    for (final match in matches) {
+      final String segment = match.group(0)!;
+      if (segment.startsWith('~') && segment.endsWith('~') && segment.length > 2) {
+        // Strikethrough segments
+        spans.add(TextSpan(
+          text: segment.substring(1, segment.length - 1),
+          style: const TextStyle(decoration: TextDecoration.lineThrough),
+        ));
+      } else {
+        // Normal text
+        spans.add(TextSpan(text: segment));
+      }
+    }
+
+    return TextSpan(
+      style: TextStyle(fontSize: 13, color: Colors.grey[800], height: 1.4),
+      children: spans,
+    );
+  }
+
+  Widget _buildShareButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: FilledButton.icon(
+        onPressed: _canShareCollage,
+        icon: _isSaving ? const SizedBox.shrink() : const Icon(Icons.share_outlined),
+        label: _isSaving
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text(
+                'Generate & Share',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -345,27 +414,29 @@ class _CollageBuilderState extends State<CollageBuilder> {
   double _calculateItemSizeFromWidth(
     double availableWidth,
     int crossAxisCount,
+    double spacing,
+    double internalPadding,
   ) {
-    const double spacing = 4.0;
+    // 🎯 subtract the internal padding of the collage container itself
+    final double actualContentWidth = availableWidth - (internalPadding * 2);
 
     // Determine the maximum requested size based on the grid structure
     double requestedCap;
     if (crossAxisCount == 1) {
-      requestedCap = 100.0;
+      requestedCap = 300.0;
     } else if (crossAxisCount == 2) {
-      requestedCap = 90.0;
+      requestedCap = 160.0;
     } else if (crossAxisCount == 3) {
-      requestedCap = 80.0;
+      requestedCap = 120.0;
     } else {
       // crossAxisCount == 4
-      requestedCap = 70.0;
+      requestedCap = 100.0;
     }
 
-    // Calculate the maximum possible item size that fits within the available width
-    // MaxItemSize = (AvailableWidth - Total_Spacing) / crossAxisCount
+    // Calculate the maximum possible item size that fits within the available content width
     final double totalSpacing = (crossAxisCount - 1) * spacing;
     final double calculatedItemSize =
-        (availableWidth - totalSpacing) / crossAxisCount;
+        (actualContentWidth - totalSpacing) / crossAxisCount;
 
     // Use the smaller of the two: the calculated size or your requested cap
     return min(calculatedItemSize, requestedCap);

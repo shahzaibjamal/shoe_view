@@ -69,29 +69,21 @@ class ShoeListItem extends StatelessWidget {
 
   // Full Screen Image View
   void _showFullScreenImage(BuildContext context, String imageUrl) {
-    // 🎯 Logic: "Take up a lot of screenspace".
-    // We use safe constraints (e.g., 70% height, 90% width)
-    // and let the image determine its own aspect ratio within that box.
     final double maxHeight = MediaQuery.of(context).size.height * 0.70;
     final double maxWidth = MediaQuery.of(context).size.width * 0.90;
 
-    // Use read here as it's a callback, not reactive build
     final appStatus = context.read<AppStatusNotifier>();
     String code = appStatus.currencyCode;
     String currency = ShoeQueryUtils.getSymbolFromCode(code);
     final bool isMultiSizeModeEnabled = appStatus.isMultiSizeModeEnabled;
-    // Get the formatted strings
-    final String eurSizes = ShoeQueryUtils.formatSizes(shoe.sizeEur);
-    final String ukSizes = shoe.sizeUk?.isNotEmpty == true ? shoe.sizeUk!.first : '';
 
-    final String sizeDisplay;
-    if (isMultiSizeModeEnabled) {
-      // If multi-size is ON, only display EUR sizes
-      sizeDisplay = 'EUR: $eurSizes';
-    } else {
-      // If multi-size is OFF (single-size), display both EUR and UK
-      sizeDisplay = 'EUR: $eurSizes, UK: $ukSizes';
-    }
+    final String eurSizes = ShoeQueryUtils.formatSizes(shoe.sizeEur);
+    final String ukSizes =
+        shoe.sizeUk?.isNotEmpty == true ? shoe.sizeUk!.first : '';
+
+    final String sizeDisplay = isMultiSizeModeEnabled
+        ? 'EUR: $eurSizes'
+        : 'EUR: $eurSizes, UK: $ukSizes';
 
     showGeneralDialog(
       context: context,
@@ -99,9 +91,8 @@ class ShoeListItem extends StatelessWidget {
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: Colors.black87,
       transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return const SizedBox.shrink();
-      },
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          const SizedBox.shrink(),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(
           opacity: animation,
@@ -112,126 +103,13 @@ class ShoeListItem extends StatelessWidget {
                 curve: Curves.easeOut,
               ),
             ),
-            child: Dialog(
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: Stack(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Image with border
-                            Container(
-                              constraints: BoxConstraints(
-                                maxWidth: maxWidth,
-                                maxHeight: maxHeight,
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.grey[200]!,
-                                  width: 1,
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(15),
-                                child: ShoeNetworkImage(
-                                  imageUrl: imageUrl,
-                                  width: null,
-                                  height: null,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            // Info section
-                            Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    shoe.shoeDetail,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Size: $sizeDisplay',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          color: Colors.grey[700],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey[800],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ),
-                  // Close button
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Material(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.of(context).pop();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            child: _ShoeDetailDialogContent(
+              shoe: shoe,
+              imageUrl: imageUrl,
+              maxHeight: maxHeight,
+              maxWidth: maxWidth,
+              currency: currency,
+              sizeDisplay: sizeDisplay,
             ),
           ),
         );
@@ -400,6 +278,210 @@ class ShoeListItem extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ShoeDetailDialogContent extends StatefulWidget {
+  final Shoe shoe;
+  final String imageUrl;
+  final double maxHeight;
+  final double maxWidth;
+  final String currency;
+  final String sizeDisplay;
+
+  const _ShoeDetailDialogContent({
+    required this.shoe,
+    required this.imageUrl,
+    required this.maxHeight,
+    required this.maxWidth,
+    required this.currency,
+    required this.sizeDisplay,
+  });
+
+  @override
+  State<_ShoeDetailDialogContent> createState() =>
+      _ShoeDetailDialogContentState();
+}
+
+class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
+    with SingleTickerProviderStateMixin {
+  late TransformationController _transformationController;
+  late AnimationController _animationController;
+  Animation<Matrix4>? _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _transformationController = TransformationController();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    )..addListener(() {
+        if (_animation != null) {
+          _transformationController.value = _animation!.value;
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    Matrix4 endMatrix;
+    if (_transformationController.value != Matrix4.identity()) {
+      endMatrix = Matrix4.identity();
+    } else {
+      final position = details.localPosition;
+      const double scale = 3.0;
+      final x = -position.dx * (scale - 1);
+      final y = -position.dy * (scale - 1);
+      endMatrix = Matrix4.identity()
+        ..translate(x, y)
+        ..scale(scale);
+    }
+
+    _animation = Matrix4Tween(
+      begin: _transformationController.value,
+      end: endMatrix,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOutExpo,
+    ));
+
+    _animationController.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Transparent barrier to close on tap outside card
+          GestureDetector(
+            onTap: () {
+              if (ModalRoute.of(context)?.isCurrent ?? false) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Container(color: Colors.transparent),
+          ),
+
+          // The Shoe Card
+          GestureDetector(
+            onTap: () {}, // Prevent card taps from closing
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    constraints: BoxConstraints(
+                      maxWidth: widget.maxWidth,
+                      maxHeight: widget.maxHeight,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.grey[300]!,
+                        width: 4,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: GestureDetector(
+                        onDoubleTapDown: _handleDoubleTap,
+                        onDoubleTap: () {},
+                        child: InteractiveViewer(
+                          transformationController: _transformationController,
+                          minScale: 1.0,
+                          maxScale: 4.0,
+                          child: ShoeNetworkImage(
+                            imageUrl: widget.imageUrl,
+                            width: null,
+                            height: null,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.shoe.shoeDetail,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Size: ${widget.sizeDisplay}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Price: ${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Close Button
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                if (ModalRoute.of(context)?.isCurrent ?? false) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

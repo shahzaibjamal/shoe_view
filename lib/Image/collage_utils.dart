@@ -10,23 +10,99 @@ import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
 import 'package:shoe_view/shoe_model.dart';
 
+class CollageLayout {
+  final int cols;
+  final int rows;
+  final double tileSize;
+  final double spacing;
+  final double padding;
+  final double width;
+  final double height;
+
+  CollageLayout({
+    required this.cols,
+    required this.rows,
+    required this.tileSize,
+    required this.spacing,
+    required this.padding,
+    required this.width,
+    required this.height,
+  });
+}
+
 class CollageUtils {
+  /// 🎯 The Core Layout Engine
+  /// This calculates exactly how to fit a number of items into a given width.
+  static CollageLayout calculateBestLayout({
+    required int itemCount,
+    required double availableWidth,
+  }) {
+    // 1. Define base constants (Logical Pixels)
+    const double minPadding = 8.0;
+    const double minSpacing = 6.0;
+
+    // 2. Decide the best number of columns based on item count
+    int cols = 1;
+    if (itemCount > 1) {
+      if (itemCount <= 4) {
+        cols = 2;
+      } else if (itemCount <= 9) {
+        cols = 3;
+      } else {
+        cols = 4;
+      }
+    }
+
+    // 3. Calculate max available width for content
+    final double maxContentWidth = availableWidth - (minPadding * 2);
+    
+    // 4. Calculate Tile Size
+    // Formula: ContentWidth = (cols * tile) + ((cols - 1) * spacing)
+    // => tile = (ContentWidth - (cols - 1) * spacing) / cols
+    double tileSize = (maxContentWidth - (cols - 1) * minSpacing) / cols;
+
+    // 5. Apply "Sweet Spot" Caps (Prevent images from being too massive)
+    // We don't want a single 1x1 image to take 400px, it looks bad.
+    double maxCap = 180.0;
+    if (cols == 1) maxCap = 300.0;
+    if (cols == 2) maxCap = 200.0;
+    
+    tileSize = min(tileSize, maxCap);
+
+    // 6. Finalize Dimensions
+    final int rows = (itemCount / cols).ceil();
+    final double finalContentWidth = (cols * tileSize) + ((cols - 1) * minSpacing);
+    final double finalContentHeight = (rows * tileSize) + (rows > 1 ? (rows - 1) * minSpacing : 0.0);
+
+    return CollageLayout(
+      cols: cols,
+      rows: rows,
+      tileSize: tileSize,
+      spacing: minSpacing,
+      padding: minPadding,
+      width: finalContentWidth + (minPadding * 2),
+      height: finalContentHeight + (minPadding * 2),
+    );
+  }
+
   static Future<ui.Image> getUiImageFromCache(String url) async {
     try {
       final cacheManager = ShoeViewCacheManager();
       final cacheKey = ShoeViewCacheManager.getStableKey(url);
 
-      // 1. Try to get from cache first (very fast)
       FileInfo? fileInfo = await cacheManager.getFileFromCache(cacheKey);
       
       File file;
+      String processedUrl = url;
+      if (url.contains('googleusercontent.com')) {
+        processedUrl = url.replaceAll(RegExp(r'=w\d+'), '=w1200');
+      }
+
       if (fileInfo != null && await fileInfo.file.exists()) {
         file = fileInfo.file;
       } else {
-        // 2. If not in cache, try to download with a strict timeout
-        // This prevents the "stuck" behavior in poor connectivity.
         file = await cacheManager
-            .getSingleFile(url, key: cacheKey)
+            .getSingleFile(processedUrl, key: cacheKey)
             .timeout(const Duration(seconds: 10));
       }
 
@@ -36,12 +112,11 @@ class CollageUtils {
       return frame.image;
     } catch (e) {
       AppLogger.log("Error loading image for collage: $e");
-      // Return a 1x1 transparent placeholder on failure so canvas doesn't crash
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
-      canvas.drawColor(Colors.grey.shade200, BlendMode.src); // Light grey placeholder
+      canvas.drawColor(Colors.grey.shade200, BlendMode.src);
       final picture = recorder.endRecording();
-      return picture.toImage(100, 100); // 100x100 placeholder
+      return picture.toImage(100, 100);
     }
   }
 
@@ -80,7 +155,7 @@ class CollageUtils {
         text: text,
         style: TextStyle(
           color: Colors.white,
-          fontSize: 14 * scale, // Scaled size
+          fontSize: 14 * scale,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -109,10 +184,8 @@ class CollageUtils {
     Rect tileRect, {
     required double scale,
   }) {
-    // Fine-tune this value: higher number moves it further UP
     final double verticalShift = 15.0 * scale;
     canvas.save();
-    // Matches your UI: Bottom Center with a small offset up
     canvas.translate(tileRect.center.dx, tileRect.bottom - verticalShift);
     canvas.rotate(-0.3);
 
@@ -149,68 +222,50 @@ class CollageUtils {
     required File? logoFile,
     int maxImages = 16,
   }) async {
-    // 1. Setup Scaling (Scale UI logical pixels to high-res canvas pixels)
     const double scale = 10.0;
-    const double spacing = 4.0 * scale;
-    const double internalPadding = 4.0 * scale;
+    
+    // 🎯 Use the Logical Layout Engine but scale it up
+    // We assume a standard width of 350 logical pixels for the "base" canvas
+    final baseLayout = calculateBestLayout(
+      itemCount: min(shoes.length, maxImages),
+      availableWidth: 400.0, 
+    );
 
-    final imagesToDisplay = shoes.take(maxImages).toList();
-    final int imageCount = imagesToDisplay.length;
-    final int cols = calculateGridSize(imageCount);
-    final int rows = (imageCount / cols).ceil();
-
-    // 2. Calculate dynamic item size based on your UI caps (80-100 logical px)
-    double logicalCap;
-    if (cols == 1)
-      logicalCap = 100.0;
-    else if (cols == 2)
-      logicalCap = 90.0;
-    else if (cols == 3)
-      logicalCap = 80.0;
-    else
-      logicalCap = 70.0;
-
-    final double tileSize = logicalCap * scale;
-
-    // 3. Calculate Dynamic Canvas Dimensions (Ported from UI logic)
-    final double contentWidth = (cols * tileSize) + ((cols - 1) * spacing);
-    final double contentHeight =
-        (rows * tileSize) + (rows > 1 ? (rows - 1) * spacing : 0.0);
-
-    final double canvasWidth = contentWidth + (internalPadding * 2);
-    final double canvasHeight = contentHeight + (internalPadding * 2);
+    final double canvasWidth = baseLayout.width * scale;
+    final double canvasHeight = baseLayout.height * scale;
+    final double tileSize = baseLayout.tileSize * scale;
+    final double spacing = baseLayout.spacing * scale;
+    final double padding = baseLayout.padding * scale;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
 
-    // White Background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, canvasWidth, canvasHeight),
       Paint()..color = Colors.white,
     );
 
-    // 4. Load Images in parallel
+    final imagesToDisplay = shoes.take(maxImages).toList();
     final List<ui.Image> loadedImages = await Future.wait(
       imagesToDisplay.map((shoe) => getUiImageFromCache(shoe.remoteImageUrl)),
     );
 
-    // 5. Draw Grid
     for (int i = 0; i < loadedImages.length; i++) {
       final shoe = imagesToDisplay[i];
       final img = loadedImages[i];
-      final col = i % cols;
-      final row = i ~/ cols;
+      final col = i % baseLayout.cols;
+      final row = i ~/ baseLayout.cols;
 
-      final x = internalPadding + (col * (tileSize + spacing));
-      final y = internalPadding + (row * (tileSize + spacing));
+      final x = padding + (col * (tileSize + spacing));
+      final y = padding + (row * (tileSize + spacing));
       final rect = Rect.fromLTWH(x, y, tileSize, tileSize);
+      
       paintCanvasImage(canvas, img, rect, radius: 6.0 * scale);
-      if (loadedImages.length > 1 &&
-          shoe.sizeEur != null &&
-          shoe.sizeEur!.isNotEmpty) {
+      
+      if (loadedImages.length > 1 && shoe.sizeEur != null && shoe.sizeEur!.isNotEmpty) {
         paintCanvasSize(canvas, shoe.sizeEur![0], rect, scale: scale);
       }
-      if (imageCount > 1) {
+      if (loadedImages.length > 1) {
         paintCanvasIndex(canvas, "${i + 1}", rect, scale: scale);
       }
       if (shoe.status == 'Sold') {
@@ -218,18 +273,14 @@ class CollageUtils {
       }
     }
 
-    // 6. Draw Logo (Matching Odd vs Even Square logic)
     if (logoFile != null) {
-      final bool isOddSquareGrid = (cols == rows) && (cols % 2 != 0);
-      final double logicalLogoSize = isOddSquareGrid ? 40.0 : 60.0;
+      final bool isOddSquareGrid = (baseLayout.cols == baseLayout.rows) && (baseLayout.cols % 2 != 0);
+      final double logicalLogoSize = isOddSquareGrid ? 45.0 : 65.0;
       final double logoSize = logicalLogoSize * scale;
 
-      double logoTopPosition;
-      if (isOddSquareGrid) {
-        logoTopPosition = internalPadding;
-      } else {
-        logoTopPosition = (canvasHeight - logoSize) / 2;
-      }
+      double logoTopPosition = isOddSquareGrid 
+          ? padding 
+          : (canvasHeight - logoSize) / 2;
       final double logoLeftPosition = (canvasWidth - logoSize) / 2;
 
       final logoBytes = await logoFile.readAsBytes();
@@ -238,24 +289,15 @@ class CollageUtils {
 
       canvas.drawImageRect(
         logoImg,
-        Rect.fromLTWH(
-          0,
-          0,
-          logoImg.width.toDouble(),
-          logoImg.height.toDouble(),
-        ),
+        Rect.fromLTWH(0, 0, logoImg.width.toDouble(), logoImg.height.toDouble()),
         Rect.fromLTWH(logoLeftPosition, logoTopPosition, logoSize, logoSize),
         Paint(),
       );
       logoImg.dispose();
     }
 
-    // 7. Finalize
     final picture = recorder.endRecording();
-    final finalImg = await picture.toImage(
-      canvasWidth.toInt(),
-      canvasHeight.toInt(),
-    );
+    final finalImg = await picture.toImage(canvasWidth.toInt(), canvasHeight.toInt());
 
     for (var img in loadedImages) {
       img.dispose();
@@ -263,10 +305,6 @@ class CollageUtils {
 
     final byteData = await finalImg.toByteData(format: ui.ImageByteFormat.png);
     finalImg.dispose();
-
-    AppLogger.log(
-      'Canvas generated - Width: ${finalImg.width} height: ${finalImg.height}',
-    );
 
     return byteData!.buffer.asUint8List();
   }
@@ -284,24 +322,23 @@ class CollageUtils {
         text: size,
         style: TextStyle(
           color: Colors.white,
-          fontSize: 10 * scale, // Smaller than index (matching UI)
+          fontSize: 10 * scale,
           fontWeight: FontWeight.w600,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
 
-    // Position: Top Right with 4 logical px margin (matching UI)
     final bgRect = Rect.fromLTWH(
-      tileRect.right - tp.width - (8 * scale), // Right-aligned
-      tileRect.top + (4 * scale), // Top-aligned
+      tileRect.right - tp.width - (8 * scale),
+      tileRect.top + (4 * scale),
       tp.width + (4 * scale),
       tp.height + (2 * scale),
     );
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(bgRect, Radius.circular(3 * scale)),
-      Paint()..color = Colors.black45, // Slightly lighter transparency
+      Paint()..color = Colors.black45,
     );
 
     tp.paint(
@@ -312,18 +349,9 @@ class CollageUtils {
 
   static int calculateGridSize(int count) {
     if (count <= 1) return 1;
-    int bestCols = 1;
-    double bestScore = double.infinity;
-    for (int cols = 1; cols <= 4; cols++) {
-      int rows = (count / cols).ceil();
-      if (rows > 4) continue;
-      double score = (cols - rows).abs() + ((cols * rows) - count) * 0.1;
-      if (score < bestScore) {
-        bestScore = score;
-        bestCols = cols;
-      }
-    }
-    return bestCols;
+    if (count <= 4) return 2;
+    if (count <= 9) return 3;
+    return 4;
   }
 
   static Future<Uint8List> generateCollageFromWidget(GlobalKey key) async {
@@ -331,9 +359,6 @@ class CollageUtils {
         key.currentContext!.findRenderObject() as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: 7.0);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    AppLogger.log(
-      'Repaint generated - Width: ${image.width} height: ${image.height}',
-    );
     return byteData!.buffer.asUint8List();
   }
 }

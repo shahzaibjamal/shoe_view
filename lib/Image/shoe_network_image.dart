@@ -32,11 +32,18 @@ class ShoeNetworkImage extends StatelessWidget {
     final stableKey = ShoeViewCacheManager.getStableKey(imageUrl);
 
     // 🎯 Optimization: Resize image in memory to save RAM
+    // If disableMemCache is true, we want the FULL resolution (for collage generation)
     final int? memCacheWidth =
         disableMemCache || width == null ? null : (width! * 2.5).toInt();
 
+    String processedUrl = imageUrl;
+    if (disableMemCache && imageUrl.contains('googleusercontent.com')) {
+      // For high-res collage, request 1200px from Google servers
+      processedUrl = imageUrl.replaceAll(RegExp(r'=w\d+'), '=w1200');
+    }
+
     return CachedNetworkImage(
-      imageUrl: imageUrl,
+      imageUrl: processedUrl,
       cacheKey: stableKey,
       cacheManager: ShoeViewCacheManager(),
       height: height,
