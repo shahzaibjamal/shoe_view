@@ -400,208 +400,332 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
 
   @override
   Widget build(BuildContext context) {
-    // Build the image preview widget
-    final bool isMultiSizeModeEnabled = context
-        .watch<AppStatusNotifier>()
-        .isMultiSizeModeEnabled;
+    final bool isMultiSizeModeEnabled =
+        context.watch<AppStatusNotifier>().isMultiSizeModeEnabled;
     bool isSingleSize = !isMultiSizeModeEnabled;
+    final theme = Theme.of(context);
 
-    return AlertDialog(
-      title: Text(_isEditing ? 'Edit Shoe' : 'Add New Shoe'),
-      content: SingleChildScrollView(
-        // Wrap content in a Form widget to enable field validation
-        child: Form(
-          key: _formKey,
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      backgroundColor: Colors.white,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // --- Item ID Field ---
-              TextFormField(
-                controller: _shoeIdController,
-                keyboardType: TextInputType.number,
-                maxLength: 3,
-                enabled: !_isEditing && !_isLoading,
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Item ID is required.'
-                    : null,
-                decoration: InputDecoration(
-                  labelText: 'Item ID (e.g., 123)',
-                  helperText: _isEditing
-                      ? 'Item ID cannot be changed.'
-                      : 'Required field.',
-                  errorText: _itemIdError, // Real-time duplicate error
-                ),
-              ),
-              // --- Shipment ID Field ---
-              TextFormField(
-                controller: _shipmentIdController,
-                keyboardType: TextInputType.number,
-                maxLength: 3,
-                enabled: !_isEditing && !_isLoading,
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Shipment ID is required.'
-                    : null,
-                decoration: InputDecoration(
-                  labelText: 'Shipment ID (e.g., 123)',
-                  helperText: _isEditing
-                      ? 'Shipment ID cannot be changed.'
-                      : 'Required field.',
-                  errorText: _shipmentIdError, // Real-time duplicate error
-                ),
-              ),
-              // --- Name Field (30 Char Limit) ---
-              TextFormField(
-                controller: _nameController,
-                enabled: !_isLoading,
-                maxLength: 30, // MAX 30 CHARS
-                decoration: const InputDecoration(
-                  labelText: 'Shoe Name/Detail',
-                  helperText: 'Required field',
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Shoe Name is required.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              // --- CONDITIONAL SIZE INPUTS ---
-              ShoeSizePicker(
-                isSingleSize: isSingleSize,
-                isBound: _isBound,
-                isLoading: _isLoading,
-                displayEurSize: _displayEurSize,
-                displayUkSize: _displayUkSize,
-                currentEurSizes: _currentEurSizes,
-                onBoundChanged: (val) => setState(() => _isBound = val),
-                onEurSizeSelected: _handleDisplayEurSizeSelected,
-                onUkSizeSelected: _handleDisplayUkSizeSelected,
-                onMultiSizeChanged: (sizes) =>
-                    setState(() => _currentEurSizes = sizes),
-              ),
-              const SizedBox(height: 16),
-              // --- QUANTITY FIELD (NEW) ---
-              TextFormField(
-                controller: _quantityController,
-                keyboardType: TextInputType.number,
-                enabled: !_isLoading,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(3),
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Quantity in Stock',
-                  helperText: 'Used for inventory tracking. Must be 1 or more.',
-                ),
-                validator: (value) {
-                  if (value == null || ShoeQueryUtils.safeIntParse(value) < 1) {
-                    return 'Quantity must be 1 or more.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              ShoeConditionPicker(
-                selectedCondition: _selectedCondition,
-                isLoading: _isLoading,
-                onConditionSelected: _handleConditionSelected,
-              ),
-              const SizedBox(height: 16),
-
-              ShoeStatusSelector(
-                selectedStatus: _status,
-                repairNotes: _repairNotes,
-                imagesLink: _imagesLink,
-                isLoading: _isLoading,
-                onStatusChanged: (newStatus) => setState(() {
-                  _status = newStatus;
-                  if (newStatus != 'Repaired') _repairNotes = '';
-                }),
-                onRepairNotesChanged: (notes) => setState(() {
-                  _repairNotes = notes;
-                }),
-                onImagesLinkChanged: (imagesLink) => setState(() {
-                  _imagesLink = imagesLink;
-                }),
-              ),
-              const SizedBox(height: 16),
-              // --- Price Field (Unchanged) ---
-              TextFormField(
-                controller: _priceController,
-                keyboardType: TextInputType.number,
-                enabled: !_isLoading,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(6),
-                ],
-                decoration: InputDecoration(
-                  labelText: 'Selling Price ($currency)',
-                ),
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Price is required.'
-                    : null,
-              ),
-
-              // --- Instagram/TikTok Fields (Unchanged) ---
-              if (_status != 'Repaired') ...[
-                TextFormField(
-                  controller: _instagramController,
-                  enabled: !_isLoading,
-                  keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(
-                    labelText: 'Instagram Link',
+              // --- Header ---
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [theme.primaryColor, theme.primaryColor.withOpacity(0.8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  validator: (value) =>
-                      ShoeQueryUtils.validateLink(value, 'instagram.com'),
                 ),
-                TextFormField(
-                  controller: _tiktokController,
-                  enabled: !_isLoading,
-                  keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(labelText: 'TikTok Link'),
-                  validator: (value) =>
-                      ShoeQueryUtils.validateLink(value, 'tiktok.com'),
+                child: Row(
+                  children: [
+                    Icon(
+                      _isEditing ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _isEditing ? 'Update Shoe Details' : 'Add New Kick',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-              ],
-              // --- IMAGE PICKER (Unchanged) ---
-              ShoeImagePicker(
-                imageFile: _dialogImageFile,
-                remoteImageUrl: _currentRemoteImageUrl,
-                isLoading: _isLoading,
-                onImagePicked: (file) {
-                  setState(() {
-                    _dialogImageFile = file;
-                    _currentRemoteImageUrl = '';
-                  });
-                },
               ),
-              const SizedBox(height: 16),
+
+              // --- Content ---
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSectionHeader('Identification', Icons.tag_rounded),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                controller: _shoeIdController,
+                                label: 'Item ID',
+                                icon: Icons.numbers_rounded,
+                                keyboardType: TextInputType.number,
+                                maxLength: 3,
+                                enabled: !_isEditing && !_isLoading,
+                                errorText: _itemIdError,
+                                validator: (val) => (val == null || val.trim().isEmpty) ? 'Required' : null,
+                                helper: _isEditing ? 'Locked' : 'Req.',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTextField(
+                                controller: _shipmentIdController,
+                                label: 'Shipment',
+                                icon: Icons.local_shipping_rounded,
+                                keyboardType: TextInputType.number,
+                                maxLength: 3,
+                                enabled: !_isEditing && !_isLoading,
+                                errorText: _shipmentIdError,
+                                validator: (val) => (val == null || val.trim().isEmpty) ? 'Required' : null,
+                                helper: _isEditing ? 'Locked' : 'Req.',
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _nameController,
+                          label: 'Shoe Name / Detail',
+                          icon: Icons.abc_rounded,
+                          maxLength: 30,
+                          enabled: !_isLoading,
+                          validator: (val) => (val == null || val.trim().isEmpty) ? 'Detail required' : null,
+                        ),
+
+                        const SizedBox(height: 24),
+                        _buildSectionHeader('Sizing & Stock', Icons.straighten_rounded),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: ShoeSizePicker(
+                            isSingleSize: isSingleSize,
+                            isBound: _isBound,
+                            isLoading: _isLoading,
+                            displayEurSize: _displayEurSize,
+                            displayUkSize: _displayUkSize,
+                            currentEurSizes: _currentEurSizes,
+                            onBoundChanged: (val) => setState(() => _isBound = val),
+                            onEurSizeSelected: _handleDisplayEurSizeSelected,
+                            onUkSizeSelected: _handleDisplayUkSizeSelected,
+                            onMultiSizeChanged: (sizes) => setState(() => _currentEurSizes = sizes),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _quantityController,
+                          label: 'Inventory Quantity',
+                          icon: Icons.inventory_2_rounded,
+                          keyboardType: TextInputType.number,
+                          enabled: !_isLoading,
+                          maxLength: 3,
+                          validator: (val) => (val == null || ShoeQueryUtils.safeIntParse(val) < 1) ? 'Min 1' : null,
+                        ),
+
+                        const SizedBox(height: 24),
+                        _buildSectionHeader('Condition & Status', Icons.stars_rounded),
+                        const SizedBox(height: 12),
+                        ShoeConditionPicker(
+                          selectedCondition: _selectedCondition,
+                          isLoading: _isLoading,
+                          onConditionSelected: _handleConditionSelected,
+                        ),
+                        const SizedBox(height: 16),
+                        ShoeStatusSelector(
+                          selectedStatus: _status,
+                          repairNotes: _repairNotes,
+                          imagesLink: _imagesLink,
+                          isLoading: _isLoading,
+                          onStatusChanged: (newStatus) => setState(() {
+                            _status = newStatus;
+                            if (newStatus != 'Repaired') _repairNotes = '';
+                          }),
+                          onRepairNotesChanged: (notes) => setState(() => _repairNotes = notes),
+                          onImagesLinkChanged: (imagesLink) => setState(() => _imagesLink = imagesLink),
+                        ),
+
+                        const SizedBox(height: 24),
+                        _buildSectionHeader('Pricing & Media', Icons.payments_rounded),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          controller: _priceController,
+                          label: 'Price ($currency)',
+                          icon: Icons.sell_rounded,
+                          keyboardType: TextInputType.number,
+                          enabled: !_isLoading,
+                          maxLength: 6,
+                          validator: (val) => (val == null || val.trim().isEmpty) ? 'Required' : null,
+                        ),
+                        
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          child: _status != 'Repaired' ? Column(
+                            key: const ValueKey('social_fields'),
+                            children: [
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: _instagramController,
+                                label: 'Instagram Link',
+                                icon: Icons.camera_alt_rounded,
+                                keyboardType: TextInputType.url,
+                                enabled: !_isLoading,
+                                validator: (val) => ShoeQueryUtils.validateLink(val, 'instagram.com'),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildTextField(
+                                controller: _tiktokController,
+                                label: 'TikTok Link',
+                                icon: Icons.video_collection_rounded,
+                                keyboardType: TextInputType.url,
+                                enabled: !_isLoading,
+                                validator: (val) => ShoeQueryUtils.validateLink(val, 'tiktok.com'),
+                              ),
+                            ],
+                          ) : const SizedBox.shrink(),
+                        ),
+
+                        const SizedBox(height: 16),
+                        ShoeImagePicker(
+                          imageFile: _dialogImageFile,
+                          remoteImageUrl: _currentRemoteImageUrl,
+                          isLoading: _isLoading,
+                          onImagePicked: (file) {
+                            setState(() {
+                              _dialogImageFile = file;
+                              _currentRemoteImageUrl = '';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // --- Actions ---
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey[600],
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : () {
+                        HapticFeedback.mediumImpact();
+                        _saveShoe();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              _isEditing ? 'Update Shoe' : 'Add to Collection',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _saveShoe,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3.0,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : Text(_isEditing ? 'Update' : 'Add Shoe'),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.blueGrey[400]),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: Colors.blueGrey[400],
+            letterSpacing: 1.1,
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool enabled = true,
+    int? maxLength,
+    TextInputType? keyboardType,
+    String? errorText,
+    String? helper,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      enabled: enabled,
+      maxLength: maxLength,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        errorText: errorText,
+        helperText: helper,
+        counterText: '',
+        filled: true,
+        fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+        ),
+      ),
     );
   }
 }

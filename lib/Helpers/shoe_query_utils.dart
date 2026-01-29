@@ -9,6 +9,8 @@ import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
 
+enum ShoeCategory { available, sold, repaired, upcoming, internal }
+
 class ShoeQueryUtils {
   static const double _epsilon = 1e-9;
 
@@ -163,44 +165,41 @@ class ShoeQueryUtils {
     required String rawQuery,
     required String sortField,
     required bool sortAscending,
+    ShoeCategory category = ShoeCategory.available,
     bool applyStatusFilter = true,
+    bool isFlatSale = false,
+    double flatDiscount = 0,
   }) {
     List<Shoe> displayedShoes = List<Shoe>.from(shoes);
 
     if (applyStatusFilter) {
-      if (sortField.toLowerCase().contains('sold')) {
-        displayedShoes = displayedShoes
-            .where((a) => a.status == 'Sold')
-            .toList();
-      } else if (sortField.toLowerCase().contains('n/a')) {
-        displayedShoes = displayedShoes
-            .where((a) => a.status == 'N/A')
-            .toList();
-      } else if (sortField.toLowerCase().contains('repaired')) {
-        displayedShoes = displayedShoes
-            .where((a) => a.status == 'Repaired')
-            .toList();
-      } else if (sortField.toLowerCase().contains('in')) {
-        displayedShoes = displayedShoes
-            .where((a) => a.status == 'Internal')
-            .toList();
-      } else {
-        // Default: show only Available
-        displayedShoes = displayedShoes
-            .where((a) => a.status == 'Available')
-            .toList();
+      switch (category) {
+        case ShoeCategory.available:
+          displayedShoes = displayedShoes.where((a) => a.status == 'Available').toList();
+          break;
+        case ShoeCategory.repaired:
+          displayedShoes = displayedShoes.where((a) => a.status == 'Repaired').toList();
+          break;
+        case ShoeCategory.sold:
+          displayedShoes = displayedShoes
+              .where((a) => a.status == 'Sold')
+              .toList();
+          break;
+        case ShoeCategory.upcoming:
+          displayedShoes = displayedShoes.where((a) => a.status == 'N/A').toList();
+          break;
+        case ShoeCategory.internal:
+          displayedShoes = displayedShoes.where((a) => a.status == 'Internal').toList();
+          break;
       }
     } else {
       // 👇 Always exclude Sold and Repaired when skipping status filter
       displayedShoes = displayedShoes
           .where((a) => a.status != 'Sold' && a.status != 'Repaired')
           .toList();
-    } // --- 1. Sorting ---
-    final isStatusFiltered = [
-      'sold',
-      'n/a',
-      'repaired',
-    ].any((status) => sortField.toLowerCase().contains(status));
+    }
+// --- 1. Sorting ---
+    final isStatusFiltered = applyStatusFilter;
 
     displayedShoes.sort((a, b) {
       final shipmentA = int.tryParse(a.shipmentId) ?? 0;
@@ -220,7 +219,13 @@ class ShoeQueryUtils {
         final sizeB = _safeDoubleParse(b.sizeEur?.first);
         comparison = sizeA.compareTo(sizeB);
       } else if (normalizedField == 'sellingprice') {
-        comparison = a.sellingPrice.compareTo(b.sellingPrice);
+        final priceA = isFlatSale 
+            ? ShoeQueryUtils.roundToNearestDouble(a.sellingPrice * (1 - flatDiscount / 100)) 
+            : a.sellingPrice;
+        final priceB = isFlatSale 
+            ? ShoeQueryUtils.roundToNearestDouble(b.sellingPrice * (1 - flatDiscount / 100)) 
+            : b.sellingPrice;
+        comparison = priceA.compareTo(priceB);
       } else {
         // Default fallback: itemId
         comparison = a.itemId.compareTo(b.itemId);

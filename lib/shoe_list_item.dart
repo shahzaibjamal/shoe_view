@@ -17,6 +17,11 @@ class ShoeListItem extends StatelessWidget {
   final ValueChanged<Shoe> onCopyDataPressed;
   final ValueChanged<Shoe> onShareDataPressed;
 
+  final bool isSelectionMode;
+  final bool isSelected;
+  final VoidCallback onLongPress;
+  final VoidCallback onToggleSelection;
+
   const ShoeListItem({
     super.key,
     required this.shoe,
@@ -24,6 +29,10 @@ class ShoeListItem extends StatelessWidget {
     required this.onDelete,
     required this.onCopyDataPressed,
     required this.onShareDataPressed,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    required this.onLongPress,
+    required this.onToggleSelection,
   });
 
   // Helper method to build the image widget (network or file)
@@ -58,7 +67,7 @@ class ShoeListItem extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.grey[400]!,
+          color: Colors.grey[500]!,
           width: 1.5,
         ),
         color: Colors.grey[100],
@@ -110,6 +119,8 @@ class ShoeListItem extends StatelessWidget {
               maxWidth: maxWidth,
               currency: currency,
               sizeDisplay: sizeDisplay,
+              isFlatSale: appStatus.isFlatSale,
+              flatDiscount: appStatus.flatDiscount,
             ),
           ),
         );
@@ -143,31 +154,42 @@ class ShoeListItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Material(
-        color: Colors.transparent,
+        color: isSelected ? Colors.indigo.withOpacity(0.08) : Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
             HapticFeedback.selectionClick();
-            _showFullScreenImage(context, shoe.remoteImageUrl);
+            if (isSelectionMode) {
+              onToggleSelection();
+            } else {
+              _showFullScreenImage(context, shoe.remoteImageUrl);
+            }
+          },
+          onLongPress: () {
+            HapticFeedback.heavyImpact();
+            onLongPress();
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (isSelectionMode)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => onToggleSelection(),
+                      activeColor: Colors.indigo.shade700,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
                 // 🖼️ Square Shoe Image
-                Container(
-                  width: 60,
-                  height: 60,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[300]!, width: 1.5),
-                  ),
-                  child: _buildShoeImage(
-                    shoe.localImagePath,
-                    shoe.remoteImageUrl,
-                  ),
+                _buildShoeImage(
+                  shoe.localImagePath,
+                  shoe.remoteImageUrl,
                 ),
                 const SizedBox(width: 12),
                 
@@ -200,80 +222,125 @@ class ShoeListItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 1),
-                      Text(
-                        'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
-                        style: TextStyle(
-                          color: Colors.grey[800],
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                      const SizedBox(height: 2),
+                      if (appStatus.isFlatSale)
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Text(
+                                '-${appStatus.flatDiscount.toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$currency${shoe.sellingPrice.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 11,
+                                decoration: TextDecoration.lineThrough,
+                                decorationColor: Colors.grey[400],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$currency${ShoeQueryUtils.roundToNearestDouble(shoe.sellingPrice * (1 - appStatus.flatDiscount / 100)).toStringAsFixed(0)}/-',
+                              style: TextStyle(
+                                color: Colors.red.shade300,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
+                          style: TextStyle(
+                            color: Colors.blueGrey.shade900,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
                 
-                const SizedBox(width: 8),
+                if (!isSelectionMode) ...[
+                  const SizedBox(width: 8),
 
-                // ⚙️ Action Buttons (2x2 Compact Grid)
-                Container(
-                  height: 40,
-                  child: const VerticalDivider(width: 1, thickness: 0.5, indent: 2, endIndent: 2),
-                ),
-                const SizedBox(width: 8),
-                
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _CompactActionButton(
-                          icon: Icons.content_copy_rounded,
-                          tooltip: 'Copy',
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            onCopyDataPressed(shoe);
-                          },
-                        ),
-                        const SizedBox(width: 4),
-                        _CompactActionButton(
-                          icon: Icons.share_rounded,
-                          tooltip: 'Share',
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            onShareDataPressed(shoe);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _CompactActionButton(
-                          icon: Icons.edit_rounded,
-                          color: Colors.blueGrey,
-                          tooltip: 'Edit',
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            onEdit();
-                          },
-                        ),
-                        const SizedBox(width: 4),
-                        _CompactActionButton(
-                          icon: Icons.delete_outline_rounded,
-                          color: Colors.red[400],
-                          tooltip: 'Delete',
-                          onPressed: () {
-                            HapticFeedback.mediumImpact();
-                            onDelete();
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  // ⚙️ Action Buttons (2x2 Compact Grid)
+                  Container(
+                    height: 40,
+                    child: const VerticalDivider(
+                        width: 1, thickness: 0.5, indent: 2, endIndent: 2),
+                  ),
+                  const SizedBox(width: 8),
+
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _CompactActionButton(
+                            icon: Icons.content_copy_rounded,
+                            tooltip: 'Copy',
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              onCopyDataPressed(shoe);
+                            },
+                          ),
+                          const SizedBox(width: 4),
+                          _CompactActionButton(
+                            icon: Icons.share_rounded,
+                            tooltip: 'Share',
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              onShareDataPressed(shoe);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _CompactActionButton(
+                            icon: Icons.edit_rounded,
+                            color: Colors.blueGrey,
+                            tooltip: 'Edit',
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              onEdit();
+                            },
+                          ),
+                          const SizedBox(width: 4),
+                          _CompactActionButton(
+                            icon: Icons.delete_outline_rounded,
+                            color: Colors.red[400],
+                            tooltip: 'Delete',
+                            onPressed: () {
+                              HapticFeedback.mediumImpact();
+                              onDelete();
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -290,6 +357,8 @@ class _ShoeDetailDialogContent extends StatefulWidget {
   final double maxWidth;
   final String currency;
   final String sizeDisplay;
+  final bool isFlatSale;
+  final double flatDiscount;
 
   const _ShoeDetailDialogContent({
     required this.shoe,
@@ -298,6 +367,8 @@ class _ShoeDetailDialogContent extends StatefulWidget {
     required this.maxWidth,
     required this.currency,
     required this.sizeDisplay,
+    required this.isFlatSale,
+    required this.flatDiscount,
   });
 
   @override
@@ -400,14 +471,16 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                       maxHeight: widget.maxHeight,
                     ),
                     decoration: BoxDecoration(
+                      color: Colors.grey[50], // Subtle background
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.grey[300]!,
+                        color: Colors.grey[500]!,
                         width: 4,
                       ),
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                          12), // 🎯 FIXED: Radius - BorderWidth (16 - 4)
                       child: GestureDetector(
                         onDoubleTapDown: _handleDoubleTap,
                         onDoubleTap: () {},
@@ -443,14 +516,63 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    'Price: ${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
+                  if (widget.isFlatSale)
+                    Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Text(
+                                '-${widget.flatDiscount.toStringAsFixed(0)}% OFF',
+                                style: TextStyle(
+                                  color: Colors.orange.shade900,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              '${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[400],
+                                decoration: TextDecoration.lineThrough,
+                                decorationThickness: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '${widget.currency}${ShoeQueryUtils.roundToNearestDouble(widget.shoe.sellingPrice * (1 - widget.flatDiscount / 100)).toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.red.shade300,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      'Price: ${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.indigo.shade900,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
