@@ -201,105 +201,42 @@ class _ListHeaderState extends State<ListHeader> {
                 width: 1,
               ),
             ),
-            child: RawAutocomplete<String>(
-              textEditingController: widget.searchController,
+            child: TextField(
+              controller: widget.searchController,
               focusNode: _searchFocusNode,
-              optionsBuilder: (TextEditingValue textEditingValue) {
-                if (textEditingValue.text.isEmpty) {
-                  return widget.suggestions;
-                }
-                return widget.suggestions.where((String option) {
-                  return option
-                      .toLowerCase()
-                      .contains(textEditingValue.text.toLowerCase());
-                });
-              },
-              onSelected: (String selection) {
-                widget.searchController.text = selection;
-                _searchFocusNode.unfocus();
-              },
-              optionsViewBuilder: (context, onSelected, options) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: Material(
-                      elevation: 8.0,
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.indigo.shade900.withAlpha(240),
-                      child: Container(
-                        width: MediaQuery.of(context).size.width - 64,
-                        constraints: const BoxConstraints(maxHeight: 250),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white24),
-                        ),
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          itemCount: options.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            final String option = options.elementAt(index);
-                            return InkWell(
-                              onTap: () => onSelected(option),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                                child: Text(
-                                  option,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-              fieldViewBuilder:
-                  (context, controller, focusNode, onSubmitted) {
-                return TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  onSubmitted: (val) {
-                    onSubmitted();
-                    FocusScope.of(context).unfocus();
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Search collection...',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.4),
-                      fontSize: 14,
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: Colors.white.withOpacity(0.6),
-                      size: 20,
-                    ),
-                    suffixIcon: widget.searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.close,
-                                size: 18, color: Colors.white60),
-                            onPressed: () {
-                              widget.searchController.clear();
-                              FocusScope.of(context).unfocus();
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 14),
-                  cursorColor: Colors.white70,
-                );
-              },
+              decoration: InputDecoration(
+                hintText: 'Search collection...',
+                hintStyle: TextStyle(
+                  color: Colors.white.withOpacity(0.4),
+                  fontSize: 14,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Colors.white.withOpacity(0.6),
+                  size: 20,
+                ),
+                suffixIcon: widget.searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close,
+                            size: 18, color: Colors.white60),
+                        onPressed: () {
+                          widget.searchController.clear();
+                          // No need to unfocus here to keep keyboard up for typing new query,
+                          // or unfocus if user wants to clear and close.
+                          // existing behavior was unfocus. I'll check user intent or stick to existing behavior.
+                          // existing: FocusScope.of(context).unfocus();
+                          // Let's keep it simple.
+                          FocusScope.of(context).unfocus();
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              cursorColor: Colors.white70,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => FocusScope.of(context).unfocus(),
             ),
           ),
         ),

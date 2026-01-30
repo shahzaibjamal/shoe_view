@@ -539,6 +539,7 @@ class ShoeQueryUtils {
     required double lowDiscount,
     required double highDiscount,
     required String sortField,
+    bool isInstagramOnly = false,
   }) {
     final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
 
@@ -629,7 +630,7 @@ class ShoeQueryUtils {
       if (shoe.instagramLink.isNotEmpty) {
         buffer.writeln('${indent}Instagram: ${shoe.instagramLink}');
       }
-      if (shoe.tiktokLink.isNotEmpty) {
+      if (!isInstagramOnly && shoe.tiktokLink.isNotEmpty) {
         buffer.writeln('${indent}TikTok: ${shoe.tiktokLink}');
       }
       if (shoe.status == 'Repaired') {
@@ -657,5 +658,60 @@ class ShoeQueryUtils {
     }
 
     return buffer.toString();
+  }
+
+  /// Generates a concise copy text with minimal formatting.
+  /// Format: Discount header (if any), shoe name, price, condition, instagram link
+  static String generateConciseCopyText({
+    required List<Shoe> shoes,
+    required String currencyCode,
+    required bool isFlatSale,
+    required double flatDiscount,
+    required String sortField,
+  }) {
+    final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
+    final buffer = StringBuffer();
+
+    final shoeList = shoes.take(16).toList();
+    final gap = shoeList.length > 1 ? '    ' : '';
+
+    // Discount header
+    if (isFlatSale && flatDiscount > 0) {
+      buffer.writeln('🔥 $flatDiscount% OFF\n');
+    }
+
+    final isSold = sortField.toLowerCase().contains('sold');
+
+    for (int i = 0; i < shoeList.length; i++) {
+      final shoe = shoeList[i];
+      final numbering = shoeList.length > 1 ? '${i + 1}. ' : '';
+      final indent = ' ' * (numbering.length) + gap;
+
+      // Calculate final price
+      final sellingPrice = isFlatSale
+          ? ShoeQueryUtils.roundToNearestDouble(
+              shoe.sellingPrice * (1 - flatDiscount / 100),
+            )
+          : shoe.sellingPrice;
+
+      // Shoe name
+      buffer.writeln('$numbering${shoe.shoeDetail}');
+      
+      // Price (no label)
+      if (!isSold) {
+        buffer.writeln('$indent$symbol${sellingPrice.toInt()}/-');
+        // Condition (no label) - TODO: Add later
+        // buffer.writeln('$indent${shoe.condition}/10');
+      }
+      
+      // Instagram link (no label)
+      if (shoe.instagramLink.isNotEmpty) {
+        buffer.writeln('$indent${shoe.instagramLink}');
+      }
+      
+      buffer.writeln(); // blank line separator
+    }
+
+    return buffer.toString().trim();
   }
 }

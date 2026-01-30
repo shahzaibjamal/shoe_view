@@ -213,6 +213,26 @@ class AppStatusNotifier extends ChangeNotifier {
     notifyListeners(); // This updates the whole app at once
   }
 
+  bool _isInstagramOnly = false;
+  bool _isConciseMode = false;
+
+  bool get isInstagramOnly => _isInstagramOnly;
+  bool get isConciseMode => _isConciseMode;
+
+  void updateInstagramOnly(bool value) {
+    if (_isInstagramOnly != value) {
+      _isInstagramOnly = value;
+      notifyListeners();
+    }
+  }
+
+  void updateConciseMode(bool value) {
+    if (_isConciseMode != value) {
+      _isConciseMode = value;
+      notifyListeners();
+    }
+  }
+
   void updateAllSettings({
     required ThemeMode themeMode,
     required String currencyCode,
@@ -226,6 +246,8 @@ class AppStatusNotifier extends ChangeNotifier {
     required int sampleShareCount,
     required bool isFlatSale,
     required bool isInfoCopied,
+    required bool isInstagramOnly,
+    required bool isConciseMode,
     required double lowDiscount,
     required double highDiscount,
     required double flatDiscount,
@@ -245,6 +267,8 @@ class AppStatusNotifier extends ChangeNotifier {
     _flatDiscount = flatDiscount;
     _isPriceHidden = isPriceHidden;
     _isInfoCopied = isInfoCopied;
+    _isInstagramOnly = isInstagramOnly;
+    _isConciseMode = isConciseMode;
 
     // This is the magic line: one call, one rebuild for everything.
     notifyListeners();

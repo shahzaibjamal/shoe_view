@@ -448,7 +448,12 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
 
           // The Shoe Card
           GestureDetector(
-            onTap: () {}, // Prevent card taps from closing
+            onTap: () {
+              // Also close on card tap
+              if (ModalRoute.of(context)?.isCurrent ?? false) {
+                Navigator.of(context).pop();
+              }
+            }, 
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -484,6 +489,12 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                       child: GestureDetector(
                         onDoubleTapDown: _handleDoubleTap,
                         onDoubleTap: () {},
+                        onTap: () {
+                          // Tap on image also closes the dialog
+                          if (ModalRoute.of(context)?.isCurrent ?? false) {
+                            Navigator.of(context).pop();
+                          }
+                        },
                         child: InteractiveViewer(
                           transformationController: _transformationController,
                           minScale: 1.0,
@@ -499,13 +510,17 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    widget.shoe.shoeDetail,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      widget.shoe.shoeDetail,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -589,6 +604,7 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                   Navigator.of(context).pop();
                 }
               },
+
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(

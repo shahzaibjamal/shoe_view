@@ -290,7 +290,7 @@ class _ShoeListViewState extends State<ShoeListView>
           ),
           backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+          margin: const EdgeInsets.only(bottom: 4, left: 16, right: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -448,6 +448,17 @@ class _ShoeListViewState extends State<ShoeListView>
 
   String _generateShareTextHelper(List<Shoe> shoes) {
     final appStatus = context.read<AppStatusNotifier>();
+    
+    if (appStatus.isConciseMode) {
+      return ShoeQueryUtils.generateConciseCopyText(
+        shoes: shoes,
+        currencyCode: appStatus.currencyCode,
+        isFlatSale: appStatus.isFlatSale,
+        flatDiscount: appStatus.flatDiscount,
+        sortField: _sortField,
+      );
+    }
+    
     return ShoeQueryUtils.generateCopyText(
       shoes: shoes,
       currencyCode: appStatus.currencyCode,
@@ -459,6 +470,7 @@ class _ShoeListViewState extends State<ShoeListView>
       lowDiscount: appStatus.lowDiscount,
       highDiscount: appStatus.highDiscount,
       sortField: _sortField,
+      isInstagramOnly: appStatus.isInstagramOnly,
     );
   }
 
@@ -1019,10 +1031,13 @@ class _ShoeListViewState extends State<ShoeListView>
                 ));
               },
               onSettingsButtonPressed: () {
+                final subManager = context.read<SubscriptionManager>();
                 showDialog(
                   context: context,
-                  builder: (_) =>
-                      SettingsDialog(firebaseService: firebaseService),
+                  builder: (_) => SettingsDialog(
+                    firebaseService: firebaseService,
+                    subscriptionManager: subManager,
+                  ),
                 );
               },
               onSampleSendPressed: _onSampleSend,

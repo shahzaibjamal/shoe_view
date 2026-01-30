@@ -79,102 +79,149 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Consumer is correct for listening to state changes in the manager
     bool isTest = context.read<AppStatusNotifier>().isTest;
-    return Consumer<SubscriptionManager>(
-      builder: (context, manager, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Upgrade Your Access'),
-            backgroundColor: Colors.blueGrey,
-          ),
-          body: manager.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : !manager.isAvailable
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: Text(
-                      'In-App Purchasing is not supported or configured correctly on this device.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.redAccent, fontSize: 16),
-                    ),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.all(16.0),
+    
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Premium Access', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        centerTitle: true,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      body: Consumer<SubscriptionManager>(
+        builder: (context, manager, child) {
+          if (manager.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!manager.isAvailable) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // --- FIX 4: Use the new availableOffers list ---
-                    if (manager.availableOffers.isEmpty)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: Text('No subscription products found.'),
-                        ),
-                      )
-                    else
-                      // Iterate over the list of OfferWithTierDetails
-                      ...(isTest
-                              ? manager.availableOffers
-                              : manager.availableOffers.take(1))
-                          .map((offer) {
-                            String purchasedOffer = context
-                                .read<AppStatusNotifier>()
-                                .purchasedOffer;
-                            final isPurchased =
-                                purchasedOffer == offer.basePlanId;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16.0),
-                              child: ProductCard(
-                                // Pass the OfferWithTierDetails object to ProductCard for display
-                                offer: offer,
-                                onBuy: (p) => manager.buySubscription(
-                                  offer.purchaseProductDetails,
-                                ),
-                                isHighlighted: offer.tierDescription.contains(
-                                  'gold',
-                                ),
-                                isPurchased: isPurchased,
-                                isVerifying: _isVerifying,
-                                onUnSub: () => manager.manageSubscription(),
-                              ),
-                            );
-                          }),
-
-                    const SizedBox(height: 30),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        TextButton(
-                          onPressed: _isVerifying
-                              ? null
-                              : () async {
-                                  setState(() => _isVerifying = true);
-                                  await manager.queryActivePurchases();
-                                  setState(() => _isVerifying = false);
-                                },
-                          child: _isVerifying
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('Restore Purchases'),
-                        ),
-                        TextButton(
-                          onPressed: _isVerifying
-                              ? null
-                              : manager.manageSubscription,
-                          child: const Text('Manage Subscription'),
-                        ),
-                      ],
+                    Icon(Icons.error_outline_rounded, size: 64, color: Colors.red[300]),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Store Unavailable',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'In-App Purchasing is not supported or configured on this device.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
                     ),
                   ],
                 ),
-        );
-      },
+              ),
+            );
+          }
+
+          final offers = isTest 
+              ? manager.availableOffers 
+              : manager.availableOffers.take(1).toList();
+
+          return CustomScrollView(
+            slivers: [
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 24),
+              ),
+
+              if (offers.isEmpty)
+                const SliverFillRemaining(
+                  child: Center(child: Text('No active plans found')),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final offer = offers[index];
+                        String purchasedOffer = context.read<AppStatusNotifier>().purchasedOffer;
+                        final isPurchased = purchasedOffer == offer.basePlanId;
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: ProductCard(
+                            offer: offer,
+                            onBuy: (p) => manager.buySubscription(
+                              offer.purchaseProductDetails,
+                            ),
+                            isHighlighted: offer.tierDescription.toLowerCase().contains('gold'),
+                            isPurchased: isPurchased,
+                            isVerifying: _isVerifying,
+                            onUnSub: () => manager.manageSubscription(),
+                          ),
+                        );
+                      },
+                      childCount: offers.length,
+                    ),
+                  ),
+                ),
+
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const SizedBox(height: 12),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextButton(
+                             onPressed: _isVerifying
+                                ? null
+                                : () async {
+                                    setState(() => _isVerifying = true);
+                                    await manager.queryActivePurchases();
+                                    setState(() => _isVerifying = false);
+                                  },
+                            style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
+                            child: _isVerifying 
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('Restore Purchases'),
+                          ),
+                          Container(height: 16, width: 1, color: Colors.grey[300], margin: const EdgeInsets.symmetric(horizontal: 16)),
+                          TextButton(
+                            onPressed: manager.manageSubscription,
+                            style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
+                            child: const Text('Manage Subscription'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Recurring billing. Cancel anytime.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
+
+  Widget _buildMiniFeature(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: Colors.grey[500]),
+        const SizedBox(width: 4),
+        Text(text, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+
 }

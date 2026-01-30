@@ -21,83 +21,129 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: isHighlighted ? 8 : 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isHighlighted
-            ? const BorderSide(color: Colors.blueAccent, width: 3)
-            : BorderSide.none,
+    // Subtle premium feeling for Gold/Highlighted items
+    final bool showPremium = isHighlighted;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: showPremium ? Colors.amber.shade50 : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: showPremium ? Colors.amber.shade200 : Colors.grey.shade200,
+          width: showPremium ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic, // Aligns text baselines
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: isPurchased ? null : () => onBuy(offer),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Flexible(
-                  child: Text(
-                    offer.name,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: isHighlighted ? Colors.blueAccent : Colors.black87,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      offer.name.replaceAll(RegExp(r'\(.*\)'), '').trim(),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: showPremium ? Colors.deepOrange[800] : Colors.black87,
+                      ),
                     ),
+                    if (showPremium)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.amber[100],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "BEST VALUE",
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber[900],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      offer.displayPrice,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black87,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '/ month',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  offer.tierDescription,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.3,
+                    color: Colors.grey[600],
                   ),
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  offer.displayPrice,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: isHighlighted ? Colors.blueAccent : Colors.black,
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 40,
+                  child: FilledButton(
+                    onPressed: isVerifying
+                        ? null
+                        : (isPurchased ? onUnSub : () => onBuy(offer)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: isPurchased
+                          ? Colors.red.shade50
+                          : (showPremium
+                              ? Colors.black
+                              : Colors.blue.shade600),
+                      foregroundColor: isPurchased ? Colors.red : Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      isPurchased ? 'Manage Plan' : 'Subscribe Now',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
             ),
-            const Divider(height: 20, thickness: 1),
-            Text(
-              offer.tierDescription,
-              style: const TextStyle(fontSize: 15, color: Colors.black54),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: isVerifying
-                    ? null
-                    : (isPurchased ? onUnSub : () => onBuy(offer)),
-                icon: Icon(isPurchased ? Icons.cancel : Icons.star),
-                label: Text(
-                  isPurchased
-                      ? 'Unsubscribe'
-                      : 'Subscribe Now - ${offer.displayPrice}',
-                  style: const TextStyle(fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                    vertical: 12,
-                  ),
-                  backgroundColor: isPurchased
-                      ? Colors.red.shade600
-                      : (isHighlighted
-                            ? Colors.blueAccent.shade700
-                            : Colors.grey.shade700),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
+

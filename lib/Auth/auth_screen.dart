@@ -292,6 +292,8 @@ class _AuthScreenState extends State<AuthScreen> {
       flatDiscount: prefs.getDouble('flatDiscount') ?? 0,
       isPriceHidden: prefs.getBool('isPriceHidden') ?? false,
       isInfoCopied: prefs.getBool('isInfoCopied') ?? false,
+      isInstagramOnly: prefs.getBool('isInstagramOnly') ?? false,
+      isConciseMode: prefs.getBool('isConciseMode') ?? false,
     );
 
     // 🎯 FIX: Load critical user stats for offline/silent mode
