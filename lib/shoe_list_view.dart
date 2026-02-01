@@ -44,6 +44,7 @@ class _ShoeListViewState extends State<ShoeListView>
   bool _isInitialLoading = true;
   String _searchQuery = '';
   final ValueNotifier<bool> _isFabVisible = ValueNotifier<bool>(true);
+  final ValueNotifier<bool> _showToTop = ValueNotifier<bool>(false);
   Timer? _debounceTimer;
 
   // --- Data State ---
@@ -142,6 +143,7 @@ class _ShoeListViewState extends State<ShoeListView>
     _isFabVisible.dispose();
     _debounceTimer?.cancel();
     _fabVisibilityTimer?.cancel();
+    _showToTop.dispose();
     super.dispose();
   }
 
@@ -183,6 +185,18 @@ class _ShoeListViewState extends State<ShoeListView>
     });
 
     _lastScrollPosition = _scrollController.offset;
+
+    // 🎯 Show Scroll-to-Top when header is small (filters hidden)
+    // Filters hide when header height < 110. 
+    // Header height = max - offset (capped at min).
+    // So if offset > max - 110, they are hidden.
+    final double headerMaxHeight = MediaQuery.of(context).size.height * 0.20;
+    if (_scrollController.offset > (headerMaxHeight - 110 + 100)) { 
+      // Added +100 to ensure user has scrolled a bit more into the list
+      if (!_showToTop.value) _showToTop.value = true;
+    } else {
+      if (_showToTop.value) _showToTop.value = false;
+    }
   }
 
   void _onSearchChanged() {
@@ -995,243 +1009,373 @@ class _ShoeListViewState extends State<ShoeListView>
     );
   }
 
-  // --- Build Methods ---
-
-  @override
-  Widget build(BuildContext context) {
-    final double headerHeight = MediaQuery.of(context).size.height * 0.21;
-    final firebaseService = context.read<FirebaseService>();
-
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            ListHeader(
-              height: headerHeight,
-              searchController: _searchController,
-              searchQuery: _searchQuery,
-              suggestions: _searchSuggestions,
-              itemCount: _displayedShoes.length,
-              selectedCategory: _selectedCategory,
-              onCategoryChanged: _onCategoryChanged,
-              sortField: _sortField,
-              sortAscending: _sortAscending,
-              onSortFieldChanged: _onSortChanged,
-              onSortDirectionToggled: _onSortDirectionChanged,
-              onCopyDataPressed: _copyAll,
-              onShareDataPressed: _onShareAll,
-              onRefreshDataPressed: _onRefreshData,
-              onInAppButtonPressed: () {
-                final subManager = context.read<SubscriptionManager>();
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => ChangeNotifierProvider.value(
-                    value: subManager,
-                    child: const SubscriptionUpgradePage(),
-                  ),
-                ));
-              },
-              onSettingsButtonPressed: () {
-                final subManager = context.read<SubscriptionManager>();
-                showDialog(
-                  context: context,
-                  builder: (_) => SettingsDialog(
-                    firebaseService: firebaseService,
-                    subscriptionManager: subManager,
-                  ),
-                );
-              },
-              onSampleSendPressed: _onSampleSend,
-              onSaveDataPressed: () =>
-                  ShoeQueryUtils.saveShoesToAppExternal(_streamShoes),
-              selectedCount: _selectedShoeIds.length,
-              onClearSelection: _clearSelection,
-              onBulkDelete: _bulkDelete,
-              onBulkCopy: _bulkCopy,
-              onBulkCollage: _bulkCollage,
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(
+            'Error loading shoes',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Text(
+              error,
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
             ),
-            if (_isLoadingExternalData) const LinearProgressIndicator(),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  // Trigger refresh by resetting initial loading state
-                  setState(() => _isInitialLoading = true);
-                  // Wait a bit for the stream to update
-                  await Future.delayed(const Duration(milliseconds: 500));
-                },
-                color: Theme.of(context).colorScheme.primary,
-                child: StreamBuilder<List<Shoe>>(
-                  stream: _shoeStream, // 🎯 Use memoized stream
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting && 
-                        _isInitialLoading) {
-                      // Show skeleton loaders instead of simple loading indicator
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: 5, // Show 5 skeleton items
-                        itemBuilder: (context, index) => ShoeListItemSkeleton(),
-                      );
-                    }
-                  
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline, size: 48, color: Colors.red),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Error loading shoes',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                            child: Text(
-                              snapshot.error.toString(),
-                              style: Theme.of(context).textTheme.bodyMedium,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() => _isInitialLoading = true);
-                            },
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  // Process Data
-                  _processAndDisplayShoes(snapshot.data ?? []);
-                  _isInitialLoading = false;
-
-                  if (_displayedShoes.isEmpty) {
-                    return Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(32.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Lottie.network(
-                              'https://lottie.host/7e9d7249-fbd8-4903-8d6c-2f6a97184291/K7V8Bw0Y6G.json', // Premium Shoe Walk
-                              height: 180,
-                              repeat: true,
-                              errorBuilder: (context, error, stackTrace) => Icon(
-                                _searchQuery.isNotEmpty 
-                                  ? Icons.search_off 
-                                  : Icons.shopping_bag_outlined,
-                                size: 64,
-                                color: Colors.grey[400],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _searchQuery.isNotEmpty
-                                ? 'No shoes found'
-                                : 'Empty Hive',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _searchQuery.isNotEmpty
-                                ? 'Try adjusting your search terms'
-                                : 'Tap the + button to stock your initial pairs!',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[500],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (_searchQuery.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              OutlinedButton.icon(
-                                onPressed: () => _searchController.clear(),
-                                icon: const Icon(Icons.clear),
-                                label: const Text('Clear Search'),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                    return ListView.builder(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      controller: _scrollController,
-                      itemCount: _displayedShoes.length,
-                      itemBuilder: (context, index) {
-                        final shoe = _displayedShoes[index];
-                        final shoeKey = _getShoeKey(shoe);
-                        return RepaintBoundary(
-                          child: ShoeListItem(
-                            key: ValueKey(shoeKey),
-                            shoe: shoe,
-                            isSelectionMode: _isSelectionMode,
-                            isSelected: _selectedShoeIds.contains(shoeKey),
-                            onToggleSelection: () => _toggleSelection(shoeKey),
-                            onLongPress: () => _toggleSelection(shoeKey),
-                            onCopyDataPressed: _onCopyShoe,
-                            onShareDataPressed: (s) => _shareData([s]),
-                            onEdit: () => showDialog(
-                              context: context,
-                              builder: (context) => ShoeFormDialogContent(
-                                shoe: shoe,
-                                firebaseService: firebaseService,
-                                existingShoes: _streamShoes,
-                              ),
-                            ),
-                            onDelete: () => _deleteShoe(shoe),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: ValueListenableBuilder<bool>(
-        valueListenable: _isFabVisible,
-        builder: (context, isVisible, child) {
-          return AnimatedSlide(
-            offset: isVisible ? Offset.zero : const Offset(0, 2),
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-            child: AnimatedOpacity(
-              opacity: isVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 300),
-              child: IgnorePointer(
-                ignoring: !isVisible,
-                child: FloatingActionButton(
-                  onPressed: () {
-                    HapticFeedback.mediumImpact();
-                    showDialog(
-                      context: context,
-                      builder: (_) => ShoeFormDialogContent(
-                        firebaseService: firebaseService,
-                        existingShoes: _streamShoes,
-                      ),
-                    );
-                  },
-                  tooltip: 'Add New Shoe',
-                  child: const Icon(Icons.add),
-                  elevation: 6,
-                ),
-              ),
-            ),
-          );
-        },
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              setState(() => _isInitialLoading = true);
+            },
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }
 
+  Widget _buildEmptyState() {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(), // Managed by parent sliver
+      padding: const EdgeInsets.all(32.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Lottie.network(
+            'https://lottie.host/7e9d7249-fbd8-4903-8d6c-2f6a97184291/K7V8Bw0Y6G.json', // Premium Shoe Walk
+            height: 180,
+            repeat: true,
+            errorBuilder: (context, error, stackTrace) => Icon(
+              _searchQuery.isNotEmpty
+                  ? Icons.search_off
+                  : Icons.shopping_bag_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchQuery.isNotEmpty ? 'No shoes found' : 'Empty Hive',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'Try adjusting your search terms'
+                : 'Tap the + button to stock your initial pairs!',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[500],
+                ),
+            textAlign: TextAlign.center,
+          ),
+          if (_searchQuery.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _searchController.clear(),
+              icon: const Icon(Icons.clear),
+              label: const Text('Clear Search'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(double height, FirebaseService firebaseService) {
+    return ListHeader(
+      height: height,
+      searchController: _searchController,
+      searchQuery: _searchQuery,
+      suggestions: _searchSuggestions,
+      itemCount: _displayedShoes.length,
+      selectedCategory: _selectedCategory,
+      onCategoryChanged: _onCategoryChanged,
+      sortField: _sortField,
+      sortAscending: _sortAscending,
+      onSortFieldChanged: _onSortChanged,
+      onSortDirectionToggled: _onSortDirectionChanged,
+      onCopyDataPressed: _copyAll,
+      onShareDataPressed: _onShareAll,
+      onRefreshDataPressed: _onRefreshData,
+      onCloseAppPressed: () => SystemNavigator.pop(),
+      onInAppButtonPressed: () {
+        final subManager = context.read<SubscriptionManager>();
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => ChangeNotifierProvider.value(
+            value: subManager,
+            child: const SubscriptionUpgradePage(),
+          ),
+        ));
+      },
+      onSettingsButtonPressed: () {
+        final subManager = context.read<SubscriptionManager>();
+        showDialog(
+          context: context,
+          builder: (_) => SettingsDialog(
+            firebaseService: firebaseService,
+            subscriptionManager: subManager,
+          ),
+        );
+      },
+      onSampleSendPressed: _onSampleSend,
+      onSaveDataPressed: () =>
+          ShoeQueryUtils.saveShoesToAppExternal(_streamShoes),
+      selectedCount: _selectedShoeIds.length,
+      onClearSelection: _clearSelection,
+      onBulkDelete: _bulkDelete,
+      onBulkCopy: _bulkCopy,
+      onBulkCollage: _bulkCollage,
+    );
+  }
+
+  // --- Build Methods ---
+
+  @override
+  Widget build(BuildContext context) {
+    final double headerMaxHeight = MediaQuery.of(context).size.height * 0.22;
+    const double headerMinHeight = 84.0;
+    final FirebaseService firebaseService = context.read<FirebaseService>();
+    final appStatus = context.watch<AppStatusNotifier>();
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _showExitConfirmation();
+      },
+      child: Scaffold(
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            setState(() => _isInitialLoading = true);
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          child: StreamBuilder<List<Shoe>>(
+            stream: _shoeStream,
+            builder: (ctx, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  _isInitialLoading) {
+                return CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _ShoeListHeaderDelegate(
+                        builder: (height) => _buildHeader(height, firebaseService),
+                        maxHeight: headerMaxHeight,
+                        minHeight: headerMinHeight,
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.all(8),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => ShoeListItemSkeleton(),
+                          childCount: 5,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              if (snapshot.hasError) {
+                return _buildErrorState(snapshot.error.toString());
+              }
+
+              _processAndDisplayShoes(snapshot.data ?? []);
+              _isInitialLoading = false;
+
+              return CustomScrollView(
+                controller: _scrollController,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _ShoeListHeaderDelegate(
+                      maxHeight: headerMaxHeight,
+                      minHeight: headerMinHeight,
+                      builder: (height) => _buildHeader(height, firebaseService),
+                    ),
+                  ),
+                  if (_isLoadingExternalData)
+                    const SliverToBoxAdapter(
+                      child: LinearProgressIndicator(),
+                    ),
+                  if (_displayedShoes.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildEmptyState(),
+                    )
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, index) {
+                          final shoe = _displayedShoes[index];
+                          final shoeKey = _getShoeKey(shoe);
+                          return RepaintBoundary(
+                            child: ShoeListItem(
+                              key: ValueKey(shoeKey),
+                              shoe: shoe,
+                              isSelectionMode: _isSelectionMode,
+                              isSelected: _selectedShoeIds.contains(shoeKey),
+                              onToggleSelection: () => _toggleSelection(shoeKey),
+                              onLongPress: () => _toggleSelection(shoeKey),
+                              onCopyDataPressed: _onCopyShoe,
+                              onShareDataPressed: (s) => _shareData([s]),
+                              onEdit: () => showDialog(
+                                context: context,
+                                builder: (_) => ShoeFormDialogContent(
+                                  shoe: shoe,
+                                  firebaseService: firebaseService,
+                                  existingShoes: _streamShoes,
+                                ),
+                              ),
+                              onDelete: () => _deleteShoe(shoe),
+                            ),
+                          );
+                        },
+                        childCount: _displayedShoes.length,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ValueListenableBuilder<bool>(
+            valueListenable: _showToTop,
+            builder: (context, show, child) {
+              return AnimatedScale(
+                scale: show ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutBack,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: FloatingActionButton.small(
+                    onPressed: () {
+                      _scrollController.animateTo(
+                        0,
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.fastOutSlowIn,
+                      );
+                    },
+                    backgroundColor: Colors.indigo.shade400,
+                    child: const Icon(Icons.arrow_upward_rounded, color: Colors.white),
+                  ),
+                ),
+              );
+            },
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: _isFabVisible,
+            builder: (context, isVisible, child) {
+              return AnimatedSlide(
+                offset: isVisible ? Offset.zero : const Offset(0, 2),
+                duration: const Duration(milliseconds: 300),
+                child: AnimatedOpacity(
+                  opacity: isVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: IgnorePointer(
+                    ignoring: !isVisible,
+                    child: FloatingActionButton(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        showDialog(
+                          context: context,
+                          builder: (_) => ShoeFormDialogContent(
+                            firebaseService: firebaseService,
+                            existingShoes: _streamShoes,
+                          ),
+                        );
+                      },
+                      tooltip: 'Add New Shoe',
+                      child: const Icon(Icons.add),
+                      elevation: 6,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+  void _showExitConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Close App?'),
+        content: const Text('Are you sure you want to exit the Hive?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('STAY', style: TextStyle(color: Colors.grey[600])),
+          ),
+          ElevatedButton(
+            onPressed: () => SystemNavigator.pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('EXIT', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+}
+
+class _ShoeListHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget Function(double height) builder;
+  final double maxHeight;
+  final double minHeight;
+
+  _ShoeListHeaderDelegate({
+    required this.builder,
+    required this.maxHeight,
+    required this.minHeight,
+  });
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final currentHeight = max(minHeight, maxHeight - shrinkOffset);
+    return builder(currentHeight);
+  }
+
+  @override
+  bool shouldRebuild(covariant _ShoeListHeaderDelegate oldDelegate) {
+    return true; // Always rebuild to reflect latest data/callbacks
+  }
 }
