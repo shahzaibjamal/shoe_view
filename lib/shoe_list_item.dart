@@ -49,13 +49,16 @@ class ShoeListItem extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(6.5),
-          child: ShoeNetworkImage(
-            imageUrl: remoteImageUrl,
-            width: 60,
-            height: 60,
-            fit: BoxFit.cover,
+        child: Hero(
+          tag: 'shoe_image_${shoe.shipmentId}_${shoe.itemId}',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6.5),
+            child: ShoeNetworkImage(
+              imageUrl: remoteImageUrl,
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
       );
@@ -99,17 +102,18 @@ class ShoeListItem extends StatelessWidget {
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: Colors.black87,
-      transitionDuration: const Duration(milliseconds: 300),
+      transitionDuration: const Duration(milliseconds: 500),
       pageBuilder: (context, animation, secondaryAnimation) =>
           const SizedBox.shrink(),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(
           opacity: animation,
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+            scale: Tween<double>(begin: 0.85, end: 1.0).animate(
               CurvedAnimation(
                 parent: animation,
-                curve: Curves.easeOut,
+                curve: Curves.easeOutBack,
+                reverseCurve: Curves.easeInBack,
               ),
             ),
             child: _ShoeDetailDialogContent(
@@ -454,169 +458,189 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                 Navigator.of(context).pop();
               }
             }, 
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    constraints: BoxConstraints(
-                      maxWidth: widget.maxWidth,
-                      maxHeight: widget.maxHeight,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50], // Subtle background
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.grey[500]!,
-                        width: 4,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 5,
                       ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                          12), // 🎯 FIXED: Radius - BorderWidth (16 - 4)
-                      child: GestureDetector(
-                        onDoubleTapDown: _handleDoubleTap,
-                        onDoubleTap: () {},
-                        onTap: () {
-                          // Tap on image also closes the dialog
-                          if (ModalRoute.of(context)?.isCurrent ?? false) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: InteractiveViewer(
-                          transformationController: _transformationController,
-                          minScale: 1.0,
-                          maxScale: 4.0,
-                          child: ShoeNetworkImage(
-                            imageUrl: widget.imageUrl,
-                            width: null,
-                            height: null,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      widget.shoe.shoeDetail,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Size: ${widget.sizeDisplay}',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (widget.isFlatSale)
-                    Column(
+                  padding: const EdgeInsets.all(16),
+                  child: AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                                border:
-                                    Border.all(color: Colors.orange.shade200),
-                              ),
-                              child: Text(
-                                '-${widget.flatDiscount.toStringAsFixed(0)}% OFF',
-                                style: TextStyle(
-                                  color: Colors.orange.shade900,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
+                        Container(
+                          constraints: BoxConstraints(
+                            maxWidth: widget.maxWidth,
+                            maxHeight: widget.maxHeight,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50], // Subtle background
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.grey[500]!,
+                              width: 4,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                                12), // 🎯 FIXED: Radius - BorderWidth (16 - 4)
+                            child: GestureDetector(
+                              onDoubleTapDown: _handleDoubleTap,
+                              onDoubleTap: () {},
+                              onTap: () {
+                                // Tap on image also closes the dialog
+                                if (ModalRoute.of(context)?.isCurrent ?? false) {
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                              child: Hero(
+                                tag: 'shoe_image_${widget.shoe.shipmentId}_${widget.shoe.itemId}',
+                                child: InteractiveViewer(
+                                  transformationController: _transformationController,
+                                  minScale: 1.0,
+                                  maxScale: 4.0,
+                                  child: ShoeNetworkImage(
+                                    imageUrl: widget.imageUrl,
+                                    // 🎯 Fix: Remove forced dimensions so container wraps image size
+                                    width: null, 
+                                    height: null,
+                                    fit: BoxFit.contain,
+                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              '${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[400],
-                                decoration: TextDecoration.lineThrough,
-                                decorationThickness: 1.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '${widget.currency}${ShoeQueryUtils.roundToNearestDouble(widget.shoe.sellingPrice * (1 - widget.flatDiscount / 100)).toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.red.shade300,
-                            letterSpacing: -0.5,
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            widget.shoe.shoeDetail,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Size: ${widget.sizeDisplay}',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        if (widget.isFlatSale)
+                          Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade100,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border:
+                                          Border.all(color: Colors.orange.shade200),
+                                    ),
+                                    child: Text(
+                                      '-${widget.flatDiscount.toStringAsFixed(0)}% OFF',
+                                      style: TextStyle(
+                                        color: Colors.orange.shade900,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    '${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.grey[400],
+                                      decoration: TextDecoration.lineThrough,
+                                      decorationThickness: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                '${widget.currency}${ShoeQueryUtils.roundToNearestDouble(widget.shoe.sellingPrice * (1 - widget.flatDiscount / 100)).toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.red.shade300,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            'Price: ${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.indigo.shade900,
+                            ),
+                          ),
                       ],
-                    )
-                  else
-                    Text(
-                      'Price: ${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.indigo.shade900,
+                    ),
+                  ),
+                ),
+
+                // Close Button (Anchored to Card Corner)
+                Positioned(
+                  top: -12,
+                  right: -12,
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      if (ModalRoute.of(context)?.isCurrent ?? false) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 20,
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-
-          // Close Button
-          Positioned(
-            top: 8,
-            right: 8,
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                if (ModalRoute.of(context)?.isCurrent ?? false) {
-                  Navigator.of(context).pop();
-                }
-              },
-
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  shape: BoxShape.circle,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
+              ],
             ),
           ),
         ],

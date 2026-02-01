@@ -25,6 +25,8 @@ import 'package:shoe_view/shoe_list_item.dart';
 import 'package:shoe_view/shoe_model.dart';
 import 'package:shoe_view/shared/constants/app_constants.dart';
 import 'package:shoe_view/shared/widgets/skeleton_loader.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:lottie/lottie.dart';
 
 class ShoeListView extends StatefulWidget {
   const ShoeListView({super.key});
@@ -36,7 +38,7 @@ class ShoeListView extends StatefulWidget {
 class _ShoeListViewState extends State<ShoeListView>
     with WidgetsBindingObserver {
   // --- UI State ---
-  String _sortField = 'ItemId';
+  ShoeSortField _sortField = ShoeSortField.itemId;
   bool _sortAscending = true;
   bool _isLoadingExternalData = false;
   bool _isInitialLoading = true;
@@ -53,7 +55,7 @@ class _ShoeListViewState extends State<ShoeListView>
   ShoeCategory _selectedCategory = ShoeCategory.available;
   ShoeCategory _lastProcessedCategory = ShoeCategory.available;
   String _lastProcessedQuery = '';
-  String _lastProcessedSortField = '';
+  ShoeSortField _lastProcessedSortField = ShoeSortField.itemId;
   bool _lastProcessedSortAscending = true;
   int _lastProcessedListLength = -1;
   List<String> _searchSuggestions = [];
@@ -166,25 +168,21 @@ class _ShoeListViewState extends State<ShoeListView>
   // --- Event Handlers ---
 
   void _scrollListener() {
-    final currentPosition = _scrollController.offset;
-    final scrollingDown = currentPosition > _lastScrollPosition;
-    
-    // Hide FAB immediately when scrolling down
-    if (scrollingDown && _isFabVisible.value) {
-      _fabVisibilityTimer?.cancel();
+    // 🎯 Hide FAB immediately when scrolling starts (any direction)
+    if (_isFabVisible.value) {
       _isFabVisible.value = false;
-    } 
-    // Show FAB after 1000ms when scrolling stops or scrolling up
-    else if (!scrollingDown && !_isFabVisible.value) {
-      _fabVisibilityTimer?.cancel();
-      _fabVisibilityTimer = Timer(const Duration(milliseconds: 1000), () {
-        if (mounted) {
-          _isFabVisible.value = true;
-        }
-      });
     }
-    
-    _lastScrollPosition = currentPosition;
+
+    // 🎯 Reset timer on every scroll event. 
+    // Show FAB back after 1 second of being "static"
+    _fabVisibilityTimer?.cancel();
+    _fabVisibilityTimer = Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) {
+        _isFabVisible.value = true;
+      }
+    });
+
+    _lastScrollPosition = _scrollController.offset;
   }
 
   void _onSearchChanged() {
@@ -300,7 +298,7 @@ class _ShoeListViewState extends State<ShoeListView>
     });
   }
 
-  void _onSortChanged(String? newSortField) {
+  void _onSortChanged(ShoeSortField? newSortField) {
     if (newSortField == null || newSortField == _sortField) return;
     HapticFeedback.mediumImpact();
     AnalyticsService.logSelectContent(
@@ -456,6 +454,7 @@ class _ShoeListViewState extends State<ShoeListView>
         isFlatSale: appStatus.isFlatSale,
         flatDiscount: appStatus.flatDiscount,
         sortField: _sortField,
+        category: _selectedCategory,
       );
     }
     
@@ -470,6 +469,7 @@ class _ShoeListViewState extends State<ShoeListView>
       lowDiscount: appStatus.lowDiscount,
       highDiscount: appStatus.highDiscount,
       sortField: _sortField,
+      category: _selectedCategory,
       isInstagramOnly: appStatus.isInstagramOnly,
     );
   }
@@ -999,7 +999,7 @@ class _ShoeListViewState extends State<ShoeListView>
 
   @override
   Widget build(BuildContext context) {
-    final double headerHeight = MediaQuery.of(context).size.height * 0.20;
+    final double headerHeight = MediaQuery.of(context).size.height * 0.21;
     final firebaseService = context.read<FirebaseService>();
 
     return Scaffold(
@@ -1068,7 +1068,7 @@ class _ShoeListViewState extends State<ShoeListView>
                       return ListView.builder(
                         padding: const EdgeInsets.all(8),
                         itemCount: 5, // Show 5 skeleton items
-                        itemBuilder: (context, index) => const ShoeListItemSkeleton(),
+                        itemBuilder: (context, index) => ShoeListItemSkeleton(),
                       );
                     }
                   
@@ -1110,32 +1110,38 @@ class _ShoeListViewState extends State<ShoeListView>
 
                   if (_displayedShoes.isEmpty) {
                     return Center(
-                      child: Padding(
+                      child: SingleChildScrollView(
                         padding: const EdgeInsets.all(32.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              _searchQuery.isNotEmpty 
-                                ? Icons.search_off 
-                                : Icons.shopping_bag_outlined,
-                              size: 64,
-                              color: Colors.grey[400],
+                            Lottie.network(
+                              'https://lottie.host/7e9d7249-fbd8-4903-8d6c-2f6a97184291/K7V8Bw0Y6G.json', // Premium Shoe Walk
+                              height: 180,
+                              repeat: true,
+                              errorBuilder: (context, error, stackTrace) => Icon(
+                                _searchQuery.isNotEmpty 
+                                  ? Icons.search_off 
+                                  : Icons.shopping_bag_outlined,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
                             ),
                             const SizedBox(height: 16),
                             Text(
                               _searchQuery.isNotEmpty
                                 ? 'No shoes found'
-                                : 'No shoes yet',
+                                : 'Empty Hive',
                               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 color: Colors.grey[600],
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               _searchQuery.isNotEmpty
                                 ? 'Try adjusting your search terms'
-                                : 'Tap the + button to add your first shoe!',
+                                : 'Tap the + button to stock your initial pairs!',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: Colors.grey[500],
                               ),
@@ -1163,24 +1169,26 @@ class _ShoeListViewState extends State<ShoeListView>
                       itemBuilder: (context, index) {
                         final shoe = _displayedShoes[index];
                         final shoeKey = _getShoeKey(shoe);
-                        return ShoeListItem(
-                          key: ValueKey(shoeKey),
-                          shoe: shoe,
-                          isSelectionMode: _isSelectionMode,
-                          isSelected: _selectedShoeIds.contains(shoeKey),
-                          onToggleSelection: () => _toggleSelection(shoeKey),
-                          onLongPress: () => _toggleSelection(shoeKey),
-                          onCopyDataPressed: _onCopyShoe,
-                          onShareDataPressed: (s) => _shareData([s]),
-                          onEdit: () => showDialog(
-                            context: context,
-                            builder: (context) => ShoeFormDialogContent(
-                              shoe: shoe,
-                              firebaseService: firebaseService,
-                              existingShoes: _streamShoes,
+                        return RepaintBoundary(
+                          child: ShoeListItem(
+                            key: ValueKey(shoeKey),
+                            shoe: shoe,
+                            isSelectionMode: _isSelectionMode,
+                            isSelected: _selectedShoeIds.contains(shoeKey),
+                            onToggleSelection: () => _toggleSelection(shoeKey),
+                            onLongPress: () => _toggleSelection(shoeKey),
+                            onCopyDataPressed: _onCopyShoe,
+                            onShareDataPressed: (s) => _shareData([s]),
+                            onEdit: () => showDialog(
+                              context: context,
+                              builder: (context) => ShoeFormDialogContent(
+                                shoe: shoe,
+                                firebaseService: firebaseService,
+                                existingShoes: _streamShoes,
+                              ),
                             ),
+                            onDelete: () => _deleteShoe(shoe),
                           ),
-                          onDelete: () => _deleteShoe(shoe),
                         );
                       },
                     );

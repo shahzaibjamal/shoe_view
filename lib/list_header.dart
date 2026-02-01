@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/app_status_notifier.dart';
+import 'package:shoe_view/shoe_model.dart';
 
 class ListHeader extends StatefulWidget {
   final double height;
@@ -12,9 +13,9 @@ class ListHeader extends StatefulWidget {
   final List<String> suggestions;
   final int itemCount;
   final ValueChanged<ShoeCategory> onCategoryChanged;
-  final String sortField;
+  final ShoeSortField sortField;
   final bool sortAscending;
-  final ValueChanged<String> onSortFieldChanged;
+  final ValueChanged<ShoeSortField> onSortFieldChanged;
   final VoidCallback onSortDirectionToggled;
   final VoidCallback onCopyDataPressed;
   final VoidCallback onShareDataPressed;
@@ -60,7 +61,7 @@ class ListHeader extends StatefulWidget {
   State<ListHeader> createState() => _ListHeaderState();
 }
 
-class _ListHeaderState extends State<ListHeader> {
+class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
   final GlobalKey _menuKey = GlobalKey();
   OverlayEntry? _overlayEntry;
   late FocusNode _searchFocusNode;
@@ -69,12 +70,34 @@ class _ListHeaderState extends State<ListHeader> {
   void initState() {
     super.initState();
     _searchFocusNode = FocusNode();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  /// 🎯 Fix: Reset focus when app resumes from background (e.g., after sharing to WhatsApp)
+  /// This fixes the keyboard not opening issue on Android.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Unfocus first, then recreate the node to fix any broken focus state
+      _searchFocusNode.unfocus();
+      
+      // Schedule a microtask to recreate the focus node after the frame
+      Future.microtask(() {
+        if (mounted) {
+          setState(() {
+            _searchFocusNode.dispose();
+            _searchFocusNode = FocusNode();
+          });
+        }
+      });
+    }
   }
 
   void _toggleOverlay() {
@@ -323,7 +346,7 @@ class _ListHeaderState extends State<ListHeader> {
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -437,7 +460,7 @@ class _ListHeaderState extends State<ListHeader> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
+                                  child: DropdownButton<ShoeSortField>(
                                     value: widget.sortField,
                                     dropdownColor: Colors.indigo.shade900,
                                     isExpanded: true,
@@ -447,21 +470,17 @@ class _ListHeaderState extends State<ListHeader> {
                                         color: Colors.white,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600),
-                                    onChanged: (String? val) {
+                                    onChanged: (ShoeSortField? val) {
                                       FocusScope.of(context).unfocus();
                                       if (val != null) {
                                         widget.onSortFieldChanged(val);
                                       }
                                     },
-                                    items: [
-                                      'ItemId',
-                                      'size',
-                                      'sellingPrice',
-                                    ].map((field) {
+                                    items: ShoeSortField.values.map((field) {
                                       return DropdownMenuItem(
                                         value: field,
                                         child: Text(
-                                          ShoeQueryUtils.formatLabel(field),
+                                          ShoeQueryUtils.formatLabel(field.name),
                                           style: TextStyle(
                                             color: widget.sortField == field
                                                 ? Colors.amberAccent
@@ -632,7 +651,10 @@ class _CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(

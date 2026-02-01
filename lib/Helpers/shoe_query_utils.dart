@@ -163,7 +163,7 @@ class ShoeQueryUtils {
   static List<Shoe> sortAndLimitShoes({
     required List<Shoe> shoes,
     required String rawQuery,
-    required String sortField,
+    required ShoeSortField sortField, // 🎯 Updated to Enum
     required bool sortAscending,
     ShoeCategory category = ShoeCategory.available,
     bool applyStatusFilter = true,
@@ -199,8 +199,6 @@ class ShoeQueryUtils {
           .toList();
     }
 // --- 1. Sorting ---
-    final isStatusFiltered = applyStatusFilter;
-
     displayedShoes.sort((a, b) {
       final shipmentA = int.tryParse(a.shipmentId) ?? 0;
       final shipmentB = int.tryParse(b.shipmentId) ?? 0;
@@ -209,26 +207,25 @@ class ShoeQueryUtils {
       int comparison = shipmentA.compareTo(shipmentB);
       if (comparison != 0) return comparison;
 
-      // Then sort by the selected field
-      final normalizedField = sortField.toLowerCase();
-
-      if (normalizedField == 'itemid') {
-        comparison = a.itemId.compareTo(b.itemId);
-      } else if (normalizedField == 'size') {
-        final sizeA = _safeDoubleParse(a.sizeEur?.first);
-        final sizeB = _safeDoubleParse(b.sizeEur?.first);
-        comparison = sizeA.compareTo(sizeB);
-      } else if (normalizedField == 'sellingprice') {
-        final priceA = isFlatSale 
-            ? ShoeQueryUtils.roundToNearestDouble(a.sellingPrice * (1 - flatDiscount / 100)) 
-            : a.sellingPrice;
-        final priceB = isFlatSale 
-            ? ShoeQueryUtils.roundToNearestDouble(b.sellingPrice * (1 - flatDiscount / 100)) 
-            : b.sellingPrice;
-        comparison = priceA.compareTo(priceB);
-      } else {
-        // Default fallback: itemId
-        comparison = a.itemId.compareTo(b.itemId);
+      // 🎯 Then sort by the selected field (Strictly Typed)
+      switch (sortField) {
+        case ShoeSortField.itemId:
+          comparison = a.itemId.compareTo(b.itemId);
+          break;
+        case ShoeSortField.size:
+          final sizeA = _safeDoubleParse(a.sizeEur?.first);
+          final sizeB = _safeDoubleParse(b.sizeEur?.first);
+          comparison = sizeA.compareTo(sizeB);
+          break;
+        case ShoeSortField.sellingPrice:
+          final priceA = isFlatSale 
+              ? ShoeQueryUtils.roundToNearestDouble(a.sellingPrice * (1 - flatDiscount / 100)) 
+              : a.sellingPrice;
+          final priceB = isFlatSale 
+              ? ShoeQueryUtils.roundToNearestDouble(b.sellingPrice * (1 - flatDiscount / 100)) 
+              : b.sellingPrice;
+          comparison = priceA.compareTo(priceB);
+          break;
       }
 
       return sortAscending ? comparison : -comparison;
@@ -538,7 +535,8 @@ class ShoeQueryUtils {
     required double flatDiscount,
     required double lowDiscount,
     required double highDiscount,
-    required String sortField,
+    required ShoeSortField sortField,
+    required ShoeCategory category,
     bool isInstagramOnly = false,
   }) {
     final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
@@ -556,7 +554,7 @@ class ShoeQueryUtils {
       );
     }
 
-    final isSold = sortField.toLowerCase().contains('sold');
+    final isSold = category == ShoeCategory.sold;
 
     for (int i = 0; i < shoeList.length; i++) {
       final shoe = shoeList[i];
@@ -667,7 +665,8 @@ class ShoeQueryUtils {
     required String currencyCode,
     required bool isFlatSale,
     required double flatDiscount,
-    required String sortField,
+    required ShoeSortField sortField,
+    required ShoeCategory category,
   }) {
     final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
     final buffer = StringBuffer();
@@ -680,7 +679,7 @@ class ShoeQueryUtils {
       buffer.writeln('🔥 $flatDiscount% OFF\n');
     }
 
-    final isSold = sortField.toLowerCase().contains('sold');
+    final isSold = category == ShoeCategory.sold;
 
     for (int i = 0; i < shoeList.length; i++) {
       final shoe = shoeList[i];

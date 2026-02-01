@@ -361,7 +361,7 @@ class _SettingsDialogState extends State<SettingsDialog>
     required String title,
     String? subtitle,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    ValueChanged<bool>? onChanged,
     bool showDivider = true,
   }) {
     return Column(
@@ -390,14 +390,17 @@ class _SettingsDialogState extends State<SettingsDialog>
     String label,
     TextEditingController ctrl, {
     String suffix = '%',
+    bool enabled = true,
   }) {
     return TextField(
       controller: ctrl,
+      enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
         suffixText: suffix,
         filled: true,
-        fillColor: Colors.grey[50],
+        fillColor: enabled ? Colors.grey[50] : Colors.grey[200],
+        labelStyle: TextStyle(color: enabled ? Colors.black87 : Colors.grey),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -406,6 +409,10 @@ class _SettingsDialogState extends State<SettingsDialog>
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
         ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: Colors.indigo.shade300, width: 2),
@@ -413,6 +420,7 @@ class _SettingsDialogState extends State<SettingsDialog>
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      style: TextStyle(color: enabled ? Colors.black87 : Colors.grey),
     );
   }
 
@@ -698,34 +706,35 @@ class _SettingsDialogState extends State<SettingsDialog>
                         _buildSectionHeader('Price Simulation'),
                         _buildCard(
                           children: [
-                            // Flat Discount toggle - disabled when Sale Price Range is ON
+                            // Flat Discount toggle - Always active
                             _buildToggleTile(
                               title: 'Flat Discount',
-                              subtitle: _isFlatSale ? null : 'Apply single % off to all items',
+                              subtitle: 'Apply single % off to all items',
                               value: _isFlatSale,
-                              onChanged: _isSalePrice 
-                                  ? null  // Disabled when Sale Price Range is active
-                                  : (v) => setState(() {
-                                      _isFlatSale = v;
-                                    }),
-                              showDivider: true,
+                              onChanged: (v) => setState(() {
+                                _isFlatSale = v;
+                                if (v) _isSalePrice = false;
+                              }),
+                              showDivider: _isFlatSale || !_isSalePrice,
                             ),
                             if (_isFlatSale)
                               Padding(
                                 padding: const EdgeInsets.all(16),
-                                child: _buildNumField('Discount %', _flatDiscountController),
+                                child: _buildNumField(
+                                  'Discount %', 
+                                  _flatDiscountController,
+                                ),
                               ),
 
-                            // Sale Price Range toggle - disabled when Flat Discount is ON
+                            // Sale Price Range toggle - Always active
                             _buildToggleTile(
                               title: 'Sale Price Range',
-                              subtitle: _isSalePrice ? null : 'Simulate min-max random discounts',
+                              subtitle: 'Simulate min-max random discounts',
                               value: _isSalePrice,
-                              onChanged: _isFlatSale 
-                                  ? null  // Disabled when Flat Discount is active
-                                  : (v) => setState(() {
-                                      _isSalePrice = v;
-                                    }),
+                              onChanged: (v) => setState(() {
+                                _isSalePrice = v;
+                                if (v) _isFlatSale = false;
+                              }),
                               showDivider: _isSalePrice,
                             ),
                             if (_isSalePrice)
@@ -733,9 +742,19 @@ class _SettingsDialogState extends State<SettingsDialog>
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
                                   children: [
-                                    Expanded(child: _buildNumField("Min %", _lowDiscountController)),
+                                    Expanded(
+                                      child: _buildNumField(
+                                        "Min %", 
+                                        _lowDiscountController,
+                                      ),
+                                    ),
                                     const SizedBox(width: 12),
-                                    Expanded(child: _buildNumField("Max %", _highDiscountController)),
+                                    Expanded(
+                                      child: _buildNumField(
+                                        "Max %", 
+                                        _highDiscountController,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),

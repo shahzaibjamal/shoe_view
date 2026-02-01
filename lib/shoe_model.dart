@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+enum ShoeSortField { itemId, size, sellingPrice }
+
 @immutable
 class Shoe {
   final String documentId; // Firestore document ID (not used as primary key)
