@@ -31,6 +31,42 @@ class ShoeNetworkImage extends StatelessWidget {
     // Use the static helper from our manager for consistency
     final stableKey = ShoeViewCacheManager.getStableKey(imageUrl);
 
+    // 🎯 CACHE-FIRST STRATEGY: Check if we have a cached file FIRST
+    // This prevents network re-validation flicker and works offline
+    return FutureBuilder<File?>(
+      future: ShoeViewCacheManager().getCachedFileOnly(imageUrl, customKey: stableKey),
+      builder: (context, cacheSnapshot) {
+        // If we have a cached file, use it directly (no network hit!)
+        if (cacheSnapshot.connectionState == ConnectionState.done &&
+            cacheSnapshot.hasData &&
+            cacheSnapshot.data != null) {
+          return _buildClipped(
+            Image.file(
+              cacheSnapshot.data!,
+              height: height,
+              width: width,
+              fit: fit,
+              // 🎯 Optimization: Resize in memory similar to CachedNetworkImage
+              cacheWidth: disableMemCache || width == null 
+                  ? null 
+                  : (width! * 2.5).toInt(),
+            ),
+          );
+        }
+
+        // While checking cache, show placeholder
+        if (cacheSnapshot.connectionState == ConnectionState.waiting) {
+          return _buildClipped(_buildPlaceholder());
+        }
+
+        // No cached file found - fall back to CachedNetworkImage for download
+        return _buildNetworkImage(stableKey);
+      },
+    );
+  }
+
+  /// Build the CachedNetworkImage widget (only used when no local cache exists)
+  Widget _buildNetworkImage(String stableKey) {
     // 🎯 Optimization: Resize image in memory to save RAM
     // If disableMemCache is true, we want the FULL resolution (for collage generation)
     final int? memCacheWidth =

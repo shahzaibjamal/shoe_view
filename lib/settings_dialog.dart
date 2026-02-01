@@ -698,15 +698,17 @@ class _SettingsDialogState extends State<SettingsDialog>
                         _buildSectionHeader('Price Simulation'),
                         _buildCard(
                           children: [
+                            // Flat Discount toggle - disabled when Sale Price Range is ON
                             _buildToggleTile(
                               title: 'Flat Discount',
                               subtitle: _isFlatSale ? null : 'Apply single % off to all items',
                               value: _isFlatSale,
-                              onChanged: (v) => setState(() {
-                                _isFlatSale = v;
-                                if (v) _isSalePrice = false;
-                              }),
-                              showDivider: _isFlatSale || _isSalePrice, // Only show divider if expanded content follows or next item
+                              onChanged: _isSalePrice 
+                                  ? null  // Disabled when Sale Price Range is active
+                                  : (v) => setState(() {
+                                      _isFlatSale = v;
+                                    }),
+                              showDivider: true,
                             ),
                             if (_isFlatSale)
                               Padding(
@@ -714,30 +716,29 @@ class _SettingsDialogState extends State<SettingsDialog>
                                 child: _buildNumField('Discount %', _flatDiscountController),
                               ),
 
-                            // Only show Sale Range if Flat Sale is OFF (mutually exclusive)
-                            if (!_isFlatSale) ...[
-                              _buildToggleTile(
-                                title: 'Sale Price Range',
-                                subtitle: _isSalePrice ? null : 'Simulate min-max random discounts',
-                                value: _isSalePrice,
-                                onChanged: (v) => setState(() {
-                                  _isSalePrice = v;
-                                  if (v) _isFlatSale = false;
-                                }),
-                                showDivider: _isSalePrice,
-                              ),
-                              if (_isSalePrice)
-                                Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                    children: [
-                                      Expanded(child: _buildNumField("Min %", _lowDiscountController)),
-                                      const SizedBox(width: 12),
-                                      Expanded(child: _buildNumField("Max %", _highDiscountController)),
-                                    ],
-                                  ),
+                            // Sale Price Range toggle - disabled when Flat Discount is ON
+                            _buildToggleTile(
+                              title: 'Sale Price Range',
+                              subtitle: _isSalePrice ? null : 'Simulate min-max random discounts',
+                              value: _isSalePrice,
+                              onChanged: _isFlatSale 
+                                  ? null  // Disabled when Flat Discount is active
+                                  : (v) => setState(() {
+                                      _isSalePrice = v;
+                                    }),
+                              showDivider: _isSalePrice,
+                            ),
+                            if (_isSalePrice)
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: _buildNumField("Min %", _lowDiscountController)),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: _buildNumField("Max %", _highDiscountController)),
+                                  ],
                                 ),
-                            ]
+                              ),
                           ],
                         ),
                       ],
