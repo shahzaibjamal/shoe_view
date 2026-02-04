@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 enum ShoeSortField { itemId, size, sellingPrice }
@@ -24,6 +25,8 @@ class Shoe {
   final bool isSizeLinked;
   final String notes;
   final String imagesLink;
+  final DateTime? lastEdit;
+  final DateTime? soldOn;
 
   const Shoe({
     required this.documentId,
@@ -46,6 +49,8 @@ class Shoe {
     this.isConfirmed = false,
     this.isSizeLinked = true,
     this.notes = '',
+    this.lastEdit,
+    this.soldOn,
   });
 
   // Factory constructor for creating a Shoe object from a Firestore map.
@@ -90,6 +95,22 @@ class Shoe {
     final quantity = map['Quantity'] as int? ?? 1;
     final notes = map['Notes']?.toString() ?? '';
     final imagesLink = map['ImagesLink']?.toString() ?? '';
+    final lastEditRaw = map['LastEdit'];
+    final soldOnRaw = map['SoldOn'];
+
+    DateTime? lastEdit;
+    if (lastEditRaw is Timestamp) {
+      lastEdit = lastEditRaw.toDate();
+    } else if (lastEditRaw is String) {
+      lastEdit = DateTime.tryParse(lastEditRaw);
+    }
+
+    DateTime? soldOn;
+    if (soldOnRaw is Timestamp) {
+      soldOn = soldOnRaw.toDate();
+    } else if (soldOnRaw is String) {
+      soldOn = DateTime.tryParse(soldOnRaw);
+    }
 
     String instagram = '';
     String tiktok = '';
@@ -121,6 +142,8 @@ class Shoe {
       isSizeLinked: isSizeLinked,
       notes: notes,
       imagesLink: imagesLink,
+      lastEdit: lastEdit,
+      soldOn: soldOn,
     );
   }
 
@@ -147,6 +170,8 @@ class Shoe {
       'IsSizeLinked': isSizeLinked,
       'Notes': notes,
       'ImagesLink': imagesLink,
+      'LastEdit': lastEdit?.toIso8601String(),
+      'SoldOn': soldOn?.toIso8601String(),
     };
   }
 
@@ -171,7 +196,9 @@ class Shoe {
       isConfirmed = false,
       isSizeLinked = true,
       notes = '',
-      imagesLink = '';
+      imagesLink = '',
+      lastEdit = null,
+      soldOn = null;
 
   // Creates an updated copy of the object.
   Shoe copyWith({
@@ -195,6 +222,8 @@ class Shoe {
     bool? isSizeLinked,
     String? notes,
     String? imagesLink,
+    DateTime? lastEdit,
+    DateTime? soldOn,
   }) {
     return Shoe(
       documentId: documentId ?? this.documentId,
@@ -217,6 +246,8 @@ class Shoe {
       status: status ?? this.status,
       notes: notes ?? this.notes,
       imagesLink: imagesLink ?? this.imagesLink,
+      lastEdit: lastEdit ?? this.lastEdit,
+      soldOn: soldOn ?? this.soldOn,
     );
   }
 
@@ -289,6 +320,8 @@ class Shoe {
       isSizeLinked: isSizeLinked,
       notes: notes,
       imagesLink: imagesLink,
+      lastEdit: map['LastEdit'] != null ? DateTime.tryParse(map['LastEdit'].toString()) : null,
+      soldOn: map['SoldOn'] != null ? DateTime.tryParse(map['SoldOn'].toString()) : null,
     );
   }
 

@@ -122,8 +122,8 @@ class FirebaseService {
       });
       return result.data;
     } catch (error) {
-      print('Error updating shoe: $error');
-      return 'Error';
+      AppLogger.log('Error updating shoe: $error');
+      return {'success': false, 'message': error.toString()};
     }
   }
 

@@ -70,6 +70,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   bool _isLoading = false;
   bool _isEditing;
   String _status = 'Available';
+  DateTime? _lastEdit;
+  DateTime? _soldOn;
   String currency = '\$';
 
   // State for real-time ID validation feedback
@@ -96,6 +98,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     _quantityController = TextEditingController(
       text: widget.shoe?.quantity.toString() ?? '1',
     );
+    _lastEdit = widget.shoe?.lastEdit;
+    _soldOn = widget.shoe?.soldOn;
 
     // Text Controllers
     _shoeIdController = TextEditingController(
@@ -313,6 +317,10 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       remoteImageUrl: _currentRemoteImageUrl,
       isUploaded: widget.shoe?.isUploaded ?? false,
       isSizeLinked: _isBound,
+      lastEdit: DateTime.now(),
+      soldOn: (_status == 'Sold') 
+          ? (widget.shoe?.status == 'Sold' ? _soldOn : DateTime.now())
+          : null,
     );
 
     // Start loading state
@@ -554,6 +562,12 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                           onRepairNotesChanged: (notes) => setState(() => _repairNotes = notes),
                           onImagesLinkChanged: (imagesLink) => setState(() => _imagesLink = imagesLink),
                         ),
+                        
+                        // NEW: Last Edit & Sold On Display (ReadOnly)
+                        if (_isEditing) ...[
+                          const SizedBox(height: 16),
+                          _buildAuditInfo(),
+                        ],
 
                         const SizedBox(height: 24),
                         _buildSectionHeader('Pricing & Media', Icons.payments_rounded),
@@ -727,5 +741,68 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
         ),
       ),
     );
+  }
+
+  Widget _buildAuditInfo() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey[50]!.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blueGrey[100]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.history_rounded, size: 16, color: Colors.blueGrey[400]),
+              const SizedBox(width: 8),
+              Text(
+                'Audit Information',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueGrey[400],
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildAuditRow('Last Edit:', _formatDate(_lastEdit)),
+          if (_status == 'Sold') ...[
+            const SizedBox(height: 4),
+            _buildAuditRow('Sold On:', _formatDate(_soldOn), color: Colors.green[700]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditRow(String label, String value, {Color? color}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: Colors.blueGrey[600]),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color ?? Colors.blueGrey[800],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Never';
+    // Simple format: DD/MM/YYYY HH:MM
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
