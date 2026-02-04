@@ -458,6 +458,7 @@ class _ShoeListViewState extends State<ShoeListView>
       category: _selectedCategory,
       isFlatSale: appStatus.isFlatSale,
       flatDiscount: appStatus.flatDiscount,
+      applySaleToAllStatuses: appStatus.applySaleToAllStatuses,
     );
 
     // Update suggestions if the source list changed OR if they are currently empty
@@ -533,6 +534,7 @@ class _ShoeListViewState extends State<ShoeListView>
         flatDiscount: appStatus.flatDiscount,
         sortField: _sortField,
         category: _selectedCategory,
+        applySaleToAllStatuses: appStatus.applySaleToAllStatuses,
       );
     }
     
@@ -549,6 +551,7 @@ class _ShoeListViewState extends State<ShoeListView>
       sortField: _sortField,
       category: _selectedCategory,
       isInstagramOnly: appStatus.isInstagramOnly,
+      applySaleToAllStatuses: appStatus.applySaleToAllStatuses,
     );
   }
 
@@ -1215,6 +1218,13 @@ class _ShoeListViewState extends State<ShoeListView>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        
+        // 🎯 Handle Selection Mode: Clear selection on back press
+        if (_isSelectionMode) {
+          _clearSelection();
+          return;
+        }
+
         _showExitConfirmation();
       },
       child: Scaffold(

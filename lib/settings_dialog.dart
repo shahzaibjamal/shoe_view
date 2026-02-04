@@ -51,6 +51,8 @@ class _SettingsDialogState extends State<SettingsDialog>
   bool _isInstagramOnly = false;
   bool _isConciseMode = false;
   bool _allowMobileDataSync = false;
+  bool _showConditionGradients = true;
+  bool _applySaleToAllStatuses = false;
 
   // Controllers
   late TextEditingController _sampleController;
@@ -126,6 +128,8 @@ class _SettingsDialogState extends State<SettingsDialog>
       _isInstagramOnly = prefs.getBool('isInstagramOnly') ?? app.isInstagramOnly;
       _isConciseMode = prefs.getBool('isConciseMode') ?? app.isConciseMode;
       _allowMobileDataSync = prefs.getBool('allowMobileDataSync') ?? app.allowMobileDataSync;
+      _showConditionGradients = app.showConditionGradients;
+      _applySaleToAllStatuses = app.applySaleToAllStatuses;
 
       _sampleController.text = app.sampleShareCount.toString();
       _lowDiscountController.text = app.lowDiscount.toString();
@@ -200,6 +204,8 @@ class _SettingsDialogState extends State<SettingsDialog>
       prefs.setBool('isInstagramOnly', _isInstagramOnly),
       prefs.setBool('isConciseMode', _isConciseMode),
       prefs.setBool('allowMobileDataSync', _allowMobileDataSync),
+      prefs.setBool('showConditionGradients', _showConditionGradients),
+      prefs.setBool('applySaleToAllStatuses', _applySaleToAllStatuses),
       prefs.setDouble('lowDiscount', finalLow),
       prefs.setDouble('highDiscount', finalHigh),
       prefs.setDouble('flatDiscount', finalFlat),
@@ -226,6 +232,8 @@ class _SettingsDialogState extends State<SettingsDialog>
         isInstagramOnly: _isInstagramOnly,
         isConciseMode: _isConciseMode,
         allowMobileDataSync: _allowMobileDataSync,
+        showConditionGradients: _showConditionGradients,
+        applySaleToAllStatuses: _applySaleToAllStatuses,
       );
       Navigator.pop(context);
     }
@@ -619,11 +627,18 @@ class _SettingsDialogState extends State<SettingsDialog>
                             onChanged: (v) => setState(() => _isMultiSize = v),
                             showDivider: true,
                           ),
-                           _buildToggleTile(
+                            _buildToggleTile(
                              title: 'Sync on Mobile Data',
                              subtitle: 'Ask before downloading images on 4G/5G',
                              value: _allowMobileDataSync,
                              onChanged: (v) => setState(() => _allowMobileDataSync = v),
+                             showDivider: true,
+                           ),
+                           _buildToggleTile(
+                             title: 'Condition Visual Hints',
+                             subtitle: 'Subtle card tinting based on shoe condition',
+                             value: _showConditionGradients,
+                             onChanged: (v) => setState(() => _showConditionGradients = v),
                              showDivider: true,
                            ),
                            ListTile(
@@ -648,12 +663,39 @@ class _SettingsDialogState extends State<SettingsDialog>
                                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                               ),
                             ),
-                          ),
+                           ),
+                           _buildToggleTile(
+                              title: 'Hide Prices',
+                              subtitle: 'Hides price information in list',
+                              value: _isPriceHidden,
+                              onChanged: (v) => setState(() => _isPriceHidden = v),
+                            ),
+                            _buildToggleTile(
+                              title: 'Concise Copy',
+                              subtitle: 'Minimal copy text: name, price, condition, link',
+                              value: _isConciseMode,
+                              onChanged: (v) => setState(() => _isConciseMode = v),
+                            ),
+                            _buildToggleTile(
+                              title: 'Auto-Copy Info',
+                              subtitle: 'Copies data to clipboard when sharing',
+                              value: _isInfoCopied,
+                              onChanged: (v) => setState(() => _isInfoCopied = v),
+                              showDivider: true,
+                            ),
+                            _buildToggleTile(
+                              title: 'Apply Sale to All',
+                              subtitle: 'Default: Only Available stock gets discounts',
+                              value: _applySaleToAllStatuses,
+                              onChanged: (v) => setState(() => _applySaleToAllStatuses = v),
+                              showDivider: false,
+                            ),
+
                         ],
                       ),
 
                       // Test Mode & Advanced
-                      if (app.isTestModeEnabled) ...[
+                        if (app.isTestModeEnabled && _isTest) ...[
                         _buildSectionHeader('Advanced Controls'),
                         _buildCard(
                           children: [
@@ -663,51 +705,46 @@ class _SettingsDialogState extends State<SettingsDialog>
                               onChanged: (v) => setState(() => _isTest = v),
                               showDivider: _isTest,
                             ),
-                            if (_isTest) ...[
-                              _buildToggleTile(
-                                title: 'Show Repaired Info',
-                                subtitle: 'Also include repaired notes',
-                                value: _isRepairedInfoAvailable,
-                                onChanged: (v) => setState(() => _isRepairedInfoAvailable = v),
-                              ),
-                              _buildToggleTile(
-                                title: 'Auto-Copy Info',
-                                subtitle: 'Copies data to clipboard when sharing',
-                                value: _isInfoCopied,
-                                onChanged: (v) => setState(() => _isInfoCopied = v),
-                              ),
-                              _buildToggleTile(
-                                title: 'Instagram Only',
-                                subtitle: 'Only Instagram message, no TikTok link',
-                                value: _isInstagramOnly,
-                                onChanged: (v) => setState(() => _isInstagramOnly = v),
-                              ),
-                              _buildToggleTile(
-                                title: 'Concise Copy',
-                                subtitle: 'Minimal copy text: name, price, condition, link',
-                                value: _isConciseMode,
-                                onChanged: (v) => setState(() => _isConciseMode = v),
-                              ),
-                              _buildToggleTile(
-                                title: 'Hide Prices',
-                                subtitle: 'Hides price information in list',
-                                value: _isPriceHidden,
-                                onChanged: (v) => setState(() => _isPriceHidden = v),
-                              ),
-                              _buildToggleTile(
-                                title: 'High Res Collage',
-                                subtitle: 'Use higher resolution images (slower)',
-                                value: _isHighResCollage,
-                                onChanged: (v) => setState(() => _isHighResCollage = v),
-                              ),
-                              _buildToggleTile(
-                                title: 'Share All (Incl. Upcoming)',
-                                subtitle: 'Active, Unreleased and repaired',
-                                value: _isAllShoesShare,
-                                onChanged: (v) => setState(() => _isAllShoesShare = v),
-                                showDivider: false, // last one
-                              ),
-                            ],
+                            // ... only show these if both test mode AND _isTest are true
+                            _buildToggleTile(
+                              title: 'Show Repaired Info',
+                              subtitle: 'Also include repaired notes',
+                              value: _isRepairedInfoAvailable,
+                              onChanged: (v) => setState(() => _isRepairedInfoAvailable = v),
+                            ),
+                            _buildToggleTile(
+                              title: 'Instagram Only',
+                              subtitle: 'Only Instagram message, no TikTok link',
+                              value: _isInstagramOnly,
+                              onChanged: (v) => setState(() => _isInstagramOnly = v),
+                            ),
+                            _buildToggleTile(
+                              title: 'High Res Collage',
+                              subtitle: 'Use higher resolution images (slower)',
+                              value: _isHighResCollage,
+                              onChanged: (v) => setState(() => _isHighResCollage = v),
+                            ),
+                            _buildToggleTile(
+                              title: 'Share All (Incl. Upcoming)',
+                              subtitle: 'Active, Unreleased and repaired',
+                              value: _isAllShoesShare,
+                              onChanged: (v) => setState(() => _isAllShoesShare = v),
+                              showDivider: false, // last one
+                            ),
+                          ],
+                        ),
+                      ],
+                      // Fallback: If test mode is enabled but NOT _isTest, only show the Test Mode toggle
+                      if (app.isTestModeEnabled && !_isTest) ...[
+                        _buildSectionHeader('Advanced Controls'),
+                        _buildCard(
+                          children: [
+                            _buildToggleTile(
+                              title: 'Test Mode',
+                              value: _isTest,
+                              onChanged: (v) => setState(() => _isTest = v),
+                              showDivider: false,
+                            ),
                           ],
                         ),
                       ],

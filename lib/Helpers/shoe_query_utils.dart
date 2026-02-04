@@ -169,8 +169,11 @@ class ShoeQueryUtils {
     bool applyStatusFilter = true,
     bool isFlatSale = false,
     double flatDiscount = 0,
+    bool applySaleToAllStatuses = false, // Added
   }) {
     List<Shoe> displayedShoes = List<Shoe>.from(shoes);
+
+    final bool isSaleAppliesGlobally = applySaleToAllStatuses; // For internal clarity
 
     if (applyStatusFilter) {
       switch (category) {
@@ -218,10 +221,10 @@ class ShoeQueryUtils {
           comparison = sizeA.compareTo(sizeB);
           break;
         case ShoeSortField.sellingPrice:
-          final priceA = isFlatSale 
+          final priceA = (isFlatSale && (applySaleToAllStatuses || a.status == 'Available')) 
               ? ShoeQueryUtils.roundToNearestDouble(a.sellingPrice * (1 - flatDiscount / 100)) 
               : a.sellingPrice;
-          final priceB = isFlatSale 
+          final priceB = (isFlatSale && (applySaleToAllStatuses || b.status == 'Available')) 
               ? ShoeQueryUtils.roundToNearestDouble(b.sellingPrice * (1 - flatDiscount / 100)) 
               : b.sellingPrice;
           comparison = priceA.compareTo(priceB);
@@ -538,6 +541,7 @@ class ShoeQueryUtils {
     required ShoeSortField sortField,
     required ShoeCategory category,
     bool isInstagramOnly = false,
+    bool applySaleToAllStatuses = false,
   }) {
     final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
 
@@ -548,13 +552,15 @@ class ShoeQueryUtils {
     if (shoeList.length > 1) {
       buffer.writeln('Kick Hive Drop - ${shoeList.length} Pairs\n');
     }
-    if (isFlatSale) {
+
+    final isSold = category == ShoeCategory.sold;
+
+    // 🎯 Only show the global header if we are NOT in sold category
+    if (isFlatSale && (applySaleToAllStatuses || category == ShoeCategory.available) && !isSold) {
       buffer.writeln(
         '🔥 *Flat $flatDiscount% OFF* 🔥\nOffer ends soon! \n',
       );
     }
-
-    final isSold = category == ShoeCategory.sold;
 
     for (int i = 0; i < shoeList.length; i++) {
       final shoe = shoeList[i];
@@ -602,18 +608,22 @@ class ShoeQueryUtils {
 
         buffer.writeln(line);
       }
-      final sellingPrice = isFlatSale
+
+      // 🎯 Calculate final price for this specific shoe
+      final bool isEligibleForSale = (isFlatSale && (applySaleToAllStatuses || shoe.status == 'Available'));
+      final sellingPrice = isEligibleForSale
           ? ShoeQueryUtils.roundToNearestDouble(
               shoe.sellingPrice * (1 - flatDiscount / 100),
             )
           : shoe.sellingPrice;
+
       if (!isSold) {
         if (!isPriceHidden) {
-          if (isSalePrice) {
+          if (isSalePrice && isEligibleForSale) {
             buffer.writeln(
               '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(sellingPrice, minPercent: lowDiscount, maxPercent: highDiscount)}/-~ ✅ $symbol${sellingPrice}/-',
             );
-          } else if (isFlatSale) {
+          } else if (isFlatSale && isEligibleForSale) {
             buffer.writeln(
               '${indent}Price: ❌ ~$symbol${shoe.sellingPrice}/-~ ✅ $symbol${sellingPrice}/-',
             );
@@ -667,6 +677,7 @@ class ShoeQueryUtils {
     required double flatDiscount,
     required ShoeSortField sortField,
     required ShoeCategory category,
+    bool applySaleToAllStatuses = false,
   }) {
     final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
     final buffer = StringBuffer();
@@ -674,12 +685,12 @@ class ShoeQueryUtils {
     final shoeList = shoes.take(16).toList();
     final gap = shoeList.length > 1 ? '    ' : '';
 
+    final isSold = category == ShoeCategory.sold;
+
     // Discount header
-    if (isFlatSale && flatDiscount > 0) {
+    if (isFlatSale && flatDiscount > 0 && (applySaleToAllStatuses || category == ShoeCategory.available) && !isSold) {
       buffer.writeln('🔥 $flatDiscount% OFF\n');
     }
-
-    final isSold = category == ShoeCategory.sold;
 
     for (int i = 0; i < shoeList.length; i++) {
       final shoe = shoeList[i];
@@ -687,7 +698,8 @@ class ShoeQueryUtils {
       final indent = ' ' * (numbering.length) + gap;
 
       // Calculate final price
-      final sellingPrice = isFlatSale
+      final bool isEligibleForSale = (isFlatSale && (applySaleToAllStatuses || shoe.status == 'Available'));
+      final sellingPrice = isEligibleForSale
           ? ShoeQueryUtils.roundToNearestDouble(
               shoe.sellingPrice * (1 - flatDiscount / 100),
             )

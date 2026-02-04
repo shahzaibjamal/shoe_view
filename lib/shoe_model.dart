@@ -25,6 +25,7 @@ class Shoe {
   final bool isSizeLinked;
   final String notes;
   final String imagesLink;
+  final String soldTo;
   final DateTime? lastEdit;
   final DateTime? soldOn;
 
@@ -49,6 +50,7 @@ class Shoe {
     this.isConfirmed = false,
     this.isSizeLinked = true,
     this.notes = '',
+    this.soldTo = '',
     this.lastEdit,
     this.soldOn,
   });
@@ -95,6 +97,7 @@ class Shoe {
     final quantity = map['Quantity'] as int? ?? 1;
     final notes = map['Notes']?.toString() ?? '';
     final imagesLink = map['ImagesLink']?.toString() ?? '';
+    final soldTo = map['SoldTo']?.toString() ?? '';
     final lastEditRaw = map['LastEdit'];
     final soldOnRaw = map['SoldOn'];
 
@@ -142,6 +145,7 @@ class Shoe {
       isSizeLinked: isSizeLinked,
       notes: notes,
       imagesLink: imagesLink,
+      soldTo: soldTo,
       lastEdit: lastEdit,
       soldOn: soldOn,
     );
@@ -170,6 +174,7 @@ class Shoe {
       'IsSizeLinked': isSizeLinked,
       'Notes': notes,
       'ImagesLink': imagesLink,
+      'SoldTo': soldTo,
       'LastEdit': lastEdit?.toIso8601String(),
       'SoldOn': soldOn?.toIso8601String(),
     };
@@ -197,6 +202,7 @@ class Shoe {
       isSizeLinked = true,
       notes = '',
       imagesLink = '',
+      soldTo = '',
       lastEdit = null,
       soldOn = null;
 
@@ -222,6 +228,7 @@ class Shoe {
     bool? isSizeLinked,
     String? notes,
     String? imagesLink,
+    String? soldTo,
     DateTime? lastEdit,
     DateTime? soldOn,
   }) {
@@ -246,6 +253,7 @@ class Shoe {
       status: status ?? this.status,
       notes: notes ?? this.notes,
       imagesLink: imagesLink ?? this.imagesLink,
+      soldTo: soldTo ?? this.soldTo,
       lastEdit: lastEdit ?? this.lastEdit,
       soldOn: soldOn ?? this.soldOn,
     );
@@ -320,6 +328,7 @@ class Shoe {
       isSizeLinked: isSizeLinked,
       notes: notes,
       imagesLink: imagesLink,
+      soldTo: map['SoldTo']?.toString() ?? '',
       lastEdit: map['LastEdit'] != null ? DateTime.tryParse(map['LastEdit'].toString()) : null,
       soldOn: map['SoldOn'] != null ? DateTime.tryParse(map['SoldOn'].toString()) : null,
     );

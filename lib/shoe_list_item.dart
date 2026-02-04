@@ -58,6 +58,7 @@ class ShoeListItem extends StatelessWidget {
               width: 60,
               height: 60,
               fit: BoxFit.cover,
+              desiredWidth: 400, // Optimized for list view thumbnails
             ),
           ),
         ),
@@ -81,46 +82,34 @@ class ShoeListItem extends StatelessWidget {
 
   // Full Screen Image View
   void _showFullScreenImage(BuildContext context, String imageUrl) {
-    final double maxHeight = MediaQuery.of(context).size.height * 0.70;
-    final double maxWidth = MediaQuery.of(context).size.width * 0.90;
-
     final appStatus = context.read<AppStatusNotifier>();
     String code = appStatus.currencyCode;
     String currency = ShoeQueryUtils.getSymbolFromCode(code);
     final bool isMultiSizeModeEnabled = appStatus.isMultiSizeModeEnabled;
-
     final String eurSizes = ShoeQueryUtils.formatSizes(shoe.sizeEur);
-    final String ukSizes =
-        shoe.sizeUk?.isNotEmpty == true ? shoe.sizeUk!.first : '';
+    final String ukSizes = shoe.sizeUk?.isNotEmpty == true ? shoe.sizeUk!.first : '';
 
-    final String sizeDisplay = isMultiSizeModeEnabled
-        ? 'EUR: $eurSizes'
-        : 'EUR: $eurSizes, UK: $ukSizes';
+    final String sizeDisplay = isMultiSizeModeEnabled ? 'EUR: $eurSizes' : 'EUR: $eurSizes, UK: $ukSizes';
 
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: Colors.black87,
-      transitionDuration: const Duration(milliseconds: 500),
-      pageBuilder: (context, animation, secondaryAnimation) =>
-          const SizedBox.shrink(),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox.shrink(),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(
           opacity: animation,
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.85, end: 1.0).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutBack,
-                reverseCurve: Curves.easeInBack,
-              ),
+            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
             ),
             child: _ShoeDetailDialogContent(
               shoe: shoe,
               imageUrl: imageUrl,
-              maxHeight: maxHeight,
-              maxWidth: maxWidth,
+              maxHeight: MediaQuery.of(context).size.height,
+              maxWidth: MediaQuery.of(context).size.width,
               currency: currency,
               sizeDisplay: sizeDisplay,
               isFlatSale: appStatus.isFlatSale,
@@ -151,203 +140,305 @@ class ShoeListItem extends StatelessWidget {
       sizeDisplay = 'EUR: $eurSizes, UK: $ukSizes';
     }
 
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Material(
-        color: isSelected ? Colors.indigo.withOpacity(0.08) : Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            HapticFeedback.selectionClick();
-            if (isSelectionMode) {
+    return _ScaleOnTap(
+      onTap: isSelectionMode
+          ? () {
+              HapticFeedback.selectionClick();
               onToggleSelection();
-            } else {
-              _showFullScreenImage(context, shoe.remoteImageUrl);
             }
-          },
-          onLongPress: () {
-            HapticFeedback.heavyImpact();
-            onLongPress();
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+          : () {
+              _showFullScreenImage(context, shoe.remoteImageUrl);
+            },
+      child: Card(
+        elevation: 2,
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        color: Colors.transparent, // Set to transparent so Container's gradient shows through
+        clipBehavior: Clip.antiAlias,
+        child: _ConditionBadge(
+          shoe: shoe,
+          isEnabled: appStatus.showConditionGradients,
+          child: Container(
+            decoration: BoxDecoration(
+              // If the accent needs to be BELOW content, we can handle it here
+              // but usually accents should be handled via Stack if they are "above"
+              // For now, let's keep the Container white and use a Stack for the dot
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Stack(
               children: [
-                if (isSelectionMode)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: Checkbox(
-                      value: isSelected,
-                      onChanged: (_) => onToggleSelection(),
-                      activeColor: Colors.indigo.shade700,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                // The main content
+                Material(
+                  color: Colors.transparent,
+                  child: _buildInkWell(context, appStatus, currency, sizeDisplay),
+                ),
+
+                // Sync Overlay (Spins if pending)
+                if (_isPendingSync(context))
+                  Positioned.fill(
+                    child: Center(
+                      child: _buildSyncingOverlay(context),
                     ),
                   ),
-                // 🖼️ Square Shoe Image
-                _buildShoeImage(
-                  shoe.localImagePath,
-                  shoe.remoteImageUrl,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _isPendingSync(BuildContext context) {
+    final pendingIds = context.select<AppStatusNotifier, Set<String>>((n) => n.pendingSyncItemIds);
+    // itemId + shipmentId is the unique combination
+    return pendingIds.contains('${shoe.itemId}_${shoe.shipmentId}');
+  }
+
+  Color _getConditionColor(Shoe shoe) {
+    final double condition = shoe.condition;
+    // < 8: Very Subtle Blue
+    if (condition < 8.0) return Colors.lightBlue[200]!;
+    // 8.0 - 8.4: Subtle Brown
+    if (condition < 8.5) return Colors.brown[300]!;
+    // 8.5 - 8.9: Subtle Red
+    if (condition < 9.0) return Colors.red[300]!;
+    // 9.0 - 9.4: Subtle Purple
+    if (condition < 9.5) return Colors.purple[200]!;
+    
+    // Fallback
+    return Colors.amber[300]!;
+  }
+
+  Widget _buildSyncingOverlay(BuildContext context) {
+    return Container(
+      height: 76, // Approximate height of a list item
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            'Syncing changes...',
+            style: TextStyle(
+              color: Colors.indigo.shade700,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInkWell(BuildContext context, AppStatusNotifier appStatus, String currency, String sizeDisplay) {
+    // 🎯 Resolve the tap action based on usage
+    final VoidCallback? onTapAction = isSelectionMode
+        ? () {
+             HapticFeedback.selectionClick();
+             onToggleSelection();
+           }
+        : () {
+             _showFullScreenImage(context, shoe.remoteImageUrl);
+           };
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTapAction, // 👈 KEY FIX: InkWell now handles the tap!
+      onLongPress: () {
+        HapticFeedback.heavyImpact();
+        onLongPress();
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (isSelectionMode)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Checkbox(
+                  value: isSelected,
+                  onChanged: (_) => onToggleSelection(),
+                  activeColor: Colors.indigo.shade700,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                
-                // 📝 Text Details (4 Lines)
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+              ),
+            // 🖼️ Square Shoe Image
+            _buildShoeImage(
+              shoe.localImagePath,
+              shoe.remoteImageUrl,
+            ),
+            const SizedBox(width: 12),
+            
+            // 📝 Text Details (4 Lines)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        shoe.shoeDetail,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold, 
-                          fontSize: 15,
-                          height: 1.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'ID: ${shoe.itemId} | Ship: ${shoe.shipmentId}',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        sizeDisplay,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      if (appStatus.isFlatSale)
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade100,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.orange.shade200),
-                              ),
-                              child: Text(
-                                '-${appStatus.flatDiscount.toStringAsFixed(0)}%',
-                                style: TextStyle(
-                                  color: Colors.orange.shade900,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '$currency${shoe.sellingPrice.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 11,
-                                decoration: TextDecoration.lineThrough,
-                                decorationColor: Colors.grey[400],
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$currency${ShoeQueryUtils.roundToNearestDouble(shoe.sellingPrice * (1 - appStatus.flatDiscount / 100)).toStringAsFixed(0)}/-',
-                              style: TextStyle(
-                                color: Colors.red.shade300,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Text(
-                          'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
-                          style: TextStyle(
-                            color: Colors.blueGrey.shade900,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
+                      Expanded(
+                        child: Text(
+                          shoe.shoeDetail,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold, 
+                            fontSize: 15,
+                            height: 1.1,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (shoe.condition >= 10.0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4.0),
+                          child: Icon(Icons.stars_rounded, size: 14, color: Colors.amber.shade700),
                         ),
                     ],
                   ),
-                ),
-                
-                if (!isSelectionMode) ...[
-                  const SizedBox(width: 8),
-
-                  // ⚙️ Action Buttons (2x2 Compact Grid)
-                  Container(
-                    height: 40,
-                    child: const VerticalDivider(
-                        width: 1, thickness: 0.5, indent: 2, endIndent: 2),
+                  const SizedBox(height: 3),
+                  Text(
+                    'ID: ${shoe.itemId} | Ship: ${shoe.shipmentId}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 8),
+                  Text(
+                    sizeDisplay,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  if (appStatus.isFlatSale && shoe.status != 'Sold' && (appStatus.applySaleToAllStatuses || shoe.status == 'Available'))
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Text(
+                            '-${appStatus.flatDiscount.toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              color: Colors.orange.shade900,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$currency${shoe.sellingPrice.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 11,
+                            decoration: TextDecoration.lineThrough,
+                            decorationColor: Colors.grey[400],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$currency${ShoeQueryUtils.roundToNearestDouble(shoe.sellingPrice * (1 - appStatus.flatDiscount / 100)).toStringAsFixed(0)}/-',
+                          style: TextStyle(
+                            color: Colors.red.shade300,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
+                      style: TextStyle(
+                        color: Colors.blueGrey.shade900,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            
+            if (!isSelectionMode) ...[
+              const SizedBox(width: 8),
 
-                  Column(
+              // ⚙️ Action Buttons (2x2 Compact Grid)
+              Container(
+                height: 40,
+                child: const VerticalDivider(
+                    width: 1, thickness: 0.5, indent: 2, endIndent: 2),
+              ),
+              const SizedBox(width: 8),
+
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _CompactActionButton(
-                            icon: Icons.content_copy_rounded,
-                            tooltip: 'Copy',
-                            onPressed: () {
-                              HapticFeedback.lightImpact();
-                              onCopyDataPressed(shoe);
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          _CompactActionButton(
-                            icon: Icons.share_rounded,
-                            tooltip: 'Share',
-                            onPressed: () {
-                              HapticFeedback.lightImpact();
-                              onShareDataPressed(shoe);
-                            },
-                          ),
-                        ],
+                      _CompactActionButton(
+                        icon: Icons.content_copy_rounded,
+                        tooltip: 'Copy',
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          onCopyDataPressed(shoe);
+                        },
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _CompactActionButton(
-                            icon: Icons.edit_rounded,
-                            color: Colors.blueGrey,
-                            tooltip: 'Edit',
-                            onPressed: () {
-                              HapticFeedback.lightImpact();
-                              onEdit();
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          _CompactActionButton(
-                            icon: Icons.delete_outline_rounded,
-                            color: Colors.red[400],
-                            tooltip: 'Delete',
-                            onPressed: () {
-                              HapticFeedback.mediumImpact();
-                              onDelete();
-                            },
-                          ),
-                        ],
+                      const SizedBox(width: 4),
+                      _CompactActionButton(
+                        icon: Icons.share_rounded,
+                        tooltip: 'Share',
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          onShareDataPressed(shoe);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _CompactActionButton(
+                        icon: Icons.edit_rounded,
+                        color: Colors.blueGrey,
+                        tooltip: 'Edit',
+                        onPressed: () {
+                          HapticFeedback.lightImpact();
+                          onEdit();
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      _CompactActionButton(
+                        icon: Icons.delete_outline_rounded,
+                        color: Colors.red[400],
+                        tooltip: 'Delete',
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          onDelete();
+                        },
                       ),
                     ],
                   ),
                 ],
-              ],
-            ),
-          ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -434,9 +525,12 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
 
   @override
   Widget build(BuildContext context) {
+    final appStatus = context.watch<AppStatusNotifier>();
+    final bool isSaleEligible = (widget.isFlatSale && widget.shoe.status != 'Sold' && (appStatus.applySaleToAllStatuses || widget.shoe.status == 'Available'));
+
     return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      backgroundColor: Colors.black.withOpacity(0.85), // Darker, immersive backdrop
+      insetPadding: EdgeInsets.zero, // FULL SCREEN
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -452,172 +546,151 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
 
           // The Shoe Card
           GestureDetector(
-            onTap: () {
-              // Also close on card tap
-              if (ModalRoute.of(context)?.isCurrent ?? false) {
-                Navigator.of(context).pop();
-              }
-            }, 
+            onTap: () {}, // Stop propagation
             child: Stack(
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 20,
-                        spreadRadius: 5,
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        constraints: BoxConstraints(
+                           maxHeight: widget.maxHeight * 0.7, // Slightly taller
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50], // Subtle background
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.grey[500]!,
+                            width: 2, // Slightly thinner border
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: GestureDetector(
+                            onDoubleTapDown: _handleDoubleTap,
+                            onDoubleTap: () {},
+                            onTap: () {
+                              if (ModalRoute.of(context)?.isCurrent ?? false) {
+                                Navigator.of(context).pop();
+                              }
+                            },
+                            child: InteractiveViewer(
+                              transformationController: _transformationController,
+                              minScale: 1.0,
+                              maxScale: 4.0,
+                              child: ShoeNetworkImage(
+                                imageUrl: widget.imageUrl,
+                                width: null,
+                                height: null,
+                                fit: BoxFit.contain,
+                                desiredWidth: 1200, // High quality for full screen
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          constraints: BoxConstraints(
-                            maxWidth: widget.maxWidth,
-                            maxHeight: widget.maxHeight,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50], // Subtle background
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.grey[500]!,
-                              width: 4,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(
-                                12), // 🎯 FIXED: Radius - BorderWidth (16 - 4)
-                            child: GestureDetector(
-                              onDoubleTapDown: _handleDoubleTap,
-                              onDoubleTap: () {},
-                              onTap: () {
-                                // Tap on image also closes the dialog
-                                if (ModalRoute.of(context)?.isCurrent ?? false) {
-                                  Navigator.of(context).pop();
-                                }
-                              },
-                              child: Hero(
-                                tag: 'shoe_image_${widget.shoe.shipmentId}_${widget.shoe.itemId}',
-                                child: InteractiveViewer(
-                                  transformationController: _transformationController,
-                                  minScale: 1.0,
-                                  maxScale: 4.0,
-                                  child: ShoeNetworkImage(
-                                    imageUrl: widget.imageUrl,
-                                    // 🎯 Fix: Remove forced dimensions so container wraps image size
-                                    width: null, 
-                                    height: null,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            widget.shoe.shoeDetail,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Size: ${widget.sizeDisplay}',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        if (widget.isFlatSale)
-                          Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border:
-                                          Border.all(color: Colors.orange.shade200),
-                                    ),
-                                    child: Text(
-                                      '-${widget.flatDiscount.toStringAsFixed(0)}% OFF',
-                                      style: TextStyle(
-                                        color: Colors.orange.shade900,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    '${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.grey[400],
-                                      decoration: TextDecoration.lineThrough,
-                                      decorationThickness: 1.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                '${widget.currency}${ShoeQueryUtils.roundToNearestDouble(widget.shoe.sellingPrice * (1 - widget.flatDiscount / 100)).toStringAsFixed(0)}',
-                                style: TextStyle(
-                                  fontSize: 34,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.red.shade300,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
+                      const SizedBox(height: 16),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          widget.shoe.shoeDetail,
+                          style: const TextStyle(
+                            fontSize: 22, // Larger
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white, // Visible on dark
+                            letterSpacing: 0.5,
+                            shadows: [
+                               Shadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 2)),
                             ],
-                          )
-                        else
-                          Text(
-                            'Price: ${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.indigo.shade900,
-                            ),
                           ),
-                      ],
-                    ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Size: ${widget.sizeDisplay}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[300], // Lighter for dark theme
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      
+                      // Sale UI Logic
+                      if (isSaleEligible)
+                        Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.orange.shade200),
+                                  ),
+                                  child: Text(
+                                    '-${widget.flatDiscount.toStringAsFixed(0)}% OFF',
+                                    style: TextStyle(
+                                      color: Colors.orange.shade900,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  '${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.grey[400],
+                                    decoration: TextDecoration.lineThrough,
+                                    decorationThickness: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '${widget.currency}${ShoeQueryUtils.roundToNearestDouble(widget.shoe.sellingPrice * (1 - widget.flatDiscount / 100)).toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 34,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.red.shade300,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          'Price: ${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.indigo.shade900,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
 
-                // Close Button (Anchored to Card Corner)
+                // Corner Close Button for the Card
                 Positioned(
                   top: -12,
                   right: -12,
                   child: GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      if (ModalRoute.of(context)?.isCurrent ?? false) {
-                        Navigator.of(context).pop();
-                      }
+                      Navigator.of(context).pop();
                     },
                     child: Container(
                       padding: const EdgeInsets.all(8),
@@ -683,5 +756,237 @@ class _CompactActionButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Wrapper to handle animations for the condition badge (Legendary status)
+class _ConditionBadge extends StatefulWidget {
+  final Widget child;
+  final Shoe shoe;
+  final bool isEnabled;
+
+  const _ConditionBadge({
+    super.key,
+    required this.child,
+    required this.shoe,
+    required this.isEnabled,
+  });
+
+  @override
+  State<_ConditionBadge> createState() => _ConditionBadgeState();
+}
+
+class _ConditionBadgeState extends State<_ConditionBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    // 3 second cycle for the legendary rainbow effect
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+
+    if (widget.shoe.condition >= 10.0) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _ConditionBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.shoe.condition >= 10.0 && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (widget.shoe.condition < 10.0 && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      foregroundPainter: _ConditionAccentPainter(
+        context: context,
+        shoe: widget.shoe,
+        isEnabled: widget.isEnabled,
+        animationValue: _controller,
+      ),
+      child: widget.child,
+    );
+  }
+}
+
+/// 🎨 Paints condition accents with HDR Bloom and Animations
+class _ConditionAccentPainter extends CustomPainter {
+  final BuildContext context;
+  final Shoe shoe;
+  final bool isEnabled;
+  final Animation<double> animationValue;
+
+  _ConditionAccentPainter({
+    required this.context,
+    required this.shoe,
+    required this.isEnabled,
+    required this.animationValue,
+  }) : super(repaint: animationValue);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!isEnabled) return;
+
+    final condition = shoe.condition;
+    
+    // 🏷️ Sash Shape (Triangle) for ALL
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(32, 0)
+      ..lineTo(0, 32)
+      ..close();
+
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    // 🏆 Legendary (10.0) - Holographic Animation + Bloom
+    if (condition >= 10.0) {
+      // Create a rotating holographic sweep gradient (Cyan -> Magenta -> Yellow -> Cyan)
+      final shader = SweepGradient(
+        colors: const [
+          Color(0xFF00E5FF), // Cyan Accent
+          Color(0xFFD500F9), // Purple Accent
+          Color(0xFFFFD600), // Yellow Accent
+          Color(0xFF00E5FF), // Loop back to Cyan
+        ],
+        stops: const [0.0, 0.4, 0.75, 1.0],
+        transform: GradientRotation(animationValue.value * 2 * 3.14159),
+      ).createShader(Rect.fromLTWH(0, 0, 40, 40));
+
+      // Draw Bloom (Glow)
+      Paint glowPaint = Paint()
+        ..shader = shader
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6); // HDR Bloom
+      canvas.drawPath(path, glowPaint);
+
+      // Draw Core
+      paint.shader = shader;
+      canvas.drawPath(path, paint);
+    }
+    // 🥇 Gold (9.5 - 9.9) - Amber/Gold Color + Subtl Bloom
+    else if (condition >= 9.5) {
+      final goldColor = Colors.amber[300]!; 
+
+      // Draw Bloom (Glow)
+      Paint glowPaint = Paint()
+        ..color = goldColor.withOpacity(0.4)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+      canvas.drawPath(path, glowPaint);
+
+      // Draw Core
+      paint.color = goldColor;
+      canvas.drawPath(path, paint);
+    } 
+    // Standard Colors (No Bloom)
+    else {
+      paint.color = _getConditionColor(shoe).withOpacity(0.85);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  Color _getConditionColor(Shoe shoe) {
+    final double condition = shoe.condition;
+    // < 8: Very Subtle Blue
+    if (condition < 8.0) return Colors.lightBlue[200]!;
+    // 8.0 - 8.4: Subtle Brown
+    if (condition < 8.5) return Colors.brown[300]!;
+    // 8.5 - 8.9: Subtle Red
+    if (condition < 9.0) return Colors.red[300]!;
+    // 9.0 - 9.4: Subtle Purple
+    if (condition < 9.5) return Colors.purple[200]!;
+    
+    // Fallback
+    return Colors.amber[300]!;
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConditionAccentPainter oldDelegate) {
+    return oldDelegate.shoe.condition != shoe.condition ||
+        oldDelegate.isEnabled != isEnabled;
+  }
+}
+
+/// A wrapper that scales down on tap for a lively feel
+class _ScaleOnTap extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const _ScaleOnTap({
+    required this.child,
+    this.onTap,
+  });
+
+  @override
+  State<_ScaleOnTap> createState() => _ScaleOnTapState();
+}
+
+class _ScaleOnTapState extends State<_ScaleOnTap> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 100),
+      lowerBound: 0.0,
+      upperBound: 0.05, // Scales down to 0.95
+    );
+     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 🎯 Use Listener to capture touch events for animation independently of handling semantics
+    return Listener(
+      onPointerDown: (_) => _controller.forward(),
+      onPointerUp: (_) => _onTapUp(),
+      onPointerCancel: (_) => _controller.reverse(),
+      child: GestureDetector(
+        // Allow onTap to propagate if not handled by child
+        onTap: widget.onTap, 
+        behavior: HitTestBehavior.translucent,
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: 1.0 - _controller.value,
+              child: widget.child,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _onTapUp() {
+    _controller.reverse();
+    // We don't call widget.onTap here because:
+    // 1. If child InkWell handled it, handled.
+    // 2. If child didn't, GestureDetector below handles it.
   }
 }

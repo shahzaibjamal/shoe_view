@@ -52,6 +52,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   // NEW: Condition, Quantity, and Multi-Size State
   late String _selectedCondition;
   late final TextEditingController _quantityController;
+  late final TextEditingController _soldToController;
 
   // NEW: Combined Size Management
   // This Set stores all sizes selected. If length is 1, it's single-size mode.
@@ -122,6 +123,9 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     _tiktokController = TextEditingController(
       text: widget.shoe?.tiktokLink ?? '',
     );
+    _soldToController = TextEditingController(
+      text: widget.shoe?.soldTo ?? '',
+    );
 
     // Image
     _dialogImageFile = null;
@@ -163,6 +167,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     _instagramController.dispose();
     _tiktokController.dispose();
     _quantityController.dispose();
+    _soldToController.dispose();
     super.dispose();
   }
 
@@ -321,12 +326,19 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       soldOn: (_status == 'Sold') 
           ? (widget.shoe?.status == 'Sold' ? _soldOn : DateTime.now())
           : null,
+      soldTo: _status == 'Sold' ? _soldToController.text.trim() : '',
     );
 
     // Start loading state
+    final appStatus = context.read<AppStatusNotifier>();
+    final uniqueId = '${newShoe.itemId}_${newShoe.shipmentId}';
+    
     setState(() {
       _isLoading = true;
     });
+    
+    // Set as pending for "Instant" feel
+    appStatus.setItemPendingSync(uniqueId, true);
 
     try {
       File? imageFile = _dialogImageFile;
@@ -345,6 +357,9 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
         base64Image,
         isTest: isTest,
       );
+
+      // Successfully processed, remove from pending
+      appStatus.setItemPendingSync(uniqueId, false);
 
       if (response['success'] == false) {
         if (mounted) {
@@ -392,6 +407,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       setState(() {
         _isLoading = false;
       });
+      appStatus.setItemPendingSync(uniqueId, false);
     }
   }
 
@@ -562,6 +578,17 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                           onRepairNotesChanged: (notes) => setState(() => _repairNotes = notes),
                           onImagesLinkChanged: (imagesLink) => setState(() => _imagesLink = imagesLink),
                         ),
+
+                        if (_status == 'Sold') ...[
+                          const SizedBox(height: 16),
+                          _buildTextField(
+                            controller: _soldToController,
+                            label: 'Sold To (Name, @Handle, or #)',
+                            icon: Icons.person_add_alt_1_rounded,
+                            enabled: !_isLoading,
+                            helper: 'Track your customer for future reference.',
+                          ),
+                        ],
                         
                         // NEW: Last Edit & Sold On Display (ReadOnly)
                         if (_isEditing) ...[

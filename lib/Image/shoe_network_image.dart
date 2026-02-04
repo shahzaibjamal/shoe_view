@@ -14,6 +14,7 @@ class ShoeNetworkImage extends StatelessWidget {
   final BoxFit fit;
   final bool disableMemCache;
   final BorderRadius? borderRadius;
+  final int? desiredWidth;
 
   const ShoeNetworkImage({
     super.key,
@@ -23,6 +24,7 @@ class ShoeNetworkImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.disableMemCache = false,
     this.borderRadius,
+    this.desiredWidth,
   });
 
   @override
@@ -85,8 +87,14 @@ class ShoeNetworkImage extends StatelessWidget {
         disableMemCache || width == null ? null : (width! * 2.5).toInt();
 
     String processedUrl = imageUrl;
-    if (disableMemCache && imageUrl.contains('googleusercontent.com')) {
-      // For high-res collage, request 1200px from Google servers
+    if (desiredWidth != null && imageUrl.contains('googleusercontent.com')) {
+      // Use standard Google URL width parameter
+      processedUrl = imageUrl.replaceAll(RegExp(r'=w\d+'), '=w$desiredWidth');
+      if (!processedUrl.contains('=w')) {
+        processedUrl = '$processedUrl=w$desiredWidth';
+      }
+    } else if (disableMemCache && imageUrl.contains('googleusercontent.com')) {
+      // Fallback for high-res collage if desiredWidth not specified
       processedUrl = imageUrl.replaceAll(RegExp(r'=w\d+'), '=w1200');
     }
 

@@ -365,7 +365,7 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
                         visible: shrinkFactor > 0.5,
                         child: Column(
                           children: [
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 10),
                             // 🏷️ Category Row
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
@@ -428,7 +428,7 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 10),
                             // ⚙️ Control & Sort Row
                             Row(
                               children: [
