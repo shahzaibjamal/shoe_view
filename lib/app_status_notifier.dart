@@ -23,6 +23,9 @@ class AppStatusNotifier extends ChangeNotifier {
   bool _isSalePrice = false;
   bool _isFlatSale = false;
   bool _isPriceHidden = false;
+  bool _allowMobileDataSync = false; // Default: don't sync on mobile data without asking
+  bool _sessionMobileSyncAllowed = false; // Persistent for this session only
+  bool _hasPromptedForMobileSync = false;
 
   double _lowDiscount = 7;
   double _highDiscount = 10;
@@ -49,6 +52,9 @@ class AppStatusNotifier extends ChangeNotifier {
   bool get isFlatSale => _isFlatSale;
   bool get isPriceHidden => _isPriceHidden;
   bool get isInfoCopied => _isInfoCopied;
+  bool get allowMobileDataSync => _allowMobileDataSync;
+  bool get sessionMobileSyncAllowed => _sessionMobileSyncAllowed;
+  bool get hasPromptedForMobileSync => _hasPromptedForMobileSync;
   double get flatDiscount => _flatDiscount;
   double get lowDiscount => _lowDiscount;
   double get highDiscount => _highDiscount;
@@ -182,6 +188,21 @@ class AppStatusNotifier extends ChangeNotifier {
     notifyListeners(); // Notify all listeners to rebuild
   }
 
+  void updateAllowMobileDataSync(bool value) {
+    _allowMobileDataSync = value;
+    notifyListeners();
+  }
+
+  void setSessionMobileSyncAllowed(bool value) {
+    _sessionMobileSyncAllowed = value;
+    notifyListeners();
+  }
+
+  void setHasPromptedForMobileSync(bool value) {
+    _hasPromptedForMobileSync = value;
+    notifyListeners();
+  }
+
   void updateFlatDiscountPercent(double flatDiscount) {
     _flatDiscount = flatDiscount;
     notifyListeners(); // Notify all listeners to rebuild
@@ -248,6 +269,7 @@ class AppStatusNotifier extends ChangeNotifier {
     required bool isInfoCopied,
     required bool isInstagramOnly,
     required bool isConciseMode,
+    required bool allowMobileDataSync,
     required double lowDiscount,
     required double highDiscount,
     required double flatDiscount,
@@ -269,6 +291,7 @@ class AppStatusNotifier extends ChangeNotifier {
     _isInfoCopied = isInfoCopied;
     _isInstagramOnly = isInstagramOnly;
     _isConciseMode = isConciseMode;
+    _allowMobileDataSync = allowMobileDataSync;
 
     // This is the magic line: one call, one rebuild for everything.
     notifyListeners();

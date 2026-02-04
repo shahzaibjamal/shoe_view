@@ -50,6 +50,7 @@ class _SettingsDialogState extends State<SettingsDialog>
   bool _isInfoCopied = false;
   bool _isInstagramOnly = false;
   bool _isConciseMode = false;
+  bool _allowMobileDataSync = false;
 
   // Controllers
   late TextEditingController _sampleController;
@@ -124,6 +125,7 @@ class _SettingsDialogState extends State<SettingsDialog>
       _isInfoCopied = app.isInfoCopied;
       _isInstagramOnly = prefs.getBool('isInstagramOnly') ?? app.isInstagramOnly;
       _isConciseMode = prefs.getBool('isConciseMode') ?? app.isConciseMode;
+      _allowMobileDataSync = prefs.getBool('allowMobileDataSync') ?? app.allowMobileDataSync;
 
       _sampleController.text = app.sampleShareCount.toString();
       _lowDiscountController.text = app.lowDiscount.toString();
@@ -197,6 +199,7 @@ class _SettingsDialogState extends State<SettingsDialog>
       prefs.setBool('isInfoCopied', _isInfoCopied),
       prefs.setBool('isInstagramOnly', _isInstagramOnly),
       prefs.setBool('isConciseMode', _isConciseMode),
+      prefs.setBool('allowMobileDataSync', _allowMobileDataSync),
       prefs.setDouble('lowDiscount', finalLow),
       prefs.setDouble('highDiscount', finalHigh),
       prefs.setDouble('flatDiscount', finalFlat),
@@ -222,6 +225,7 @@ class _SettingsDialogState extends State<SettingsDialog>
         isInfoCopied: _isInfoCopied,
         isInstagramOnly: _isInstagramOnly,
         isConciseMode: _isConciseMode,
+        allowMobileDataSync: _allowMobileDataSync,
       );
       Navigator.pop(context);
     }
@@ -615,6 +619,13 @@ class _SettingsDialogState extends State<SettingsDialog>
                             onChanged: (v) => setState(() => _isMultiSize = v),
                             showDivider: true,
                           ),
+                           _buildToggleTile(
+                             title: 'Sync on Mobile Data',
+                             subtitle: 'Ask before downloading images on 4G/5G',
+                             value: _allowMobileDataSync,
+                             onChanged: (v) => setState(() => _allowMobileDataSync = v),
+                             showDivider: true,
+                           ),
                            ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                             title: const Text('Sample Share Count', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),

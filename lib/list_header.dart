@@ -345,7 +345,7 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
@@ -365,7 +365,7 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
                         visible: shrinkFactor > 0.5,
                         child: Column(
                           children: [
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             // 🏷️ Category Row
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
@@ -428,7 +428,7 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
                             // ⚙️ Control & Sort Row
                             Row(
                               children: [

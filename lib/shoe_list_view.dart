@@ -5,7 +5,10 @@ import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:shoe_view/Services/connectivity_service.dart';
+import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
@@ -69,6 +72,8 @@ class _ShoeListViewState extends State<ShoeListView>
   final Set<String> _selectedShoeIds = {};
   bool get _isSelectionMode => _selectedShoeIds.isNotEmpty;
 
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +90,64 @@ class _ShoeListViewState extends State<ShoeListView>
 
     // 🎯 Initialize stream once to prevent restarts on search/rebuild
     _shoeStream = context.read<FirebaseService>().streamShoes();
+    _setupConnectivityListener();
+  }
+  
+  void _setupConnectivityListener() {
+    _connectivitySubscription =
+        ConnectivityService().connectivityStream.listen((results) {
+      if (results.contains(ConnectivityResult.mobile)) {
+        _checkAndAskForMobileSync();
+      }
+    });
+
+    // Check initial state
+    ConnectivityService().isMobileData().then((isMobile) {
+      if (isMobile) _checkAndAskForMobileSync();
+    });
+  }
+
+  void _checkAndAskForMobileSync() {
+    if (!mounted) return;
+    final appStatus = context.read<AppStatusNotifier>();
+    if (!appStatus.allowMobileDataSync && !appStatus.hasPromptedForMobileSync) {
+      _showMobileSyncDialog();
+    }
+  }
+
+  void _showMobileSyncDialog() {
+    if (!mounted) return;
+    final appStatus = context.read<AppStatusNotifier>();
+    appStatus.setHasPromptedForMobileSync(true);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Mobile Data Detected'),
+        content: const Text(
+            'Sync is paused on mobile data to save bandwidth. Would you like to enable it for this session?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('STAY PAUSED', style: TextStyle(color: Colors.grey[600])),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo.shade400,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              appStatus.setSessionMobileSyncAllowed(true);
+              Navigator.pop(context);
+            },
+            child: const Text('ENABLE SYNC'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _triggerBackgroundSync() async {
@@ -144,6 +207,7 @@ class _ShoeListViewState extends State<ShoeListView>
     _debounceTimer?.cancel();
     _fabVisibilityTimer?.cancel();
     _showToTop.dispose();
+    _connectivitySubscription?.cancel();
     super.dispose();
   }
 
@@ -619,7 +683,7 @@ class _ShoeListViewState extends State<ShoeListView>
                   children: [
                     // Header
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1142,7 +1206,7 @@ class _ShoeListViewState extends State<ShoeListView>
 
   @override
   Widget build(BuildContext context) {
-    final double headerMaxHeight = MediaQuery.of(context).size.height * 0.22;
+    final double headerMaxHeight = MediaQuery.of(context).size.height * 0.19;
     const double headerMinHeight = 84.0;
     final FirebaseService firebaseService = context.read<FirebaseService>();
     final appStatus = context.watch<AppStatusNotifier>();

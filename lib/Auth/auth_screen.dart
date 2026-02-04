@@ -294,6 +294,7 @@ class _AuthScreenState extends State<AuthScreen> {
       isInfoCopied: prefs.getBool('isInfoCopied') ?? false,
       isInstagramOnly: prefs.getBool('isInstagramOnly') ?? false,
       isConciseMode: prefs.getBool('isConciseMode') ?? false,
+      allowMobileDataSync: prefs.getBool('allowMobileDataSync') ?? false,
     );
 
     // 🎯 FIX: Load critical user stats for offline/silent mode

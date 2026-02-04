@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
+import 'package:provider/provider.dart';
+import 'package:shoe_view/app_status_notifier.dart';
+import 'package:shoe_view/Services/connectivity_service.dart';
 
 class ShoeNetworkImage extends StatelessWidget {
   final String imageUrl;
@@ -28,6 +31,9 @@ class ShoeNetworkImage extends StatelessWidget {
       return _buildClipped(_buildErrorWidget());
     }
 
+    // 🎯 Watch app status to rebuild when sync permissions change (e.g., from global dialog)
+    context.watch<AppStatusNotifier>();
+    
     // Use the static helper from our manager for consistency
     final stableKey = ShoeViewCacheManager.getStableKey(imageUrl);
 
@@ -37,21 +43,16 @@ class ShoeNetworkImage extends StatelessWidget {
       switchOutCurve: Curves.easeIn,
       child: FutureBuilder<File?>(
         key: ValueKey('cache_future_${stableKey}_${imageUrl.hashCode}'),
-        future: ShoeViewCacheManager().getCachedFileOnly(imageUrl, customKey: stableKey),
-        builder: (context, cacheSnapshot) {
-          // If we have a cached file, use it directly (no network hit!)
-          if (cacheSnapshot.connectionState == ConnectionState.done &&
-              cacheSnapshot.hasData &&
-              cacheSnapshot.data != null) {
-            // 🎯 Soft fade-in for cached images
+        future: _checkSyncStatus(context, imageUrl, stableKey),
+        builder: (context, syncSnapshot) {
+          if (syncSnapshot.hasData && syncSnapshot.data != null) {
             return _buildClipped(
               _FadeInImage(
                 child: Image.file(
-                  cacheSnapshot.data!,
+                  syncSnapshot.data!,
                   height: height,
                   width: width,
                   fit: fit,
-                  // 🎯 Optimization: Resize in memory similar to CachedNetworkImage
                   cacheWidth: disableMemCache || width == null 
                       ? null 
                       : (width! * 2.5).toInt(),
@@ -60,8 +61,12 @@ class ShoeNetworkImage extends StatelessWidget {
             );
           }
 
+          if (syncSnapshot.hasError && syncSnapshot.error == 'SYNC_PAUSED') {
+            return _buildClipped(_buildSyncPausedWidget());
+          }
+
           // While checking cache, show placeholder
-          if (cacheSnapshot.connectionState == ConnectionState.waiting) {
+          if (syncSnapshot.connectionState == ConnectionState.waiting) {
             return _buildClipped(_buildPlaceholder());
           }
 
@@ -138,7 +143,39 @@ class ShoeNetworkImage extends StatelessWidget {
     );
   }
 
-  // 🎯 Helper to apply border radius to non-image widgets (placeholders/errors)
+  Future<File?> _checkSyncStatus(BuildContext context, String url, String key) async {
+    final cached = await ShoeViewCacheManager().getCachedFileOnly(url, customKey: key);
+    if (cached != null) return cached;
+
+    final appStatus = Provider.of<AppStatusNotifier>(context, listen: false);
+    if (appStatus.allowMobileDataSync || appStatus.sessionMobileSyncAllowed) {
+      return null;
+    }
+
+    final isWifi = await ConnectivityService().isWifi();
+    if (isWifi) return null;
+
+    throw 'SYNC_PAUSED';
+  }
+
+  Widget _buildSyncPausedWidget() {
+    return Container(
+      height: height ?? 200,
+      width: width,
+      color: Colors.grey[100],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.signal_wifi_off_rounded, size: 20, color: Colors.grey[400]),
+          const SizedBox(height: 4),
+          Text(
+            'Sync Paused',
+            style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildClipped(Widget child) {
     if (borderRadius == null) return child;
     return ClipRRect(
