@@ -1,0 +1,39 @@
+﻿Analyzing 3 items...                                            
+
+   info - The imported package 'flutter_cache_manager' isn't a dependency of the importing package - lib\image\forced_cache_service.dart:1:8 - depend_on_referenced_packages
+   info - The imported package 'flutter_cache_manager' isn't a dependency of the importing package - lib\image\shoe_view_cache_manager.dart:2:8 - depend_on_referenced_packages
+warning - Unused import: 'package:cached_network_image/cached_network_image.dart' - lib\shoe_list_item.dart:8:8 - unused_import
+warning - The declaration '_getConditionColor' isn't referenced - lib\shoe_list_item.dart:194:9 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:214:29 - deprecated_member_use
+   info - Type could be non-nullable - lib\shoe_list_item.dart:240:25 - unnecessary_nullable_for_final_variable_declarations
+   info - Use a 'SizedBox' to add whitespace to a layout - lib\shoe_list_item.dart:378:15 - sized_box_for_whitespace
+   info - 'translate' is deprecated and shouldn't be used. Use translateByVector3, translateByVector4, or translateByDouble instead - lib\shoe_list_item.dart:509:11 - deprecated_member_use
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\shoe_list_item.dart:510:11 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:540:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:705:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:709:49 - deprecated_member_use
+warning - The declaration '_CompactActionButton' isn't referenced - lib\shoe_list_item.dart:733:7 - unused_element
+warning - A value for optional parameter 'color' isn't ever given - lib\shoe_list_item.dart:743:10 - unused_element_parameter
+warning - A value for optional parameter 'key' isn't ever given - lib\shoe_list_item.dart:777:11 - unused_element_parameter
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:872:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:886:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:955:29 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:966:46 - deprecated_member_use
+
+flutter : 19 issues found. 
+(ran in 11.2s)
+At line:1 char:1
++ flutter analyze lib/Image/
+forced_cache_service.dart 
+lib/Image/shoe_vi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (19 is  
+  sues found. (ran in 11.   
+ 2s):String) [], RemoteE    
+xception
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 

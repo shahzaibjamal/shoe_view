@@ -8,6 +8,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shoe_view/Helpers/app_logger.dart';
+import 'package:shoe_view/Helpers/condition_hint_styles.dart';
 import 'package:shoe_view/Helpers/quota_circle.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
@@ -52,6 +54,7 @@ class _SettingsDialogState extends State<SettingsDialog>
   bool _isConciseMode = false;
   bool _allowMobileDataSync = false;
   bool _showConditionGradients = true;
+  String _conditionHintStyle = 'sash';
   bool _applySaleToAllStatuses = false;
 
   // Controllers
@@ -129,6 +132,7 @@ class _SettingsDialogState extends State<SettingsDialog>
       _isConciseMode = prefs.getBool('isConciseMode') ?? app.isConciseMode;
       _allowMobileDataSync = prefs.getBool('allowMobileDataSync') ?? app.allowMobileDataSync;
       _showConditionGradients = app.showConditionGradients;
+      _conditionHintStyle = app.conditionHintStyle;
       _applySaleToAllStatuses = app.applySaleToAllStatuses;
 
       _sampleController.text = app.sampleShareCount.toString();
@@ -205,6 +209,7 @@ class _SettingsDialogState extends State<SettingsDialog>
       prefs.setBool('isConciseMode', _isConciseMode),
       prefs.setBool('allowMobileDataSync', _allowMobileDataSync),
       prefs.setBool('showConditionGradients', _showConditionGradients),
+      prefs.setString('conditionHintStyle', _conditionHintStyle),
       prefs.setBool('applySaleToAllStatuses', _applySaleToAllStatuses),
       prefs.setDouble('lowDiscount', finalLow),
       prefs.setDouble('highDiscount', finalHigh),
@@ -233,6 +238,7 @@ class _SettingsDialogState extends State<SettingsDialog>
         isConciseMode: _isConciseMode,
         allowMobileDataSync: _allowMobileDataSync,
         showConditionGradients: _showConditionGradients,
+        conditionHintStyle: _conditionHintStyle,
         applySaleToAllStatuses: _applySaleToAllStatuses,
       );
       Navigator.pop(context);
@@ -506,10 +512,15 @@ class _SettingsDialogState extends State<SettingsDialog>
                                   onLongPress: _logoFile != null 
                                     ? () async {
                                         await HapticFeedback.mediumImpact();
-                                        _handleClearData(); // Used to check permissions, but here just clear logic?
-                                        // Wait, long press on logo to delete it? 
-                                        // Let's stick to the previous behavior: remove logo.
-                                        _removeLogo();
+                                        final confirmed = await _showConfirmDialog(
+                                          title: 'Remove Logo',
+                                          content: 'Are you sure you want to remove your business logo?',
+                                          confirmLabel: 'Remove',
+                                          confirmColor: Colors.orange,
+                                        );
+                                        if (confirmed) {
+                                          _removeLogo();
+                                        }
                                       } 
                                     : null,
                                   child: Container(
@@ -639,8 +650,40 @@ class _SettingsDialogState extends State<SettingsDialog>
                              subtitle: 'Subtle card tinting based on shoe condition',
                              value: _showConditionGradients,
                              onChanged: (v) => setState(() => _showConditionGradients = v),
-                             showDivider: true,
+                             showDivider: _showConditionGradients || true,
                            ),
+                           if (_showConditionGradients)
+                             Padding(
+                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                               child: Row(
+                                 children: [
+                                   const Text('Hint Style', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                   const Spacer(),
+                                   Container(
+                                     height: 36,
+                                     padding: const EdgeInsets.symmetric(horizontal: 8),
+                                     decoration: BoxDecoration(
+                                       color: Colors.grey[100],
+                                       borderRadius: BorderRadius.circular(8),
+                                     ),
+                                     child: DropdownButtonHideUnderline(
+                                       child: DropdownButton<String>(
+                                         value: _conditionHintStyle,
+                                         icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                         style: const TextStyle(
+                                             color: Colors.black87,
+                                             fontSize: 14,
+                                             fontWeight: FontWeight.w600),
+                                         onChanged: (v) => setState(() => _conditionHintStyle = v!),
+                                         items: ConditionHintStyles.styleNames.entries.map((e) {
+                                           return DropdownMenuItem(value: e.key, child: Text(e.value));
+                                         }).toList(),
+                                       ),
+                                     ),
+                                   ),
+                                 ],
+                               ),
+                             ),
                            ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                             title: const Text('Sample Share Count', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:shoe_view/Image/forced_cache_service.dart';
 
 class ShoeViewCacheManager extends CacheManager {
   static const String _key = 'shoe_view_cache';
@@ -17,7 +18,8 @@ class ShoeViewCacheManager extends CacheManager {
           maxNrOfCacheObjects: 500,
           // 🎯 ADD THIS: This helps the cache manager understand
           // it should prioritize existing files when offline.
-          repo: JsonCacheInfoRepository(databaseName: _key),
+          // repo: JsonCacheInfoRepository(databaseName: _key),
+          fileService: ForcedCacheService(),
         ),
       );
 

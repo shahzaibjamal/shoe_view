@@ -14,6 +14,7 @@ import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/shoe_response.dart';
 import 'package:shoe_view/Image/collage_builder.dart';
+import 'package:shoe_view/Image/shoe_network_image.dart';
 import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
 import 'package:shoe_view/Services/analytics_service.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
@@ -824,14 +825,12 @@ class _ShoeListViewState extends State<ShoeListView>
               child: shoe.remoteImageUrl.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: Image.network(
-                        shoe.remoteImageUrl,
+                      child: ShoeNetworkImage(
+                        imageUrl: shoe.remoteImageUrl,
+                        width: 140,
+                        height: 140,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 60,
-                          color: Colors.grey,
-                        ),
+                        desiredWidth: 400,
                       ),
                     )
                   : const Icon(

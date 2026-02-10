@@ -542,6 +542,7 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
                                     _HeaderIconButton(
                                       icon: Icons.content_copy_rounded,
                                       tooltip: 'Copy',
+                                      showSuccessCheck: true, // Only Copy shows checkmark
                                       onPressed: () {
                                         FocusScope.of(context).unfocus();
                                         widget.onCopyDataPressed();
@@ -642,11 +643,12 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
   }
 }
 
-class _HeaderIconButton extends StatelessWidget {
+class _HeaderIconButton extends StatefulWidget {
   final IconData icon;
   final String? tooltip;
   final VoidCallback? onPressed;
   final double size;
+  final bool showSuccessCheck; // Only for copy button
 
   const _HeaderIconButton({
     super.key,
@@ -654,18 +656,82 @@ class _HeaderIconButton extends StatelessWidget {
     this.tooltip,
     this.onPressed,
     this.size = 24,
+    this.showSuccessCheck = false,
   });
 
   @override
+  State<_HeaderIconButton> createState() => _HeaderIconButtonState();
+}
+
+class _HeaderIconButtonState extends State<_HeaderIconButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 80),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handlePress() async {
+    if (widget.onPressed == null) return;
+
+    HapticFeedback.lightImpact();
+    
+    // Quick scale animation
+    await _controller.forward();
+    await _controller.reverse();
+
+    widget.onPressed!();
+
+    // Only show success check for copy buttons
+    if (widget.showSuccessCheck && mounted) {
+      setState(() => _isSuccess = true);
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) setState(() => _isSuccess = false);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icon, color: Colors.white.withOpacity(0.85), size: size),
-      tooltip: tooltip,
-      onPressed: onPressed,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(),
-      splashRadius: 20,
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: IconButton(
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, anim) =>
+              ScaleTransition(scale: anim, child: child),
+          child: Icon(
+            _isSuccess ? Icons.check_circle_rounded : widget.icon,
+            key: ValueKey(_isSuccess),
+            color: _isSuccess
+                ? Colors.greenAccent
+                : Colors.white.withOpacity(0.85),
+            size: widget.size,
+          ),
+        ),
+        tooltip: widget.tooltip,
+        onPressed: _handlePress,
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        splashRadius: 20,
+      ),
     );
   }
 }

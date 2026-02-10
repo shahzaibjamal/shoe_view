@@ -324,6 +324,12 @@ class ShoeQueryUtils {
     '49',
     '49.5',
   ];
+
+  static final List<String> cmSizesList = List.generate(
+    ((33.0 - 22.0) * 2 + 1).toInt(),
+    (i) => (22.0 + i * 0.5).toStringAsFixed(1),
+  );
+
   // --- SIZE CONVERSION DATA ---
   // A reliable mapping based on standard shoe conversion charts for sports shoes.
   static const Map<String, String> eurToUk = {

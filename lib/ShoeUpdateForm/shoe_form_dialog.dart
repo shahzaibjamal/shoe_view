@@ -61,6 +61,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
   // These variables are only used for display purposes when in Single Size Mode
   late String _displayEurSize;
   late String _displayUkSize;
+  late String _displayCmSize;
+  bool _showCmInput = false;
   String _repairNotes = '';
   String _imagesLink = '';
   bool _isBound = true; // true = changing one auto-updates the other (default)
@@ -148,6 +150,13 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     _displayUkSize =
         ukList.firstWhereOrNull((_) => true) ??
         ShoeQueryUtils.ukSizesList.first;
+    
+    final List<String> cmList = widget.shoe?.sizeCm ?? [];
+    _displayCmSize = cmList.isNotEmpty ? cmList.first : ShoeQueryUtils.cmSizesList.first;
+    _showCmInput = cmList.isNotEmpty; // Always show if it has data
+    if (!_isEditing) {
+      _showCmInput = false; // Default to OFF for new shoes until toggled
+    }
 
     // Listeners & Currency
     _shoeIdController.addListener(_validateIds);
@@ -306,6 +315,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       // Use the combined LIST fields (Requires Shoe Model Update)
       sizeEur: finalEurList,
       sizeUk: finalUkList,
+      sizeCm: _showCmInput ? [_displayCmSize] : [],
 
       condition: conditionValue,
       sellingPrice: priceValue.toDouble(),
@@ -539,10 +549,14 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                             isLoading: _isLoading,
                             displayEurSize: _displayEurSize,
                             displayUkSize: _displayUkSize,
+                            displayCmSize: _displayCmSize,
                             currentEurSizes: _currentEurSizes,
+                            showCmInput: _showCmInput,
                             onBoundChanged: (val) => setState(() => _isBound = val),
+                            onCmToggleChanged: (val) => setState(() => _showCmInput = val),
                             onEurSizeSelected: _handleDisplayEurSizeSelected,
                             onUkSizeSelected: _handleDisplayUkSizeSelected,
+                            onCmSizeSelected: (val) => setState(() => _displayCmSize = val),
                             onMultiSizeChanged: (sizes) => setState(() => _currentEurSizes = sizes),
                           ),
                         ),
@@ -831,5 +845,34 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     if (date == null) return 'Never';
     // Simple format: DD/MM/YYYY HH:MM
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildToggleTile({
+    required String title,
+    String? subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    bool showDivider = true,
+  }) {
+    return Column(
+      children: [
+        SwitchListTile.adaptive(
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          subtitle: subtitle != null
+              ? Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey[600]))
+              : null,
+          value: value,
+          onChanged: onChanged,
+          activeColor: Theme.of(context).primaryColor,
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        if (showDivider)
+          Divider(height: 1, thickness: 0.5, color: Colors.grey[200]),
+      ],
+    );
   }
 }

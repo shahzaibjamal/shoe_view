@@ -1,0 +1,59 @@
+﻿Analyzing 3 items...                                            
+
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\helpers\condition_hint_styles.dart:86:24 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\helpers\condition_hint_styles.dart:106:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\helpers\condition_hint_styles.dart:115:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\helpers\condition_hint_styles.dart:146:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\helpers\condition_hint_styles.dart:147:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\helpers\condition_hint_styles.dart:212:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\helpers\condition_hint_styles.dart:320:27 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\helpers\condition_hint_styles.dart:323:27 - deprecated_member_use
+warning - Unused import: 'package:shoe_view/Helpers/app_logger.dart' - lib\settings_dialog.dart:11:8 - unused_import
+warning - Unused import: 'package:shoe_view/Helpers/quota_circle.dart' - lib\settings_dialog.dart:13:8 - unused_import
+warning - Unused import: 'package:shoe_view/Helpers/version_footer.dart' - lib\settings_dialog.dart:15:8 - unused_import
+warning - The value of the field '_hasTestModePermission' isn't used - lib\settings_dialog.dart:40:8 - unused_field
+   info - Don't use 'BuildContext's across async gaps - lib\settings_dialog.dart:284:20 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\settings_dialog.dart:286:9 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:366:33 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\settings_dialog.dart:397:11 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:461:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:566:66 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:934:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:936:74 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:989:71 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:1003:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:1005:73 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\settings_dialog.dart:1058:70 - deprecated_member_use
+warning - Unused import: 'package:shoe_view/Helpers/shoe_response.dart' - lib\shoe_list_item.dart:7:8 - unused_import
+warning - Unused import: 'package:cached_network_image/cached_network_image.dart' - lib\shoe_list_item.dart:10:8 - unused_import
+warning - The declaration '_getConditionColor' isn't referenced - lib\shoe_list_item.dart:196:9 - unused_element
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:216:29 - deprecated_member_use
+   info - Type could be non-nullable - lib\shoe_list_item.dart:242:25 - unnecessary_nullable_for_final_variable_declarations
+   info - Use a 'SizedBox' to add whitespace to a layout - lib\shoe_list_item.dart:380:15 - sized_box_for_whitespace
+   info - 'translate' is deprecated and shouldn't be used. Use translateByVector3, translateByVector4, or translateByDouble instead - lib\shoe_list_item.dart:511:11 - deprecated_member_use
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\shoe_list_item.dart:512:11 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:542:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:707:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\shoe_list_item.dart:711:49 - deprecated_member_use
+warning - The declaration '_CompactActionButton' isn't referenced - lib\shoe_list_item.dart:735:7 - unused_element
+warning - A value for optional parameter 'color' isn't ever given - lib\shoe_list_item.dart:745:10 - unused_element_parameter
+warning - A value for optional parameter 'key' isn't ever given - lib\shoe_list_item.dart:779:11 - unused_element_parameter
+warning - The declaration '_RainbowBorderPainter' isn't referenced - lib\shoe_list_item.dart:928:7 - unused_element
+
+flutter : 39 issues found. 
+(ran in 10.5s)
+At line:1 char:1
++ flutter analyze lib/Helper
+s/condition_hint_styles.dart
+ lib/shoe_list_ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (39 is  
+  sues found. (ran in 10.   
+ 5s):String) [], RemoteE    
+xception
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 

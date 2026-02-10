@@ -9,10 +9,14 @@ class ShoeSizePicker extends StatelessWidget {
   final bool isLoading;
   final String displayEurSize;
   final String displayUkSize;
+  final String displayCmSize;
   final Set<String> currentEurSizes;
+  final bool showCmInput;
   final void Function(bool) onBoundChanged;
+  final void Function(bool) onCmToggleChanged; // Added callback
   final void Function(String) onEurSizeSelected;
   final void Function(String) onUkSizeSelected;
+  final void Function(String) onCmSizeSelected;
   final void Function(Set<String>) onMultiSizeChanged;
 
   const ShoeSizePicker({
@@ -22,10 +26,14 @@ class ShoeSizePicker extends StatelessWidget {
     required this.isLoading,
     required this.displayEurSize,
     required this.displayUkSize,
+    required this.displayCmSize,
     required this.currentEurSizes,
+    required this.showCmInput,
     required this.onBoundChanged,
+    required this.onCmToggleChanged, // Added param
     required this.onEurSizeSelected,
     required this.onUkSizeSelected,
+    required this.onCmSizeSelected,
     required this.onMultiSizeChanged,
   });
 
@@ -57,7 +65,7 @@ class ShoeSizePicker extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                height: 200,
+                height: 250, // ⬆️ Enlarged from 200
                 child: CupertinoPicker.builder(
                   scrollController: FixedExtentScrollController(
                     initialItem: sizeList.indexOf(selectedSize),
@@ -139,6 +147,45 @@ class ShoeSizePicker extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Include CM Size',
+              style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+            ),
+            Transform.scale(
+              scale: 0.8,
+              child: Switch.adaptive(
+                value: showCmInput,
+                onChanged: isLoading ? null : onCmToggleChanged,
+                activeColor: Theme.of(context).primaryColor,
+              ),
+            ),
+          ],
+        ),
+        if (showCmInput) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 4), // ⬆️ Add vertical padding to enlarge
+            child: SizeDisplayCard(
+              title: 'Size CM',
+              value: '$displayCmSize cm', // Add 'cm' suffix for clarity
+              onTap: isLoading
+                  ? null
+                  : () => _showSizePicker(
+                      context,
+                      displayCmSize,
+                      ShoeQueryUtils.cmSizesList,
+                      onCmSizeSelected,
+                      'Select CM Size',
+                    ),
+              isBound: false,
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -6,6 +6,7 @@ import 'package:shoe_view/Image/shoe_view_cache_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/Services/connectivity_service.dart';
+import 'package:shimmer/shimmer.dart';
 
 class ShoeNetworkImage extends StatelessWidget {
   final String imageUrl;
@@ -193,16 +194,13 @@ class ShoeNetworkImage extends StatelessWidget {
   }
 
   Widget _buildPlaceholder() {
-    return Container(
-      height: height ?? 200, // 🎯 Sensible minimum height during loading if not specified
-      width: width,
-      color: Colors.grey[300],
-      child: const Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      child: Container(
+        height: height ?? 200,
+        width: width,
+        color: Colors.white,
       ),
     );
   }

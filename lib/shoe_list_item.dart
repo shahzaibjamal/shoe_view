@@ -1,12 +1,16 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
+import 'package:shoe_view/Helpers/condition_hint_styles.dart';
+import 'package:shoe_view/Helpers/shoe_response.dart';
 import 'package:shoe_view/Image/shoe_network_image.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import 'shoe_model.dart';
+import 'package:shoe_view/compact_action_button.dart';
+import 'package:shoe_view/shoe_model.dart';
 
 
 
@@ -149,31 +153,26 @@ class ShoeListItem extends StatelessWidget {
           : () {
               _showFullScreenImage(context, shoe.remoteImageUrl);
             },
-      child: Card(
-        elevation: 2,
-        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        color: Colors.transparent, // Set to transparent so Container's gradient shows through
-        clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         child: _ConditionBadge(
           shoe: shoe,
           isEnabled: appStatus.showConditionGradients,
-          child: Container(
-            decoration: BoxDecoration(
-              // If the accent needs to be BELOW content, we can handle it here
-              // but usually accents should be handled via Stack if they are "above"
-              // For now, let's keep the Container white and use a Stack for the dot
-              color: Colors.white,
+          hintStyle: appStatus.conditionHintStyle,
+          child: Card(
+            elevation: (appStatus.showConditionGradients && appStatus.conditionHintStyle == 'glow') ? 0 : 2,
+            margin: EdgeInsets.zero,
+            color: Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
             child: Stack(
-              children: [
-                // The main content
+            children: [
                 Material(
                   color: Colors.transparent,
                   child: _buildInkWell(context, appStatus, currency, sizeDisplay),
                 ),
-
-                // Sync Overlay (Spins if pending)
                 if (_isPendingSync(context))
                   Positioned.fill(
                     child: Center(
@@ -391,16 +390,17 @@ class ShoeListItem extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _CompactActionButton(
+                      CompactActionButton(
                         icon: Icons.content_copy_rounded,
                         tooltip: 'Copy',
+                        showSuccessCheck: true, // Only Copy shows checkmark
                         onPressed: () {
                           HapticFeedback.lightImpact();
                           onCopyDataPressed(shoe);
                         },
                       ),
                       const SizedBox(width: 4),
-                      _CompactActionButton(
+                      CompactActionButton(
                         icon: Icons.share_rounded,
                         tooltip: 'Share',
                         onPressed: () {
@@ -414,7 +414,7 @@ class ShoeListItem extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _CompactActionButton(
+                      CompactActionButton(
                         icon: Icons.edit_rounded,
                         color: Colors.blueGrey,
                         tooltip: 'Edit',
@@ -424,7 +424,7 @@ class ShoeListItem extends StatelessWidget {
                         },
                       ),
                       const SizedBox(width: 4),
-                      _CompactActionButton(
+                      CompactActionButton(
                         icon: Icons.delete_outline_rounded,
                         color: Colors.red[400],
                         tooltip: 'Delete',
@@ -529,11 +529,19 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
     final bool isSaleEligible = (widget.isFlatSale && widget.shoe.status != 'Sold' && (appStatus.applySaleToAllStatuses || widget.shoe.status == 'Available'));
 
     return Dialog(
-      backgroundColor: Colors.black.withOpacity(0.85), // Darker, immersive backdrop
+      backgroundColor: Colors.transparent, // Transparent to show blur
       insetPadding: EdgeInsets.zero, // FULL SCREEN
       child: Stack(
+        fit: StackFit.expand, // Fill entire screen
         alignment: Alignment.center,
         children: [
+          // 🌫️ Backdrop Blur (Glassmorphism)
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0), // Strong Blur
+            child: Container(
+              color: Colors.black.withOpacity(0.6), // Dark semi-transparent tint
+            ),
+          ),
           // Transparent barrier to close on tap outside card
           GestureDetector(
             onTap: () {
@@ -764,12 +772,14 @@ class _ConditionBadge extends StatefulWidget {
   final Widget child;
   final Shoe shoe;
   final bool isEnabled;
+  final String hintStyle;
 
   const _ConditionBadge({
     super.key,
     required this.child,
     required this.shoe,
     required this.isEnabled,
+    this.hintStyle = 'sash',
   });
 
   @override
@@ -789,7 +799,7 @@ class _ConditionBadgeState extends State<_ConditionBadge>
       duration: const Duration(seconds: 3),
     );
 
-    if (widget.shoe.condition >= 10.0) {
+    if (widget.shoe.condition >= 10.0 || widget.hintStyle == 'glow' || widget.hintStyle == 'sweep') {
       _controller.repeat();
     }
   }
@@ -797,9 +807,13 @@ class _ConditionBadgeState extends State<_ConditionBadge>
   @override
   void didUpdateWidget(covariant _ConditionBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.shoe.condition >= 10.0 && !_controller.isAnimating) {
+    final shouldAnimate = widget.shoe.condition >= 10.0 || 
+                         widget.hintStyle == 'glow' || 
+                         widget.hintStyle == 'sweep';
+    
+    if (shouldAnimate && !_controller.isAnimating) {
       _controller.repeat();
-    } else if (widget.shoe.condition < 10.0 && _controller.isAnimating) {
+    } else if (!shouldAnimate && _controller.isAnimating) {
       _controller.stop();
     }
   }
@@ -812,113 +826,13 @@ class _ConditionBadgeState extends State<_ConditionBadge>
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      foregroundPainter: _ConditionAccentPainter(
-        context: context,
-        shoe: widget.shoe,
-        isEnabled: widget.isEnabled,
-        animationValue: _controller,
-      ),
+    return ConditionHintStyles.wrap(
       child: widget.child,
+      shoe: widget.shoe,
+      style: widget.hintStyle,
+      isEnabled: widget.isEnabled,
+      animation: _controller,
     );
-  }
-}
-
-/// 🎨 Paints condition accents with HDR Bloom and Animations
-class _ConditionAccentPainter extends CustomPainter {
-  final BuildContext context;
-  final Shoe shoe;
-  final bool isEnabled;
-  final Animation<double> animationValue;
-
-  _ConditionAccentPainter({
-    required this.context,
-    required this.shoe,
-    required this.isEnabled,
-    required this.animationValue,
-  }) : super(repaint: animationValue);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (!isEnabled) return;
-
-    final condition = shoe.condition;
-    
-    // 🏷️ Sash Shape (Triangle) for ALL
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(32, 0)
-      ..lineTo(0, 32)
-      ..close();
-
-    final paint = Paint()..style = PaintingStyle.fill;
-
-    // 🏆 Legendary (10.0) - Holographic Animation + Bloom
-    if (condition >= 10.0) {
-      // Create a rotating holographic sweep gradient (Cyan -> Magenta -> Yellow -> Cyan)
-      final shader = SweepGradient(
-        colors: const [
-          Color(0xFF00E5FF), // Cyan Accent
-          Color(0xFFD500F9), // Purple Accent
-          Color(0xFFFFD600), // Yellow Accent
-          Color(0xFF00E5FF), // Loop back to Cyan
-        ],
-        stops: const [0.0, 0.4, 0.75, 1.0],
-        transform: GradientRotation(animationValue.value * 2 * 3.14159),
-      ).createShader(Rect.fromLTWH(0, 0, 40, 40));
-
-      // Draw Bloom (Glow)
-      Paint glowPaint = Paint()
-        ..shader = shader
-        ..style = PaintingStyle.fill
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6); // HDR Bloom
-      canvas.drawPath(path, glowPaint);
-
-      // Draw Core
-      paint.shader = shader;
-      canvas.drawPath(path, paint);
-    }
-    // 🥇 Gold (9.5 - 9.9) - Amber/Gold Color + Subtl Bloom
-    else if (condition >= 9.5) {
-      final goldColor = Colors.amber[300]!; 
-
-      // Draw Bloom (Glow)
-      Paint glowPaint = Paint()
-        ..color = goldColor.withOpacity(0.4)
-        ..style = PaintingStyle.fill
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-      canvas.drawPath(path, glowPaint);
-
-      // Draw Core
-      paint.color = goldColor;
-      canvas.drawPath(path, paint);
-    } 
-    // Standard Colors (No Bloom)
-    else {
-      paint.color = _getConditionColor(shoe).withOpacity(0.85);
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  Color _getConditionColor(Shoe shoe) {
-    final double condition = shoe.condition;
-    // < 8: Very Subtle Blue
-    if (condition < 8.0) return Colors.lightBlue[200]!;
-    // 8.0 - 8.4: Subtle Brown
-    if (condition < 8.5) return Colors.brown[300]!;
-    // 8.5 - 8.9: Subtle Red
-    if (condition < 9.0) return Colors.red[300]!;
-    // 9.0 - 9.4: Subtle Purple
-    if (condition < 9.5) return Colors.purple[200]!;
-    
-    // Fallback
-    return Colors.amber[300]!;
-  }
-
-  @override
-  bool shouldRepaint(covariant _ConditionAccentPainter oldDelegate) {
-    return oldDelegate.shoe.condition != shoe.condition ||
-        oldDelegate.isEnabled != isEnabled;
   }
 }
 
@@ -938,7 +852,9 @@ class _ScaleOnTap extends StatefulWidget {
 
 class _ScaleOnTapState extends State<_ScaleOnTap> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+  Offset? _initialPosition;
+  bool _isDragging = false;
+  static const double _dragThreshold = 10.0; // Pixels before considering it a drag
 
   @override
   void initState() {
@@ -950,7 +866,6 @@ class _ScaleOnTapState extends State<_ScaleOnTap> with SingleTickerProviderState
       lowerBound: 0.0,
       upperBound: 0.05, // Scales down to 0.95
     );
-     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(_controller);
   }
 
   @override
@@ -959,16 +874,44 @@ class _ScaleOnTapState extends State<_ScaleOnTap> with SingleTickerProviderState
     super.dispose();
   }
 
+  void _onPointerDown(PointerDownEvent event) {
+    _initialPosition = event.position;
+    _isDragging = false;
+    _controller.forward();
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (_isDragging || _initialPosition == null) return;
+
+    final distance = (event.position - _initialPosition!).distance;
+    if (distance > _dragThreshold) {
+      // User is scrolling, not tapping - reset scale
+      _isDragging = true;
+      _controller.reverse();
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    _controller.reverse();
+    _initialPosition = null;
+    _isDragging = false;
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    _controller.reverse();
+    _initialPosition = null;
+    _isDragging = false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 🎯 Use Listener to capture touch events for animation independently of handling semantics
     return Listener(
-      onPointerDown: (_) => _controller.forward(),
-      onPointerUp: (_) => _onTapUp(),
-      onPointerCancel: (_) => _controller.reverse(),
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
       child: GestureDetector(
-        // Allow onTap to propagate if not handled by child
-        onTap: widget.onTap, 
+        onTap: widget.onTap,
         behavior: HitTestBehavior.translucent,
         child: AnimatedBuilder(
           animation: _controller,
@@ -981,12 +924,5 @@ class _ScaleOnTapState extends State<_ScaleOnTap> with SingleTickerProviderState
         ),
       ),
     );
-  }
-
-  void _onTapUp() {
-    _controller.reverse();
-    // We don't call widget.onTap here because:
-    // 1. If child InkWell handled it, handled.
-    // 2. If child didn't, GestureDetector below handles it.
   }
 }

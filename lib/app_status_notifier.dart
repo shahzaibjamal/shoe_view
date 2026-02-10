@@ -23,6 +23,7 @@ class AppStatusNotifier extends ChangeNotifier {
   bool _sessionMobileSyncAllowed = false; // Persistent for this session only
   bool _hasPromptedForMobileSync = false;
   bool _showConditionGradients = true;
+  String _conditionHintStyle = 'sash'; // 'sash' or 'border'
   bool _applySaleToAllStatuses = false;
   String _email = '';
   int _tier = 0;
@@ -64,6 +65,7 @@ class AppStatusNotifier extends ChangeNotifier {
   bool get sessionMobileSyncAllowed => _sessionMobileSyncAllowed;
   bool get hasPromptedForMobileSync => _hasPromptedForMobileSync;
   bool get showConditionGradients => _showConditionGradients;
+  String get conditionHintStyle => _conditionHintStyle;
   bool get applySaleToAllStatuses => _applySaleToAllStatuses;
   String get email => _email;
   int get tier => _tier;
@@ -174,6 +176,7 @@ class AppStatusNotifier extends ChangeNotifier {
     _allowMobileDataSync = prefs.getBool('allowMobileDataSync') ?? false;
     _hasPromptedForMobileSync = prefs.getBool('hasPromptedForMobileSync') ?? false;
     _showConditionGradients = prefs.getBool('showConditionGradients') ?? true;
+    _conditionHintStyle = prefs.getString('conditionHintStyle') ?? 'sash';
     _applySaleToAllStatuses = prefs.getBool('applySaleToAllStatuses') ?? false;
     _email = prefs.getString('cached_user_email') ?? '';
     _tier = prefs.getInt('tier') ?? 0;
@@ -258,6 +261,7 @@ class AppStatusNotifier extends ChangeNotifier {
     _sessionMobileSyncAllowed = false;
     _hasPromptedForMobileSync = false;
     _showConditionGradients = true;
+    _conditionHintStyle = 'sash';
     _applySaleToAllStatuses = false;
     _email = '';
     _tier = 0;
@@ -285,6 +289,7 @@ class AppStatusNotifier extends ChangeNotifier {
     bool? isConciseMode,
     bool? allowMobileDataSync,
     bool? showConditionGradients,
+    String? conditionHintStyle,
     bool? applySaleToAllStatuses,
   }) {
     _themeMode = themeMode;
@@ -307,6 +312,7 @@ class AppStatusNotifier extends ChangeNotifier {
     if (isConciseMode != null) _isConciseMode = isConciseMode;
     if (allowMobileDataSync != null) _allowMobileDataSync = allowMobileDataSync;
     if (showConditionGradients != null) _showConditionGradients = showConditionGradients;
+    if (conditionHintStyle != null) _conditionHintStyle = conditionHintStyle;
     if (applySaleToAllStatuses != null) _applySaleToAllStatuses = applySaleToAllStatuses;
 
     notifyListeners();
