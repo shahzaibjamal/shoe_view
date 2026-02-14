@@ -9,14 +9,9 @@ class ListHeader extends StatefulWidget {
   final double height;
   final TextEditingController searchController;
   final String searchQuery;
-  final ShoeCategory selectedCategory;
   final List<String> suggestions;
   final int itemCount;
-  final ValueChanged<ShoeCategory> onCategoryChanged;
-  final ShoeSortField sortField;
-  final bool sortAscending;
-  final ValueChanged<ShoeSortField> onSortFieldChanged;
-  final VoidCallback onSortDirectionToggled;
+  final VoidCallback onFilterButtonPressed;
   final VoidCallback onCopyDataPressed;
   final VoidCallback onShareDataPressed;
   final VoidCallback onRefreshDataPressed;
@@ -26,24 +21,23 @@ class ListHeader extends StatefulWidget {
   final VoidCallback onSaveDataPressed;
   final VoidCallback onCloseAppPressed;
   final int selectedCount;
+  final int filterCount;
   final VoidCallback onClearSelection;
   final VoidCallback onBulkDelete;
   final VoidCallback onBulkCopy;
   final VoidCallback onBulkCollage;
+  final ShoeCategory selectedCategory;
+  final ValueChanged<ShoeCategory> onCategoryChanged;
 
   const ListHeader({
     super.key,
     required this.height,
     required this.searchController,
     required this.searchQuery,
-    required this.selectedCategory,
     required this.suggestions,
     required this.itemCount,
-    required this.onCategoryChanged,
-    required this.sortField,
-    required this.sortAscending,
-    required this.onSortFieldChanged,
-    required this.onSortDirectionToggled,
+    this.filterCount = 0,
+    required this.onFilterButtonPressed,
     required this.onCopyDataPressed,
     required this.onShareDataPressed,
     required this.onRefreshDataPressed,
@@ -57,6 +51,8 @@ class ListHeader extends StatefulWidget {
     required this.onBulkDelete,
     required this.onBulkCopy,
     required this.onBulkCollage,
+    required this.selectedCategory,
+    required this.onCategoryChanged,
   });
 
   @override
@@ -171,6 +167,48 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
     Overlay.of(context).insert(_overlayEntry!);
   }
 
+  Widget _buildCategoryTabs() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: ShoeCategory.values.map((cat) {
+          final isSelected = widget.selectedCategory == cat;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: InkWell(
+              onTap: () => widget.onCategoryChanged(cat),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected 
+                      ? Colors.white.withOpacity(0.25)
+                      : Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected 
+                        ? Colors.white.withOpacity(0.4) 
+                        : Colors.white.withOpacity(0.1),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  ShoeQueryUtils.formatLabel(cat.name),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(isSelected ? 1.0 : 0.6),
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildSelectionBar() {
     return SizedBox(
       height: 50,
@@ -267,21 +305,15 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
         ),
         const SizedBox(width: 8),
         _HeaderIconButton(
-          icon: Icons.help_outline_rounded,
-          tooltip: 'Search Help',
+          icon: Icons.tune_rounded,
+          tooltip: 'Filters & Sort',
+          badgeCount: widget.filterCount, // 🎯 Filter Badge
           onPressed: () {
             FocusScope.of(context).unfocus();
-            _showSearchHelp(context);
+            widget.onFilterButtonPressed();
           },
         ),
         const SizedBox(width: 8),
-        if (showDebugButton) ...[
-          const _HeaderIconButton(
-            icon: Icons.bug_report_rounded,
-            onPressed: null,
-          ),
-          const SizedBox(width: 8),
-        ],
         _HeaderIconButton(
           key: _menuKey,
           icon: Icons.more_vert_rounded,
@@ -346,235 +378,93 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: widget.selectedCount > 0
-                      ? _buildSelectionBar()
-                      : _buildSearchBarRow(),
-                ),
-                if (widget.selectedCount == 0) ...[
-                  Builder(builder: (context) {
-                    final double shrinkFactor =
-                        ((widget.height - 110) / (180 - 110)).clamp(0.0, 1.0);
-                    return Opacity(
-                      opacity: shrinkFactor,
-                      child: Visibility(
-                        visible: shrinkFactor > 0.5,
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 10),
-                            // 🏷️ Category Row
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  _CategoryChip(
-                                    label: 'Available',
-                                    isSelected: widget.selectedCategory ==
-                                        ShoeCategory.available,
-                                    onTap: () {
-                                      FocusScope.of(context).unfocus();
-                                      widget.onCategoryChanged(
-                                          ShoeCategory.available);
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _CategoryChip(
-                                    label: 'Sold',
-                                    isSelected: widget.selectedCategory ==
-                                        ShoeCategory.sold,
-                                    onTap: () {
-                                      FocusScope.of(context).unfocus();
-                                      widget.onCategoryChanged(
-                                          ShoeCategory.sold);
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _CategoryChip(
-                                    label: 'Repaired',
-                                    isSelected: widget.selectedCategory ==
-                                        ShoeCategory.repaired,
-                                    onTap: () {
-                                      FocusScope.of(context).unfocus();
-                                      widget.onCategoryChanged(
-                                          ShoeCategory.repaired);
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _CategoryChip(
-                                    label: 'Upcoming',
-                                    isSelected: widget.selectedCategory ==
-                                        ShoeCategory.upcoming,
-                                    onTap: () {
-                                      FocusScope.of(context).unfocus();
-                                      widget.onCategoryChanged(
-                                          ShoeCategory.upcoming);
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _CategoryChip(
-                                    label: 'Internal',
-                                    isSelected: widget.selectedCategory ==
-                                        ShoeCategory.internal,
-                                    onTap: () {
-                                      FocusScope.of(context).unfocus();
-                                      widget.onCategoryChanged(
-                                          ShoeCategory.internal);
-                                    },
-                                  ),
-                                ],
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center, // 🎯 Center content to fill height naturally
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: widget.selectedCount > 0
+                        ? _buildSelectionBar()
+                        : _buildSearchBarRow(),
+                  ),
+                  if (widget.selectedCount == 0) ...[
+                    const SizedBox(height: 10),
+                    _buildCategoryTabs(),
+                    const SizedBox(height: 10),
+                    // ⚙️ Compact Action Row
+                    Row(
+                      children: [
+                        // Item Count Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.inventory_2_outlined, size: 14, color: Colors.indigo.shade200),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${widget.itemCount} Items',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            // ⚙️ Control & Sort Row
-                            Row(
-                              children: [
-                                // Sorting Group
-                                Expanded(
-                                  child: Container(
-                                    height: 40,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.08),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Stack(
-                                          clipBehavior: Clip.none,
-                                          children: [
-                                            Icon(Icons.sort_rounded,
-                                                size: 18,
-                                                color: Colors.white
-                                                    .withOpacity(0.6)),
-                                            Positioned(
-                                              top: -8,
-                                              right: -8,
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.all(4),
-                                                decoration: const BoxDecoration(
-                                                  color: Colors.amberAccent,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Text(
-                                                  widget.itemCount.toString(),
-                                                  style: const TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 8,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: DropdownButtonHideUnderline(
-                                            child: DropdownButton<
-                                                ShoeSortField>(
-                                              value: widget.sortField,
-                                              dropdownColor:
-                                                  Colors.indigo.shade900,
-                                              isExpanded: true,
-                                              icon: const Icon(
-                                                  Icons.arrow_drop_down,
-                                                  color: Colors.white54,
-                                                  size: 20),
-                                              style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600),
-                                              onChanged:
-                                                  (ShoeSortField? val) {
-                                                FocusScope.of(context)
-                                                    .unfocus();
-                                                if (val != null) {
-                                                  widget.onSortFieldChanged(
-                                                      val);
-                                                }
-                                              },
-                                              items: ShoeSortField.values
-                                                  .map((field) {
-                                                return DropdownMenuItem(
-                                                  value: field,
-                                                  child: Text(
-                                                    ShoeQueryUtils
-                                                        .formatLabel(
-                                                            field.name),
-                                                    style: TextStyle(
-                                                      color: widget
-                                                                  .sortField ==
-                                                              field
-                                                          ? Colors.amberAccent
-                                                          : Colors.white,
-                                                    ),
-                                                  ),
-                                                );
-                                              }).toList(),
-                                            ),
-                                          ),
-                                        ),
-                                        _HeaderIconButton(
-                                          icon: widget.sortAscending
-                                              ? Icons.arrow_upward_rounded
-                                              : Icons.arrow_downward_rounded,
-                                          size: 18,
-                                          onPressed: () {
-                                            FocusScope.of(context).unfocus();
-                                            widget.onSortDirectionToggled();
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Quick Action Buttons
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _HeaderIconButton(
-                                      icon: Icons.content_copy_rounded,
-                                      tooltip: 'Copy',
-                                      showSuccessCheck: true, // Only Copy shows checkmark
-                                      onPressed: () {
-                                        FocusScope.of(context).unfocus();
-                                        widget.onCopyDataPressed();
-                                      },
-                                    ),
-                                    _HeaderIconButton(
-                                      icon: Icons.share_rounded,
-                                      tooltip: 'Share Collage',
-                                      onPressed: () {
-                                        FocusScope.of(context).unfocus();
-                                        widget.onShareDataPressed();
-                                      },
-                                    ),
-                                    _HeaderIconButton(
-                                      icon: Icons.settings_rounded,
-                                      tooltip: 'Settings',
-                                      onPressed: () {
-                                        FocusScope.of(context).unfocus();
-                                        widget.onSettingsButtonPressed();
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  }),
+                        const Spacer(),
+                        // Debug Indicator
+                        const Opacity(
+                          opacity: 0.6,
+                          child: Row(
+                            children: [
+                              Icon(Icons.bug_report_rounded, size: 14, color: Colors.amberAccent),
+                              SizedBox(width: 4),
+                              Text('DEBUG', style: TextStyle(color: Colors.amberAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Quick Action Buttons
+                        _HeaderIconButton(
+                          icon: Icons.content_copy_rounded,
+                          tooltip: 'Copy current list',
+                          showSuccessCheck: true,
+                          onPressed: () {
+                            FocusScope.of(context).unfocus();
+                            widget.onCopyDataPressed();
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _HeaderIconButton(
+                          icon: Icons.share_rounded,
+                          tooltip: 'Share Collage',
+                          onPressed: () {
+                            FocusScope.of(context).unfocus();
+                            widget.onShareDataPressed();
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _HeaderIconButton(
+                          icon: Icons.settings_rounded,
+                          tooltip: 'Settings',
+                          onPressed: () {
+                            FocusScope.of(context).unfocus();
+                            widget.onSettingsButtonPressed();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -648,7 +538,8 @@ class _HeaderIconButton extends StatefulWidget {
   final String? tooltip;
   final VoidCallback? onPressed;
   final double size;
-  final bool showSuccessCheck; // Only for copy button
+  final bool showSuccessCheck;
+  final int badgeCount;
 
   const _HeaderIconButton({
     super.key,
@@ -657,6 +548,7 @@ class _HeaderIconButton extends StatefulWidget {
     this.onPressed,
     this.size = 24,
     this.showSuccessCheck = false,
+    this.badgeCount = 0,
   });
 
   @override
@@ -709,6 +601,46 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
 
   @override
   Widget build(BuildContext context) {
+    Widget iconWidget = Icon(
+      _isSuccess ? Icons.check_circle_rounded : widget.icon,
+      key: ValueKey(_isSuccess),
+      color: _isSuccess
+          ? Colors.greenAccent
+          : Colors.white.withOpacity(0.85),
+      size: widget.size,
+    );
+
+    // 🎯 Wrap with Badge if needed
+    if (widget.badgeCount > 0 && !_isSuccess) {
+      iconWidget = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          iconWidget,
+          Positioned(
+            right: -6,
+            top: -6,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: Colors.amberAccent,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              child: Text(
+                '${widget.badgeCount}',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return ScaleTransition(
       scale: _scaleAnimation,
       child: IconButton(
@@ -716,14 +648,7 @@ class _HeaderIconButtonState extends State<_HeaderIconButton>
           duration: const Duration(milliseconds: 200),
           transitionBuilder: (child, anim) =>
               ScaleTransition(scale: anim, child: child),
-          child: Icon(
-            _isSuccess ? Icons.check_circle_rounded : widget.icon,
-            key: ValueKey(_isSuccess),
-            color: _isSuccess
-                ? Colors.greenAccent
-                : Colors.white.withOpacity(0.85),
-            size: widget.size,
-          ),
+          child: iconWidget,
         ),
         tooltip: widget.tooltip,
         onPressed: _handlePress,

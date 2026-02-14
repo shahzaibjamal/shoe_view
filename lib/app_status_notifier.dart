@@ -41,6 +41,9 @@ class AppStatusNotifier extends ChangeNotifier {
   int _dailyWrites = 0;
   int _dailyWritesLimit = 10;
 
+  Map<String, double?> _categoryFixedPrices = {};
+  Map<String, double?> get categoryFixedPrices => _categoryFixedPrices;
+
   AppStatusNotifier() {
     _loadSettings();
   }
@@ -168,7 +171,7 @@ class AppStatusNotifier extends ChangeNotifier {
     _currencyCode = prefs.getString('currency') ?? 'PKR';
     _isSalePrice = prefs.getBool('isSalePrice') ?? false;
     _isFlatSale = prefs.getBool('isFlatSale') ?? false;
-    _flatDiscount = prefs.getDouble('flatDiscountPercent') ?? 7;
+    _flatDiscount = prefs.getDouble('flatDiscount') ?? 7;
     _isPriceHidden = prefs.getBool('isPriceHidden') ?? false;
     _isInfoCopied = prefs.getBool('isInfoCopied') ?? false;
     _isInstagramOnly = prefs.getBool('isInstagramOnly') ?? false;
@@ -181,10 +184,22 @@ class AppStatusNotifier extends ChangeNotifier {
     _email = prefs.getString('cached_user_email') ?? '';
     _tier = prefs.getInt('tier') ?? 0;
     _purchasedOffer = prefs.getString('purchasedOffer') ?? 'none';
-    _flatDiscount = prefs.getDouble('flatDiscountPercent') ?? 7;
+    _flatDiscount = prefs.getDouble('flatDiscount') ?? 7;
 
     final themeStr = prefs.getString('themeMode') ?? 'light';
     _themeMode = ThemeMode.values.firstWhere((e) => e.name == themeStr);
+
+    // Load Category Fixed Prices
+    final fixedPricesStr = prefs.getString('categoryFixedPrices_encoded') ?? '';
+    if (fixedPricesStr.isNotEmpty) {
+      final parts = fixedPricesStr.split('|');
+      for (var part in parts) {
+        final pair = part.split(':');
+        if (pair.length == 2) {
+          _categoryFixedPrices[pair[0]] = double.tryParse(pair[1]);
+        }
+      }
+    }
     
     notifyListeners();
   }
@@ -266,6 +281,24 @@ class AppStatusNotifier extends ChangeNotifier {
     _email = '';
     _tier = 0;
     _purchasedOffer = 'none';
+    _categoryFixedPrices = {};
+    notifyListeners();
+  }
+
+  void updateCategoryFixedPrice(String status, double? price) async {
+    if (price == null) {
+      _categoryFixedPrices.remove(status);
+    } else {
+      _categoryFixedPrices[status] = price;
+    }
+    
+    final prefs = await SharedPreferences.getInstance();
+    // Use a simple custom serialization for now to avoid complexity with Map<String, double?>
+    String serialized = _categoryFixedPrices.entries
+        .map((e) => '${e.key}:${e.value}')
+        .join('|');
+    await prefs.setString('categoryFixedPrices_encoded', serialized);
+    
     notifyListeners();
   }
 
@@ -291,6 +324,7 @@ class AppStatusNotifier extends ChangeNotifier {
     bool? showConditionGradients,
     String? conditionHintStyle,
     bool? applySaleToAllStatuses,
+    Map<String, double?>? categoryFixedPrices,
   }) {
     _themeMode = themeMode;
     _currencyCode = currencyCode;
@@ -314,6 +348,7 @@ class AppStatusNotifier extends ChangeNotifier {
     if (showConditionGradients != null) _showConditionGradients = showConditionGradients;
     if (conditionHintStyle != null) _conditionHintStyle = conditionHintStyle;
     if (applySaleToAllStatuses != null) _applySaleToAllStatuses = applySaleToAllStatuses;
+    if (categoryFixedPrices != null) _categoryFixedPrices = categoryFixedPrices;
 
     notifyListeners();
   }

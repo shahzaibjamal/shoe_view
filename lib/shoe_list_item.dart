@@ -320,7 +320,37 @@ class ShoeListItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  if (appStatus.isFlatSale && shoe.status != 'Sold' && (appStatus.applySaleToAllStatuses || shoe.status == 'Available'))
+                  if (appStatus.isTest && appStatus.categoryFixedPrices[shoe.status] != null)
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: Text(
+                            'FIXED PRICE',
+                            style: TextStyle(
+                              color: Colors.green.shade900,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$currency${appStatus.categoryFixedPrices[shoe.status]!.toStringAsFixed(0)}/-',
+                          style: TextStyle(
+                            color: Colors.indigo.shade800,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (appStatus.isFlatSale && shoe.status != 'Sold' && (appStatus.applySaleToAllStatuses || shoe.status == 'Available'))
                     Row(
                       children: [
                         Container(
@@ -590,12 +620,15 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                               transformationController: _transformationController,
                               minScale: 1.0,
                               maxScale: 4.0,
-                              child: ShoeNetworkImage(
-                                imageUrl: widget.imageUrl,
-                                width: null,
-                                height: null,
-                                fit: BoxFit.contain,
-                                desiredWidth: 1200, // High quality for full screen
+                              child: Hero(
+                                tag: 'shoe_image_${widget.shoe.shipmentId}_${widget.shoe.itemId}',
+                                child: ShoeNetworkImage(
+                                  imageUrl: widget.imageUrl,
+                                  width: null,
+                                  height: null,
+                                  fit: BoxFit.contain,
+                                  desiredWidth: 1200, // High quality for full screen
+                                ),
                               ),
                             ),
                           ),
@@ -630,8 +663,39 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                       ),
                       const SizedBox(height: 6),
                       
-                      // Sale UI Logic
-                      if (isSaleEligible)
+                      // Sale & Policy UI Logic
+                      if (appStatus.isTest && appStatus.categoryFixedPrices[widget.shoe.status] != null)
+                        Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.green.shade200),
+                              ),
+                              child: Text(
+                                'FIXED PRICE POLICY',
+                                style: TextStyle(
+                                  color: Colors.green.shade900,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '${widget.currency}${appStatus.categoryFixedPrices[widget.shoe.status]!.toStringAsFixed(0)}/-',
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ],
+                        )
+                      else if (isSaleEligible)
                         Column(
                           children: [
                             Row(
@@ -681,10 +745,10 @@ class _ShoeDetailDialogContentState extends State<_ShoeDetailDialogContent>
                       else
                         Text(
                           'Price: ${widget.currency}${widget.shoe.sellingPrice.toStringAsFixed(0)}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w800,
-                            color: Colors.indigo.shade900,
+                            color: Colors.white,
                           ),
                         ),
                     ],

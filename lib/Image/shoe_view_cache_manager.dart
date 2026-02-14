@@ -15,18 +15,19 @@ class ShoeViewCacheManager extends CacheManager {
         Config(
           _key,
           stalePeriod: const Duration(days: 60),
-          maxNrOfCacheObjects: 500,
-          // 🎯 ADD THIS: This helps the cache manager understand
-          // it should prioritize existing files when offline.
-          // repo: JsonCacheInfoRepository(databaseName: _key),
+          maxNrOfCacheObjects: 2000, // ⬆️ Increased from 500
           fileService: ForcedCacheService(),
         ),
       );
 
-  /// Helper to strip tokens consistently across the app
+  /// Helper to strip tokens and size parameters consistently
   static String getStableKey(String url) {
     if (url.isEmpty) return "";
-    return url.split('?').first;
+    // 1. Strip query parameters
+    String base = url.split('?').first;
+    // 2. Strip Google width/height parameters (e.g., =w400, -w400, =s400)
+    // Matches patterns like =w1200, =s400, -w800 at the end or followed by other params
+    return base.replaceAll(RegExp(r'=[ws]\d+$'), '').replaceAll(RegExp(r'-[ws]\d+$'), '');
   }
 
   Future<File?> getCachedOrDownloadFile(String url, {String? customKey}) async {

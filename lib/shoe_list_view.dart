@@ -30,6 +30,8 @@ import 'package:shoe_view/shoe_model.dart';
 import 'package:shoe_view/shared/constants/app_constants.dart';
 import 'package:shoe_view/shared/widgets/skeleton_loader.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:shoe_view/Filters/filter_menu.dart';
+import 'package:shoe_view/Filters/filter_state.dart';
 import 'package:lottie/lottie.dart';
 
 class ShoeListView extends StatefulWidget {
@@ -42,6 +44,7 @@ class ShoeListView extends StatefulWidget {
 class _ShoeListViewState extends State<ShoeListView>
     with WidgetsBindingObserver {
   // --- UI State ---
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>(); // 🎯 For endDrawer
   ShoeSortField _sortField = ShoeSortField.itemId;
   bool _sortAscending = true;
   bool _isLoadingExternalData = false;
@@ -50,6 +53,14 @@ class _ShoeListViewState extends State<ShoeListView>
   final ValueNotifier<bool> _isFabVisible = ValueNotifier<bool>(true);
   final ValueNotifier<bool> _showToTop = ValueNotifier<bool>(false);
   Timer? _debounceTimer;
+
+  // --- Filter State ---
+  FilterState _filterState = FilterState(
+    selectedShipments: {},
+    priceRange: const RangeValues(0, 100000), // Updated in processShoes if needed
+    selectedSizesEur: {},
+    selectedConditions: {},
+  );
 
   // --- Data State ---
   List<Shoe> _streamShoes = []; // Raw data from stream
@@ -62,6 +73,7 @@ class _ShoeListViewState extends State<ShoeListView>
   String _lastProcessedQuery = '';
   ShoeSortField _lastProcessedSortField = ShoeSortField.itemId;
   bool _lastProcessedSortAscending = true;
+  FilterState? _lastProcessedFilterState; // 🎯 ADDED
   int _lastProcessedListLength = -1;
   List<String> _searchSuggestions = [];
   final TextEditingController _searchController = TextEditingController();
@@ -426,23 +438,45 @@ class _ShoeListViewState extends State<ShoeListView>
     // Check if inputs have changed using reference equality for the list
     // This allows us to skip processing on simple UI rebuilds (scrolling, etc)
     // while still catching every Firestore update (which produces a new List reference).
-    final inputsChanged = rawShoes != _streamShoes ||
+    final bool inputsChanged = 
+        rawShoes != _streamShoes ||
         query != _lastProcessedQuery ||
-        _sortField != _lastProcessedSortField ||
-        _selectedCategory != _lastProcessedCategory ||
-        _sortAscending != _lastProcessedSortAscending;
+        _filterState != _lastProcessedFilterState || // 🎯 ADDED
+        _selectedCategory != _lastProcessedCategory;
 
-    if (!inputsChanged && _searchSuggestions.isNotEmpty) {
+    if (!inputsChanged && _searchSuggestions.isNotEmpty && _displayedShoes.isNotEmpty) {
       return;
     }
 
     // Update references
     _streamShoes = rawShoes;
     _lastProcessedQuery = query;
-    _lastProcessedSortField = _sortField;
+    _lastProcessedSortField = _filterState.sortBy; // 🎯 Sync from filter
     _lastProcessedCategory = _selectedCategory;
-    _lastProcessedSortAscending = _sortAscending;
+    _lastProcessedSortAscending = _filterState.ascending; // 🎯 Sync from filter
+    _lastProcessedFilterState = _filterState;
     _lastProcessedListLength = rawShoes.length;
+
+    // 🎯 Dynamic Filter Bounds Calculation
+    // We calculate these from the 'category-filtered' list to keep bounds relevant
+    final categoryShoes = rawShoes.where((s) {
+      if (_selectedCategory == ShoeCategory.available) return s.status == 'available';
+      if (_selectedCategory == ShoeCategory.sold) return s.status == 'sold';
+      if (_selectedCategory == ShoeCategory.repaired) return s.status == 'repaired';
+      if (_selectedCategory == ShoeCategory.upcoming) return s.status == 'upcoming';
+      if (_selectedCategory == ShoeCategory.internal) return s.status == 'internal';
+      return true;
+    }).toList();
+
+    if (categoryShoes.isNotEmpty) {
+      double minP = categoryShoes.map((s) => s.sellingPrice).reduce(min);
+      double maxP = categoryShoes.map((s) => s.sellingPrice).reduce(max);
+      
+      // If we haven't user-adjusted the range yet, or if it's out of bounds, reset it
+      if (_filterState.priceRange.start < minP || _filterState.priceRange.end > maxP * 1.5) {
+         _filterState = _filterState.copyWith(priceRange: RangeValues(minP, maxP));
+      }
+    }
 
     // Filter
     final filtered = rawShoes.where((shoe) {
@@ -454,12 +488,15 @@ class _ShoeListViewState extends State<ShoeListView>
     _displayedShoes = ShoeQueryUtils.sortAndLimitShoes(
       shoes: filtered,
       rawQuery: query,
-      sortField: _sortField,
-      sortAscending: _sortAscending,
+      sortField: _filterState.sortBy, // 🎯 Use filterState
+      sortAscending: _filterState.ascending, // 🎯 Use filterState
       category: _selectedCategory,
       isFlatSale: appStatus.isFlatSale,
       flatDiscount: appStatus.flatDiscount,
       applySaleToAllStatuses: appStatus.applySaleToAllStatuses,
+      isTest: appStatus.isTest,
+      categoryFixedPrices: appStatus.categoryFixedPrices,
+      filterState: _filterState, // 🎯 Pass filter state
     );
 
     // Update suggestions if the source list changed OR if they are currently empty
@@ -536,6 +573,8 @@ class _ShoeListViewState extends State<ShoeListView>
         sortField: _sortField,
         category: _selectedCategory,
         applySaleToAllStatuses: appStatus.applySaleToAllStatuses,
+        isTest: appStatus.isTest,
+        categoryFixedPrices: appStatus.categoryFixedPrices,
       );
     }
     
@@ -553,6 +592,8 @@ class _ShoeListViewState extends State<ShoeListView>
       category: _selectedCategory,
       isInstagramOnly: appStatus.isInstagramOnly,
       applySaleToAllStatuses: appStatus.applySaleToAllStatuses,
+      isTest: appStatus.isTest,
+      categoryFixedPrices: appStatus.categoryFixedPrices,
     );
   }
 
@@ -1158,18 +1199,19 @@ class _ShoeListViewState extends State<ShoeListView>
   }
 
   Widget _buildHeader(double height, FirebaseService firebaseService) {
+    final maxPrice = _streamShoes.isEmpty ? 0.0 : _streamShoes.map((s) => s.sellingPrice).reduce(max);
+    final filterCount = _filterState.countActiveFilters(maxPrice);
+
     return ListHeader(
       height: height,
       searchController: _searchController,
       searchQuery: _searchQuery,
       suggestions: _searchSuggestions,
       itemCount: _displayedShoes.length,
-      selectedCategory: _selectedCategory,
-      onCategoryChanged: _onCategoryChanged,
-      sortField: _sortField,
-      sortAscending: _sortAscending,
-      onSortFieldChanged: _onSortChanged,
-      onSortDirectionToggled: _onSortDirectionChanged,
+      filterCount: filterCount, // 🎯 Pass filter count
+      onFilterButtonPressed: () {
+        _scaffoldKey.currentState?.openEndDrawer();
+      },
       onCopyDataPressed: _copyAll,
       onShareDataPressed: _onShareAll,
       onRefreshDataPressed: _onRefreshData,
@@ -1201,6 +1243,10 @@ class _ShoeListViewState extends State<ShoeListView>
       onBulkDelete: _bulkDelete,
       onBulkCopy: _bulkCopy,
       onBulkCollage: _bulkCollage,
+      selectedCategory: _selectedCategory,
+      onCategoryChanged: (newCat) {
+        setState(() => _selectedCategory = newCat);
+      },
     );
   }
 
@@ -1208,8 +1254,8 @@ class _ShoeListViewState extends State<ShoeListView>
 
   @override
   Widget build(BuildContext context) {
-    final double headerMaxHeight = MediaQuery.of(context).size.height * 0.19;
-    const double headerMinHeight = 84.0;
+    final double headerMaxHeight = 160.0; // 🎯 Increased to fit tabs
+    const double headerMinHeight = 145.0; // 🎯 Increased to fit tabs
     final FirebaseService firebaseService = context.read<FirebaseService>();
     final appStatus = context.watch<AppStatusNotifier>();
 
@@ -1227,7 +1273,30 @@ class _ShoeListViewState extends State<ShoeListView>
         _showExitConfirmation();
       },
       child: Scaffold(
-      body: SafeArea(
+        key: _scaffoldKey, // 🎯 Essential for drawer management
+        endDrawer: FilterMenu(
+          currentFilter: _filterState,
+          allShoes: _streamShoes,
+          selectedCategory: _selectedCategory,
+          isFlatSale: appStatus.isFlatSale,
+          flatDiscount: appStatus.flatDiscount,
+          applySaleToAllStatuses: appStatus.applySaleToAllStatuses,
+          isTest: appStatus.isTest,
+          categoryFixedPrices: appStatus.categoryFixedPrices,
+          onCategoryChanged: (newCat) {
+            setState(() => _selectedCategory = newCat);
+          },
+          onFilterChanged: (newState) {
+            setState(() => _filterState = newState);
+          },
+          onClearAll: () {
+            setState(() {
+              _filterState = FilterState(); // Reset to defaults
+              _selectedCategory = ShoeCategory.available; // 🎯 Default category on reset
+            });
+          },
+        ),
+        body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
             setState(() => _isInitialLoading = true);
@@ -1342,6 +1411,7 @@ class _ShoeListViewState extends State<ShoeListView>
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: FloatingActionButton.small(
+                    heroTag: null, // 🎯 Fix Duplicate Hero Tag
                     onPressed: () {
                       _scrollController.animateTo(
                         0,
@@ -1368,6 +1438,7 @@ class _ShoeListViewState extends State<ShoeListView>
                   child: IgnorePointer(
                     ignoring: !isVisible,
                     child: FloatingActionButton(
+                      heroTag: null, // 🎯 Fix Duplicate Hero Tag
                       onPressed: () {
                         HapticFeedback.mediumImpact();
                         showDialog(

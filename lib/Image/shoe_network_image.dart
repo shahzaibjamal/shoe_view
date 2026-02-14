@@ -45,7 +45,7 @@ class ShoeNetworkImage extends StatelessWidget {
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
       child: FutureBuilder<File?>(
-        key: ValueKey('cache_future_${stableKey}_${imageUrl.hashCode}'),
+        key: ValueKey('cache_future_${stableKey}'), // 🎯 Stabilized: removes flicker on width change
         future: _checkSyncStatus(context, imageUrl, stableKey),
         builder: (context, syncSnapshot) {
           if (syncSnapshot.hasData && syncSnapshot.data != null) {

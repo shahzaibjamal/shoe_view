@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/shoe_model.dart';
+import 'package:shoe_view/Filters/filter_state.dart';
+import 'package:flutter/material.dart';
 
 enum ShoeCategory { available, sold, repaired, upcoming, internal }
 
@@ -163,18 +165,62 @@ class ShoeQueryUtils {
   static List<Shoe> sortAndLimitShoes({
     required List<Shoe> shoes,
     required String rawQuery,
-    required ShoeSortField sortField, // 🎯 Updated to Enum
+    required ShoeSortField sortField,
     required bool sortAscending,
     ShoeCategory category = ShoeCategory.available,
     bool applyStatusFilter = true,
     bool isFlatSale = false,
     double flatDiscount = 0,
-    bool applySaleToAllStatuses = false, // Added
+    bool applySaleToAllStatuses = false,
+    bool isTest = false,
+    Map<String, double?> categoryFixedPrices = const {},
+    FilterState? filterState, // 🎯 ADDED
   }) {
     List<Shoe> displayedShoes = List<Shoe>.from(shoes);
 
-    final bool isSaleAppliesGlobally = applySaleToAllStatuses; // For internal clarity
+    // 1. Manual Filters (from Filter Menu)
+    if (filterState != null) {
+      displayedShoes = displayedShoes.where((shoe) {
+        // Price Range (Considering Sale & Fixed Price Policies)
+        final fixedPrice = isTest ? categoryFixedPrices[shoe.status] : null;
+        final effectivePrice = fixedPrice ?? ((isFlatSale && (applySaleToAllStatuses || shoe.status == 'Available'))
+            ? ShoeQueryUtils.roundToNearestDouble(shoe.sellingPrice * (1 - flatDiscount / 100))
+            : shoe.sellingPrice);
 
+        if (effectivePrice < filterState.priceRange.start ||
+            effectivePrice > filterState.priceRange.end) {
+          return false;
+        }
+
+        // Shipment ID
+        if (filterState.selectedShipments.isNotEmpty &&
+            !filterState.selectedShipments.contains(shoe.shipmentId)) {
+          return false;
+        }
+
+        // Sizes EUR
+        if (filterState.selectedSizesEur.isNotEmpty) {
+          bool sizeMatch = false;
+          for (var size in shoe.sizeEur ?? []) {
+            if (filterState.selectedSizesEur.contains(size)) {
+              sizeMatch = true;
+              break;
+            }
+          }
+          if (!sizeMatch) return false;
+        }
+
+        // Condition
+        if (filterState.selectedConditions.isNotEmpty &&
+            !filterState.selectedConditions.contains(shoe.condition)) {
+          return false;
+        }
+
+        return true;
+      }).toList();
+    }
+
+    // 2. Status Filter
     if (applyStatusFilter) {
       switch (category) {
         case ShoeCategory.available:
@@ -184,9 +230,7 @@ class ShoeQueryUtils {
           displayedShoes = displayedShoes.where((a) => a.status == 'Repaired').toList();
           break;
         case ShoeCategory.sold:
-          displayedShoes = displayedShoes
-              .where((a) => a.status == 'Sold')
-              .toList();
+          displayedShoes = displayedShoes.where((a) => a.status == 'Sold').toList();
           break;
         case ShoeCategory.upcoming:
           displayedShoes = displayedShoes.where((a) => a.status == 'N/A').toList();
@@ -196,7 +240,6 @@ class ShoeQueryUtils {
           break;
       }
     } else {
-      // 👇 Always exclude Sold and Repaired when skipping status filter
       displayedShoes = displayedShoes
           .where((a) => a.status != 'Sold' && a.status != 'Repaired')
           .toList();
@@ -221,12 +264,14 @@ class ShoeQueryUtils {
           comparison = sizeA.compareTo(sizeB);
           break;
         case ShoeSortField.sellingPrice:
-          final priceA = (isFlatSale && (applySaleToAllStatuses || a.status == 'Available')) 
+          final fixedA = isTest ? categoryFixedPrices[a.status] : null;
+          final priceA = fixedA ?? ((isFlatSale && (applySaleToAllStatuses || a.status == 'Available')) 
               ? ShoeQueryUtils.roundToNearestDouble(a.sellingPrice * (1 - flatDiscount / 100)) 
-              : a.sellingPrice;
-          final priceB = (isFlatSale && (applySaleToAllStatuses || b.status == 'Available')) 
+              : a.sellingPrice);
+          final fixedB = isTest ? categoryFixedPrices[b.status] : null;
+          final priceB = fixedB ?? ((isFlatSale && (applySaleToAllStatuses || b.status == 'Available')) 
               ? ShoeQueryUtils.roundToNearestDouble(b.sellingPrice * (1 - flatDiscount / 100)) 
-              : b.sellingPrice;
+              : b.sellingPrice);
           comparison = priceA.compareTo(priceB);
           break;
       }
@@ -548,6 +593,8 @@ class ShoeQueryUtils {
     required ShoeCategory category,
     bool isInstagramOnly = false,
     bool applySaleToAllStatuses = false,
+    bool isTest = false,
+    Map<String, double?> categoryFixedPrices = const {},
   }) {
     final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
 
@@ -616,25 +663,30 @@ class ShoeQueryUtils {
       }
 
       // 🎯 Calculate final price for this specific shoe
+      final fixedPrice = isTest ? categoryFixedPrices[shoe.status] : null;
       final bool isEligibleForSale = (isFlatSale && (applySaleToAllStatuses || shoe.status == 'Available'));
-      final sellingPrice = isEligibleForSale
+      final sellingPrice = fixedPrice ?? (isEligibleForSale
           ? ShoeQueryUtils.roundToNearestDouble(
               shoe.sellingPrice * (1 - flatDiscount / 100),
             )
-          : shoe.sellingPrice;
+          : shoe.sellingPrice);
+      
+      final bool hasFixedPrice = isTest && fixedPrice != null;
 
       if (!isSold) {
         if (!isPriceHidden) {
-          if (isSalePrice && isEligibleForSale) {
+          if (hasFixedPrice) {
+            buffer.writeln('${indent}Price: $symbol${sellingPrice.toInt()}/-');
+          } else if (isSalePrice && isEligibleForSale) {
             buffer.writeln(
-              '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(sellingPrice, minPercent: lowDiscount, maxPercent: highDiscount)}/-~ ✅ $symbol${sellingPrice}/-',
+              '${indent}Price: ❌ ~$symbol${ShoeQueryUtils.generateOriginalPrice(sellingPrice, minPercent: lowDiscount, maxPercent: highDiscount)}/-~ ✅ $symbol${sellingPrice.toInt()}/-',
             );
           } else if (isFlatSale && isEligibleForSale) {
             buffer.writeln(
-              '${indent}Price: ❌ ~$symbol${shoe.sellingPrice}/-~ ✅ $symbol${sellingPrice}/-',
+              '${indent}Price: ❌ ~$symbol${shoe.sellingPrice.toInt()}/-~ ✅ $symbol${sellingPrice.toInt()}/-',
             );
           } else {
-            buffer.writeln('${indent}Price: $symbol${sellingPrice}/-');
+            buffer.writeln('${indent}Price: $symbol${sellingPrice.toInt()}/-');
           }
         }
         buffer.writeln(
@@ -684,6 +736,8 @@ class ShoeQueryUtils {
     required ShoeSortField sortField,
     required ShoeCategory category,
     bool applySaleToAllStatuses = false,
+    bool isTest = false,
+    Map<String, double?> categoryFixedPrices = const {},
   }) {
     final symbol = ShoeQueryUtils.getSymbolFromCode(currencyCode);
     final buffer = StringBuffer();
@@ -704,12 +758,13 @@ class ShoeQueryUtils {
       final indent = ' ' * (numbering.length) + gap;
 
       // Calculate final price
+      final fixedPrice = isTest ? categoryFixedPrices[shoe.status] : null;
       final bool isEligibleForSale = (isFlatSale && (applySaleToAllStatuses || shoe.status == 'Available'));
-      final sellingPrice = isEligibleForSale
+      final sellingPrice = fixedPrice ?? (isEligibleForSale
           ? ShoeQueryUtils.roundToNearestDouble(
               shoe.sellingPrice * (1 - flatDiscount / 100),
             )
-          : shoe.sellingPrice;
+          : shoe.sellingPrice);
 
       // Shoe name
       buffer.writeln('$numbering${shoe.shoeDetail}');

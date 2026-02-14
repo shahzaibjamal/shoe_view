@@ -56,12 +56,14 @@ class _SettingsDialogState extends State<SettingsDialog>
   bool _showConditionGradients = true;
   String _conditionHintStyle = 'sash';
   bool _applySaleToAllStatuses = false;
+  Map<String, double?> _categoryFixedPrices = {};
 
   // Controllers
   late TextEditingController _sampleController;
   late TextEditingController _lowDiscountController;
   late TextEditingController _highDiscountController;
   late TextEditingController _flatDiscountController;
+  final Map<String, TextEditingController> _priceControllers = {};
 
   late AnimationController _animController;
   late Animation<double> _scaleAnim;
@@ -134,11 +136,18 @@ class _SettingsDialogState extends State<SettingsDialog>
       _showConditionGradients = app.showConditionGradients;
       _conditionHintStyle = app.conditionHintStyle;
       _applySaleToAllStatuses = app.applySaleToAllStatuses;
+      _categoryFixedPrices = Map.from(app.categoryFixedPrices);
 
       _sampleController.text = app.sampleShareCount.toString();
       _lowDiscountController.text = app.lowDiscount.toString();
       _highDiscountController.text = app.highDiscount.toString();
       _flatDiscountController.text = app.flatDiscount.toString();
+
+      // Initialize controllers for fixed prices
+      for (var status in ['Available', 'Repaired', 'Sold', 'N/A', 'Internal']) {
+        final val = _categoryFixedPrices[status];
+        _priceControllers[status] = TextEditingController(text: val?.toString() ?? '');
+      }
     });
   }
 
@@ -215,6 +224,7 @@ class _SettingsDialogState extends State<SettingsDialog>
       prefs.setDouble('highDiscount', finalHigh),
       prefs.setDouble('flatDiscount', finalFlat),
       prefs.setInt('sampleShareCount', finalSampleCount),
+      prefs.setString('categoryFixedPrices_encoded', _categoryFixedPrices.entries.map((e) => '${e.key}:${e.value}').join('|')),
     ]);
 
     if (mounted) {
@@ -240,6 +250,7 @@ class _SettingsDialogState extends State<SettingsDialog>
         showConditionGradients: _showConditionGradients,
         conditionHintStyle: _conditionHintStyle,
         applySaleToAllStatuses: _applySaleToAllStatuses,
+        categoryFixedPrices: _categoryFixedPrices,
       );
       Navigator.pop(context);
     }
@@ -851,6 +862,8 @@ class _SettingsDialogState extends State<SettingsDialog>
                               ),
                           ],
                         ),
+                        const SizedBox(height: 16),
+                        if (_isTest) _buildCategoryPriceOverrides(),
                       ],
 
                       const SizedBox(height: 24),
@@ -1073,6 +1086,164 @@ class _SettingsDialogState extends State<SettingsDialog>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryPriceOverrides() {
+    final currency = ShoeQueryUtils.getSymbolFromCode(_currencyCode);
+    final activeCategories = _categoryFixedPrices.keys.toList();
+
+    return _buildCard(
+      children: [
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: const Text(
+              'Dynamic Category Pricing',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              '${activeCategories.length} active price overrides',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            leading: Icon(Icons.sell_outlined, color: Colors.indigo[400], size: 22),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              if (activeCategories.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'No active price policies',
+                    style: TextStyle(color: Colors.grey[400], fontStyle: FontStyle.italic, fontSize: 13),
+                  ),
+                ),
+              ...activeCategories.map((storageKey) {
+                final displayName = storageKey == 'N/A' ? 'Upcoming' : storageKey;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          displayName,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 4,
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: TextField(
+                            controller: _priceControllers[storageKey],
+                            keyboardType: TextInputType.number,
+                            textAlignVertical: TextAlignVertical.center,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.indigo),
+                            decoration: InputDecoration(
+                              hintText: 'Price',
+                              hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.normal),
+                              prefixText: '$currency ',
+                              prefixStyle: TextStyle(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.bold),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              border: InputBorder.none,
+                              isDense: true,
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.remove_circle_outline_rounded, size: 18, color: Colors.redAccent),
+                                onPressed: () {
+                                  setState(() {
+                                    _categoryFixedPrices.remove(storageKey);
+                                    _priceControllers[storageKey]?.clear();
+                                  });
+                                },
+                              ),
+                            ),
+                            onChanged: (val) {
+                              final price = double.tryParse(val);
+                              setState(() {
+                                if (price == null || price <= 0) {
+                                  _categoryFixedPrices.remove(storageKey);
+                                } else {
+                                  _categoryFixedPrices[storageKey] = price;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _showAddCategoryOverrideDialog,
+                  icon: const Icon(Icons.add_rounded, size: 20),
+                  label: const Text('Add Category Policy'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.indigo,
+                    side: BorderSide(color: Colors.indigo.withOpacity(0.3)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAddCategoryOverrideDialog() {
+    final allCategories = {
+      'Available': 'Available',
+      'Repaired': 'Repaired',
+      'Sold': 'Sold',
+      'Upcoming': 'N/A', // Display: Storage
+      'Internal': 'Internal',
+    };
+
+    final availableOptions = allCategories.entries
+        .where((e) => !_categoryFixedPrices.containsKey(e.value))
+        .toList();
+
+    if (availableOptions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All categories already have policies.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Select Category'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: availableOptions.map((opt) {
+            return ListTile(
+              title: Text(opt.key),
+              onTap: () {
+                setState(() {
+                  _categoryFixedPrices[opt.value] = null; // Mark as active but no price yet
+                  _priceControllers[opt.value] ??= TextEditingController();
+                });
+                Navigator.pop(ctx);
+              },
+            );
+          }).toList(),
         ),
       ),
     );
