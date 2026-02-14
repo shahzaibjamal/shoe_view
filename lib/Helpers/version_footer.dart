@@ -28,11 +28,17 @@ class _VersionFooterState extends State<VersionFooter> {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text('Version: $_version+$_buildNumber'),
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Text(
+        'v$_version ($_buildNumber)',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.primary.withOpacity(0.4),
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }

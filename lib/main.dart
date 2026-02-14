@@ -64,55 +64,88 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: Colors.indigo,
           brightness: Brightness.light,
+          primary: Colors.indigo.shade600,
+          secondary: Colors.indigoAccent,
         ),
-        // Add consistent text styles
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC), // Ultra light slate
+        // Consistent text styles
         textTheme: const TextTheme(
           headlineLarge: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
           ),
           headlineMedium: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
           ),
-          bodyLarge: TextStyle(fontSize: 16),
-          bodyMedium: TextStyle(fontSize: 14),
-          bodySmall: TextStyle(fontSize: 12),
+          bodyLarge: TextStyle(fontSize: 16, color: Colors.black87),
+          bodyMedium: TextStyle(fontSize: 14, color: Colors.black54),
+          bodySmall: TextStyle(fontSize: 12, color: Colors.black45),
         ),
-        // Add consistent spacing
         cardTheme: CardThemeData(
-          elevation: 4,
+          elevation: 2,
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          color: Colors.white,
         ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: Colors.indigo,
           brightness: Brightness.dark,
+          primary: const Color(0xFF818CF8), // Indigo 400 (Vibrant but soft for dark)
+          onPrimary: Colors.white,
+          secondary: const Color(0xFF6366F1), // Indigo 500
+          onSecondary: Colors.white,
+          surface: const Color(0xFF1E293B), // Slate 800
+          onSurface: const Color(0xFFF1F5F9), // Slate 100
+          background: const Color(0xFF0F172A), // Slate 900
+          onBackground: const Color(0xFFF8FAFC), // Slate 50
+          primaryContainer: const Color(0xFF312E81), // Indigo 900
+          onPrimaryContainer: const Color(0xFFE0E7FF), // Indigo 100
         ),
-        // Same text theme for dark mode
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        dividerColor: Colors.white.withOpacity(0.12),
+        // Better Text hierarchy for Dark Mode
         textTheme: const TextTheme(
           headlineLarge: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+            color: Color(0xFFF8FAFC),
           ),
           headlineMedium: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+            color: Color(0xFFF8FAFC),
           ),
-          bodyLarge: TextStyle(fontSize: 16),
-          bodyMedium: TextStyle(fontSize: 14),
-          bodySmall: TextStyle(fontSize: 12),
+          bodyLarge: TextStyle(fontSize: 16, color: Color(0xFFF1F5F9)),
+          bodyMedium: TextStyle(fontSize: 14, color: Color(0xFFCBD5E1)),
+          bodySmall: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+        ),
+        chipTheme: ChipThemeData(
+          backgroundColor: const Color(0xFF334155), // Slate 700
+          selectedColor: const Color(0xFF4F46E5), // Indigo 600
+          disabledColor: Colors.grey.shade800,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          labelStyle: const TextStyle(color: Color(0xFFF1F5F9), fontSize: 13),
+          secondaryLabelStyle: const TextStyle(color: Colors.white, fontSize: 13),
+          brightness: Brightness.dark,
         ),
         cardTheme: CardThemeData(
           elevation: 4,
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          color: const Color(0xFF1E293B),
         ),
       ),
-      themeMode: themeMode, // ✅ Use the dynamic theme mode from AppStatusNotifier
+      themeMode: themeMode,
       home: const AuthScreen(),
     );
   }

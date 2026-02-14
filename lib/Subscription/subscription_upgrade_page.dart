@@ -82,10 +82,10 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
     bool isTest = context.read<AppStatusNotifier>().isTest;
     
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Premium Access', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -183,7 +183,7 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
                                     await manager.queryActivePurchases();
                                     setState(() => _isVerifying = false);
                                   },
-                            style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
+                            style: TextButton.styleFrom(foregroundColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
                             child: _isVerifying 
                               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                               : const Text('Restore Purchases'),
@@ -191,7 +191,7 @@ class _SubscriptionUpgradePageState extends State<SubscriptionUpgradePage> {
                           Container(height: 16, width: 1, color: Colors.grey[300], margin: const EdgeInsets.symmetric(horizontal: 16)),
                           TextButton(
                             onPressed: manager.manageSubscription,
-                            style: TextButton.styleFrom(foregroundColor: Colors.grey[600]),
+                            style: TextButton.styleFrom(foregroundColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
                             child: const Text('Manage Subscription'),
                           ),
                         ],

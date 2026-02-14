@@ -83,47 +83,59 @@ class _FilterMenuState extends State<FilterMenu> {
       width: MediaQuery.of(context).size.width * 0.85,
       backgroundColor: Colors.transparent,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(24),
             bottomLeft: Radius.circular(24),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black12,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.black12,
               blurRadius: 15,
-              offset: Offset(-5, 0),
+              offset: const Offset(-5, 0),
             ),
           ],
         ),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(),
-                const Divider(height: 1),
-                Expanded(
-                  child: Theme(
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      children: [
-                        _buildCategorySection(),
-                        _buildSortSection(),
-                        _buildShipmentSection(),
-                        _buildPriceSection(),
-                        _buildSizeSection(),
-                        _buildConditionSection(),
-                        const SizedBox(height: 40),
-                      ],
-                    ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SafeArea(
+              bottom: false,
+              child: _buildHeader(),
+            ),
+            Divider(height: 1, color: Theme.of(context).dividerColor.withOpacity(0.1)),
+            Expanded(
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  dividerColor: Colors.transparent,
+                  expansionTileTheme: ExpansionTileThemeData(
+                    iconColor: Theme.of(context).colorScheme.primary,
+                    collapsedIconColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                    textColor: Theme.of(context).colorScheme.primary,
+                    collapsedTextColor: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
                 ),
-                _buildFooter(),
-              ],
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  children: [
+                    _buildCategorySection(),
+                    _buildSortSection(),
+                    _buildShipmentSection(),
+                    _buildPriceSection(),
+                    _buildSizeSection(),
+                    _buildConditionSection(),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
             ),
-          ),
+            SafeArea(
+              top: false,
+              child: _buildFooter(),
+            ),
+          ],
+        ),
         ),
     );
   }
@@ -144,7 +156,10 @@ class _FilterMenuState extends State<FilterMenu> {
               child: ChoiceChip(
                 label: Text(ShoeQueryUtils.formatLabel(cat.name)),
                 selected: isSelected,
-                selectedColor: Colors.indigo.shade100,
+                selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                labelStyle: TextStyle(
+                  color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : null,
+                ),
                 onSelected: (selected) {
                   if (selected) {
                     setState(() => _tempCategory = cat);
@@ -164,9 +179,13 @@ class _FilterMenuState extends State<FilterMenu> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'Filters & Sort',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo),
+            style: TextStyle(
+              fontSize: 20, 
+              fontWeight: FontWeight.bold, 
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           TextButton.icon(
             onPressed: () {
@@ -276,7 +295,7 @@ class _FilterMenuState extends State<FilterMenu> {
               min: 0,
               max: maxVal,
               divisions: 50,
-              activeColor: Colors.indigo,
+              activeColor: Theme.of(context).colorScheme.primary,
               labels: RangeLabels(
                 _tempState.priceRange.start.toStringAsFixed(0),
                 _tempState.priceRange.end.toStringAsFixed(0),
@@ -290,8 +309,20 @@ class _FilterMenuState extends State<FilterMenu> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Min: ${_tempState.priceRange.start.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text('Max: ${_tempState.priceRange.end.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Min: ${_tempState.priceRange.start.toStringAsFixed(0)}', 
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
+                  ),
+                  Text(
+                    'Max: ${_tempState.priceRange.end.toStringAsFixed(0)}', 
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -360,13 +391,20 @@ class _FilterMenuState extends State<FilterMenu> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, -2))],
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.05))),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.black12, 
+            blurRadius: 10, 
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.indigo,
-          foregroundColor: Colors.white,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
           minimumSize: const Size(double.infinity, 54),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 4,
@@ -409,7 +447,10 @@ class _FilterSection extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: isActive ? Colors.indigo.shade700 : Colors.black87,
+              // Already handled by ExpansionTileTheme above, but keep for safety/Row consistency
+              color: isActive 
+                ? Theme.of(context).colorScheme.primary 
+                : Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
           if (isActive) ...[

@@ -118,7 +118,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
                   padding: EdgeInsets.all(layout.padding),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    color: Colors.white,
+                    color: Colors.white, // Keep white for export consistency
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.08),
@@ -220,23 +220,27 @@ class _CollageBuilderState extends State<CollageBuilder> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.description_outlined, size: 16, color: Colors.grey[600]),
+              Icon(
+                Icons.description_outlined,
+                size: 16,
+                color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+              ),
               const SizedBox(width: 8),
               Text(
                 'Text Summary',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
               ),
             ],
@@ -277,7 +281,7 @@ class _CollageBuilderState extends State<CollageBuilder> {
     }
 
     return TextSpan(
-      style: TextStyle(fontSize: 13, color: Colors.grey[800], height: 1.4),
+      style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color, height: 1.4),
       children: spans,
     );
   }
@@ -323,7 +327,9 @@ class _CollageBuilderState extends State<CollageBuilder> {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: Container(
-              color: Colors.grey[200],
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.grey[800]
+                  : Colors.grey[200],
               child: ShoeNetworkImage(
                 imageUrl: shoe.remoteImageUrl,
                 fit: BoxFit.cover,

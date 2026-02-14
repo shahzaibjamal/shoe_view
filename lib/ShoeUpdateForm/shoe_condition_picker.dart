@@ -20,14 +20,15 @@ class ShoeConditionPicker extends StatelessWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       builder: (BuildContext context) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Select Condition'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('Select Condition', style: Theme.of(context).textTheme.titleMedium),
               ),
               SizedBox(
                 height: 200,
@@ -43,7 +44,10 @@ class ShoeConditionPicker extends StatelessWidget {
                   },
                   childCount: ShoeQueryUtils.conditionList.length,
                   itemBuilder: (context, index) =>
-                      Center(child: Text(ShoeQueryUtils.conditionList[index])),
+                      Center(child: Text(
+                        ShoeQueryUtils.conditionList[index], 
+                        style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                      )),
                 ),
               ),
               TextButton(

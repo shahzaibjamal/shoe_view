@@ -54,22 +54,40 @@ class ShoeStatusSelector extends StatelessWidget {
             maxLines: 3,
             enabled: !isLoading,
             onChanged: onRepairNotesChanged,
-            decoration: const InputDecoration(
-              labelText: 'Repair Notes',
-              hintText: 'Describe what was repaired...',
-              border: OutlineInputBorder(),
-            ),
+              decoration: InputDecoration(
+                labelText: 'Repair Notes',
+                hintText: 'Describe what was repaired...',
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+                ),
+              ),
           ),
           const SizedBox(height: 12),
           TextFormField(
             enabled: !isLoading,
             initialValue: imagesLink,
             onChanged: onImagesLinkChanged,
-            decoration: InputDecoration(
-              labelText: 'Images URL',
-              hintText: imagesLink.isEmpty ? 'No images URL provided' : null,
-              border: const OutlineInputBorder(),
-            ),
+              decoration: InputDecoration(
+                labelText: 'Images URL',
+                hintText: imagesLink.isEmpty ? 'No images URL provided' : null,
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+                ),
+              ),
           ),
         ],
       ],

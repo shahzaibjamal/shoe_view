@@ -40,7 +40,7 @@ class ShoeListItem extends StatelessWidget {
   });
 
   // Helper method to build the image widget (network or file)
-  Widget _buildShoeImage(String imagePath, String remoteImageUrl) {
+  Widget _buildShoeImage(BuildContext context, String imagePath, String remoteImageUrl) {
     // Priority 1: Remote URL (from Firestore)
     if (remoteImageUrl.isNotEmpty) {
       return Container(
@@ -49,7 +49,7 @@ class ShoeListItem extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: Colors.grey[400]!,
+            color: Theme.of(context).dividerColor.withOpacity(0.5),
             width: 1.5,
           ),
         ),
@@ -75,10 +75,10 @@ class ShoeListItem extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.grey[500]!,
+          color: Theme.of(context).dividerColor.withOpacity(0.5),
           width: 1.5,
         ),
-        color: Colors.grey[100],
+        color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
       ),
       child: const Icon(Icons.image_not_supported, color: Colors.grey),
     );
@@ -162,7 +162,6 @@ class ShoeListItem extends StatelessWidget {
           child: Card(
             elevation: (appStatus.showConditionGradients && appStatus.conditionHintStyle == 'glow') ? 0 : 2,
             margin: EdgeInsets.zero,
-            color: Colors.white,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -213,7 +212,7 @@ class ShoeListItem extends StatelessWidget {
       height: 76, // Approximate height of a list item
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
+        color: Theme.of(context).cardTheme.color?.withOpacity(0.8) ?? (Theme.of(context).brightness == Brightness.dark ? Colors.black54 : Colors.white70),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -227,7 +226,7 @@ class ShoeListItem extends StatelessWidget {
           Text(
             'Syncing changes...',
             style: TextStyle(
-              color: Colors.indigo.shade700,
+              color: Theme.of(context).colorScheme.primary,
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),
@@ -274,6 +273,7 @@ class ShoeListItem extends StatelessWidget {
               ),
             // 🖼️ Square Shoe Image
             _buildShoeImage(
+              context,
               shoe.localImagePath,
               shoe.remoteImageUrl,
             ),
@@ -309,13 +309,13 @@ class ShoeListItem extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     'ID: ${shoe.itemId} | Ship: ${shoe.shipmentId}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     sizeDisplay,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -326,14 +326,22 @@ class ShoeListItem extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade100,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.green.shade900.withOpacity(0.3)
+                                : Colors.green.shade100,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.green.shade200),
+                            border: Border.all(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.green.shade700
+                                  : Colors.green.shade200,
+                            ),
                           ),
-                          child: Text(
+                            child: Text(
                             'FIXED PRICE',
                             style: TextStyle(
-                              color: Colors.green.shade900,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.green.shade300
+                                  : Colors.green.shade900,
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
                             ),
@@ -343,7 +351,9 @@ class ShoeListItem extends StatelessWidget {
                         Text(
                           '$currency${appStatus.categoryFixedPrices[shoe.status]!.toStringAsFixed(0)}/-',
                           style: TextStyle(
-                            color: Colors.indigo.shade800,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.green.shade300
+                                : Theme.of(context).primaryColor,
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
@@ -394,7 +404,7 @@ class ShoeListItem extends StatelessWidget {
                     Text(
                       'Price: $currency${shoe.sellingPrice.toStringAsFixed(0)}/-',
                       style: TextStyle(
-                        color: Colors.blueGrey.shade900,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),

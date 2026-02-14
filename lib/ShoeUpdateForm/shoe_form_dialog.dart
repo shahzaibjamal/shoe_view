@@ -442,7 +442,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: ConstrainedBox(
@@ -539,9 +539,9 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.grey[50],
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey[200]!),
+                            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
                           ),
                           child: ShoeSizePicker(
                             isSingleSize: isSingleSize,
@@ -672,8 +672,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.grey[50],
+                  border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.1))),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -758,7 +758,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       maxLength: maxLength,
       keyboardType: keyboardType,
       validator: validator,
-      style: const TextStyle(fontSize: 14),
+      style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyLarge?.color),
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, size: 20),
@@ -766,15 +766,17 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
         helperText: helper,
         counterText: '',
         filled: true,
-        fillColor: enabled ? Colors.grey[50] : Colors.grey[100],
+        fillColor: enabled 
+            ? (Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[50])
+            : (Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.02) : Colors.grey[100]),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+          borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+          borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -788,9 +790,9 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.blueGrey[50]!.withOpacity(0.5),
+        color: Theme.of(context).brightness == Brightness.dark ? Colors.blueGrey.withOpacity(0.2) : Colors.blueGrey[50]!.withOpacity(0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blueGrey[100]!),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

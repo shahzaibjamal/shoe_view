@@ -10,6 +10,7 @@ import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
 import 'package:shoe_view/Auth/home_gate.dart';
+import 'package:lottie/lottie.dart';
 import '../Helpers/app_logger.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -328,83 +329,190 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isLoading = _stage != AuthLoadingStage.idle;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       body: Stack(
-        alignment: Alignment.center,
         children: [
+          // 🎨 Premium Background Gradient
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark 
+                  ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
+                  : [const Color(0xFFEEF2FF), const Color(0xFFFFFFFF)],
+              ),
+            ),
+          ),
+          
           if (!isLoading)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!_signedIn)
-                      SizedBox(
-                        height: 50,
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _triggerSignIn,
-                          icon: Image.asset('assets/google.png', height: 24.0),
-                          label: const Text(
-                            'Sign in with Google',
-                            style: TextStyle(fontSize: 18),
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // ✨ Appealing UI Element: Lottie Animation
+                      Lottie.network(
+                        'https://lottie.host/7e9d7249-fbd8-4903-8d6c-2f6a97184291/K7V8Bw0Y6G.json',
+                        height: 220,
+                        repeat: true,
+                        frameRate: FrameRate.max,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 220,
+                          alignment: Alignment.center,
+                          child: Icon(Icons.rocket_launch_rounded, 
+                            size: 80, 
+                            color: isDark ? Colors.indigoAccent.withOpacity(0.5) : Colors.indigo.shade100
                           ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.black54,
-                            backgroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.grey),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8.0),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // 🏷️ App Title
+                      Text(
+                        'KICK HIVE',
+                        style: theme.textTheme.headlineLarge?.copyWith(
+                          color: isDark ? Colors.white : Colors.indigo.shade900,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      Text(
+                        'Inventory Management Redefined',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: isDark ? Colors.white70 : Colors.indigo.shade300,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 60),
+
+                      // 🔑 Authentication UI
+                      if (!_signedIn)
+                        Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: FilledButton.icon(
+                                onPressed: _triggerSignIn,
+                                icon: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Image.asset('assets/google.png', height: 18),
+                                ),
+                                label: const Text(
+                                  'Continue with Google',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.indigo,
+                                  foregroundColor: Colors.white,
+                                  elevation: 4,
+                                  shadowColor: Colors.indigo.withOpacity(0.5),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                    if (_signedIn)
-                      SizedBox(
-                        height: 50,
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _signOut,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.deepPurple,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8.0),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Secure management for your premium collection',
+                              style: theme.textTheme.bodySmall,
+                              textAlign: TextAlign.center,
                             ),
+                          ],
+                        ),
+
+                      if (_signedIn)
+                        Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white.withOpacity(0.05) : Colors.indigo.shade50,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: isDark ? Colors.white12 : Colors.indigo.shade100),
+                              ),
+                              child: Column(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: Colors.indigo.shade400,
+                                    radius: 24,
+                                    child: const Icon(Icons.person_rounded, color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _email ?? 'Authenticated',
+                                    style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  OutlinedButton.icon(
+                                    onPressed: _signOut,
+                                    icon: const Icon(Icons.logout_rounded, size: 18),
+                                    label: const Text('Sign Out'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.redAccent,
+                                      side: const BorderSide(color: Colors.redAccent),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            // Re-auth or skip button could go here
+                          ],
+                        ),
+
+                      if (_error != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 24),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
-                            'Sign out',
-                            style: TextStyle(fontSize: 18),
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                            textAlign: TextAlign.center,
                           ),
                         ),
-                      ),
-                    const SizedBox(height: 30),
-                    if (_signedIn && _email != null)
-                      Text('Signed in as $_email'),
-                    if (_error != null)
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    const SizedBox(height: 100),
-                  ],
+                      
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
             ),
+
+          // 🦶 Footer
           Align(
             alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 20.0),
-              child: VersionFooter(),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: VersionFooter(),
+              ),
             ),
           ),
+
+          // ⏳ Loading Overlay
           if (isLoading)
             AuthLoadingSplash(
               stage: _stage,

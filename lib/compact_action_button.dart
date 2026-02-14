@@ -72,7 +72,7 @@ class _CompactActionButtonState extends State<CompactActionButton>
         decoration: BoxDecoration(
           color: _isSuccess
               ? Colors.green.withOpacity(0.15)
-              : Colors.grey[100],
+              : (Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[100]),
           borderRadius: BorderRadius.circular(8),
         ),
         child: IconButton(
@@ -86,7 +86,7 @@ class _CompactActionButtonState extends State<CompactActionButton>
               size: 20,
               color: _isSuccess
                   ? Colors.green
-                  : (widget.color ?? Colors.grey[700]),
+                  : (widget.color ?? (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey[700])),
             ),
           ),
           tooltip: widget.tooltip,

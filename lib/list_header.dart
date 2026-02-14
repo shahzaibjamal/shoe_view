@@ -131,7 +131,7 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
               clipBehavior: Clip.antiAlias,
               child: Container(
                 width: menuWidth,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -338,12 +338,12 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: Colors.blueGrey.shade800),
+            Icon(icon, size: 20, color: Theme.of(context).iconTheme.color),
             const SizedBox(width: 12),
             Text(
               label,
               style: TextStyle(
-                color: Colors.blueGrey.shade800,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),

@@ -19,91 +19,90 @@ class AuthLoadingSplash extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool showSpinner = stage != AuthLoadingStage.idle;
-    final Color primaryColor = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final Color primaryColor = theme.colorScheme.primary;
+    final bool isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: theme.scaffoldBackgroundColor,
       alignment: Alignment.center,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // S hoe V iew Logo
+          // 👟 Logo Section
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              // S(hoe)
               Text(
-                'S',
+                'KICK',
                 style: TextStyle(
-                  fontSize: 120,
+                  fontSize: 48,
                   fontWeight: FontWeight.w900,
-                  color: primaryColor,
-                  height: 0.8,
+                  color: isDark ? Colors.white : Colors.indigo.shade900,
+                  letterSpacing: -2,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(left: 2.0, right: 10.0),
-                child: Text(
-                  'hoe',
-                  style: TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.w500,
-                    color: primaryColor.withOpacity(0.6),
-                  ),
-                ),
-              ),
-              // V iew
+              const SizedBox(width: 8),
               Text(
-                'V',
+                'HIVE',
                 style: TextStyle(
-                  fontSize: 120,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 48,
+                  fontWeight: FontWeight.w300,
                   color: primaryColor,
-                  height: 0.8,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 0.0),
-                child: Text(
-                  'iew',
-                  style: TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.w500,
-                    color: primaryColor.withOpacity(0.6),
-                  ),
+                  letterSpacing: 4,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 50),
+          const SizedBox(height: 60),
 
-          // Progress Indicator and Message Container
+          // 🔄 Progress Section
           if (showSpinner) ...[
             Text(
-              message,
-              style: TextStyle(fontSize: 18, color: Colors.grey.shade700),
+              message.toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white54 : Colors.indigo.shade200,
+                letterSpacing: 2,
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 24),
 
-            // LERPING Progress Bar - Smoother Transition (1000ms)
+            // Premium Progress Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 50.0),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0, end: progress),
-                duration: const Duration(
-                  milliseconds: 1000,
-                ), // Increased to 1 second for smoothness
-                curve: Curves.easeInOut,
-                builder: (context, value, child) {
-                  return LinearProgressIndicator(
-                    value: value,
-                    backgroundColor: primaryColor.withOpacity(0.2),
-                    valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                  );
-                },
+              padding: const EdgeInsets.symmetric(horizontal: 60.0),
+              child: Column(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: progress),
+                      duration: const Duration(milliseconds: 1000),
+                      curve: Curves.easeInOutSine,
+                      builder: (context, value, child) {
+                        return LinearProgressIndicator(
+                          value: value,
+                          minHeight: 6,
+                          backgroundColor: primaryColor.withOpacity(0.1),
+                          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '${(progress * 100).toInt()}%',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor.withOpacity(0.5),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

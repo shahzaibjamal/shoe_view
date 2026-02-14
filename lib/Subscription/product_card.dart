@@ -24,17 +24,24 @@ class ProductCard extends StatelessWidget {
     // Subtle premium feeling for Gold/Highlighted items
     final bool showPremium = isHighlighted;
 
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+
     return Container(
       decoration: BoxDecoration(
-        color: showPremium ? Colors.amber.shade50 : Colors.white,
+        color: showPremium 
+            ? (isDark ? Colors.amber.withOpacity(0.15) : Colors.amber.shade50)
+            : (isDark ? theme.cardColor : Colors.white),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: showPremium ? Colors.amber.shade200 : Colors.grey.shade200,
+          color: showPremium 
+              ? (isDark ? Colors.amber.withOpacity(0.4) : Colors.amber.shade200) 
+              : (isDark ? Colors.white10 : Colors.grey.shade200),
           width: showPremium ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: isDark ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -58,7 +65,9 @@ class ProductCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: showPremium ? Colors.deepOrange[800] : Colors.black87,
+                        color: showPremium 
+                            ? (isDark ? Colors.amber.shade200 : Colors.deepOrange[800]) 
+                            : theme.textTheme.titleMedium?.color,
                       ),
                     ),
                     if (showPremium)
@@ -86,10 +95,10 @@ class ProductCard extends StatelessWidget {
                   children: [
                     Text(
                       offer.displayPrice,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w900,
-                        color: Colors.black87,
+                        color: theme.textTheme.bodyLarge?.color,
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -99,7 +108,7 @@ class ProductCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey[500],
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                       ),
                     ),
                   ],
@@ -112,7 +121,7 @@ class ProductCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.3,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -124,11 +133,13 @@ class ProductCard extends StatelessWidget {
                         : (isPurchased ? onUnSub : () => onBuy(offer)),
                     style: FilledButton.styleFrom(
                       backgroundColor: isPurchased
-                          ? Colors.red.shade50
+                          ? (isDark ? Colors.red.withOpacity(0.2) : Colors.red.shade50)
                           : (showPremium
-                              ? Colors.black
-                              : Colors.blue.shade600),
-                      foregroundColor: isPurchased ? Colors.red : Colors.white,
+                              ? (isDark ? Colors.white : Colors.black)
+                              : theme.primaryColor),
+                      foregroundColor: isPurchased 
+                          ? Colors.red 
+                          : (showPremium && isDark ? Colors.black : Colors.white),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),

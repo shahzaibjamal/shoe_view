@@ -359,7 +359,7 @@ class _SettingsDialogState extends State<SettingsDialog>
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Colors.grey[600],
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.indigo.shade300 : Colors.indigo.shade400,
           letterSpacing: 1.1,
         ),
       ),
@@ -369,9 +369,9 @@ class _SettingsDialogState extends State<SettingsDialog>
   Widget _buildCard({required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
@@ -401,7 +401,7 @@ class _SettingsDialogState extends State<SettingsDialog>
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
           subtitle: subtitle != null
-              ? Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey[600]))
+              ? Text(subtitle, style: TextStyle(fontSize: 13, color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.grey[600]))
               : null,
           value: value,
           onChanged: onChanged,
@@ -410,7 +410,7 @@ class _SettingsDialogState extends State<SettingsDialog>
           dense: true,
         ),
         if (showDivider)
-          Divider(height: 1, thickness: 0.5, indent: 16, endIndent: 16, color: Colors.grey[200]),
+          Divider(height: 1, thickness: 0.5, indent: 16, endIndent: 16, color: Theme.of(context).dividerColor.withOpacity(0.1)),
       ],
     );
   }
@@ -428,8 +428,8 @@ class _SettingsDialogState extends State<SettingsDialog>
         labelText: label,
         suffixText: suffix,
         filled: true,
-        fillColor: enabled ? Colors.grey[50] : Colors.grey[200],
-        labelStyle: TextStyle(color: enabled ? Colors.black87 : Colors.grey),
+        fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
+        labelStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -449,7 +449,11 @@ class _SettingsDialogState extends State<SettingsDialog>
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: TextStyle(color: enabled ? Colors.black87 : Colors.grey),
+      style: TextStyle(
+        color: enabled 
+          ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black87)
+          : Colors.grey,
+      ),
     );
   }
 
@@ -465,11 +469,11 @@ class _SettingsDialogState extends State<SettingsDialog>
         child: Container(
           constraints: const BoxConstraints(maxWidth: 500, maxHeight: 800),
           decoration: BoxDecoration(
-            color: Colors.grey[100], // Premium off-white background
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.25),
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.black45 : Colors.black.withOpacity(0.25),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
@@ -480,14 +484,14 @@ class _SettingsDialogState extends State<SettingsDialog>
               // Header
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                  border: Border(bottom: BorderSide(color: Colors.black12)),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.1))),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.settings_rounded, size: 24, color: Colors.black87),
+                    Icon(Icons.settings_rounded, size: 24, color: Theme.of(context).colorScheme.primary),
                     const SizedBox(width: 12),
                     const Text(
                       'Settings',
@@ -496,7 +500,7 @@ class _SettingsDialogState extends State<SettingsDialog>
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded, color: Colors.black54),
+                      icon: Icon(Icons.close_rounded, color: Theme.of(context).iconTheme.color?.withOpacity(0.6)),
                       visualDensity: VisualDensity.compact,
                     ),
                   ],
@@ -537,10 +541,10 @@ class _SettingsDialogState extends State<SettingsDialog>
                                   child: Container(
                                     width: 72,
                                     height: 72,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[100],
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.grey.shade300),
+                                     decoration: BoxDecoration(
+                                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
+                                       shape: BoxShape.circle,
+                                       border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade300),
                                       image: _logoFile != null
                                           ? DecorationImage(
                                               image: FileImage(_logoFile!),
@@ -573,17 +577,17 @@ class _SettingsDialogState extends State<SettingsDialog>
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
+                                             decoration: BoxDecoration(
+                                               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                               borderRadius: BorderRadius.circular(6),
+                                             ),
                                             child: Text(
                                               'TIER ${app.tier}',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w800,
-                                                color: Colors.blue[800],
-                                              ),
+                                               style: TextStyle(
+                                                 fontSize: 11,
+                                                 fontWeight: FontWeight.w800,
+                                                 color: Theme.of(context).colorScheme.primary,
+                                               ),
                                             ),
                                           ),
                                           const SizedBox(width: 8),
@@ -611,21 +615,59 @@ class _SettingsDialogState extends State<SettingsDialog>
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             child: Row(
                               children: [
+                                const Text('App Theme', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                                const Spacer(),
+                                Container(
+                                  height: 36,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<ThemeMode>(
+                                      value: _selectedTheme,
+                                      icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                      style: TextStyle(
+                                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600),
+                                      onChanged: (v) => setState(() => _selectedTheme = v!),
+                                      items: ThemeMode.values.map((m) {
+                                        return DropdownMenuItem(
+                                          value: m,
+                                          child: Text(
+                                            m.name[0].toUpperCase() + m.name.substring(1),
+                                            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, thickness: 0.5),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
                                 const Text('Currency', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                                 const Spacer(),
                                 Container(
                                   height: 36,
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey[100],
+                                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<String>(
                                       value: _currencyCode,
                                       icon: const Icon(Icons.arrow_drop_down, size: 20),
-                                      style: const TextStyle(
-                                          color: Colors.black87,
+                                      style: TextStyle(
+                                          color: Theme.of(context).textTheme.bodyLarge?.color,
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600),
                                       onChanged: (v) => setState(() => _currencyCode = v!),
@@ -674,15 +716,15 @@ class _SettingsDialogState extends State<SettingsDialog>
                                      height: 36,
                                      padding: const EdgeInsets.symmetric(horizontal: 8),
                                      decoration: BoxDecoration(
-                                       color: Colors.grey[100],
+                                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
                                        borderRadius: BorderRadius.circular(8),
                                      ),
                                      child: DropdownButtonHideUnderline(
                                        child: DropdownButton<String>(
                                          value: _conditionHintStyle,
                                          icon: const Icon(Icons.arrow_drop_down, size: 20),
-                                         style: const TextStyle(
-                                             color: Colors.black87,
+                                         style: TextStyle(
+                                             color: Theme.of(context).textTheme.bodyLarge?.color,
                                              fontSize: 14,
                                              fontWeight: FontWeight.w600),
                                          onChanged: (v) => setState(() => _conditionHintStyle = v!),
@@ -707,7 +749,7 @@ class _SettingsDialogState extends State<SettingsDialog>
                                 decoration: InputDecoration(
                                   contentPadding: const EdgeInsets.all(8),
                                   filled: true,
-                                  fillColor: Colors.grey[100],
+                                  fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: BorderSide.none,
@@ -868,6 +910,7 @@ class _SettingsDialogState extends State<SettingsDialog>
 
                       const SizedBox(height: 24),
                       // Actions
+
                       SizedBox(
                         width: double.infinity,
                         height: 50,
@@ -889,16 +932,26 @@ class _SettingsDialogState extends State<SettingsDialog>
                           Expanded(
                             child: TextButton.icon(
                               onPressed: _handleClearData,
-                              icon: Icon(Icons.delete_forever_rounded, size: 20, color: Colors.red[400]),
-                              label: Text('Clear Data', style: TextStyle(color: Colors.red[400])),
+                              icon: Icon(Icons.delete_forever_rounded, size: 20, color: Theme.of(context).colorScheme.error),
+                              label: Text('Clear Data', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Theme.of(context).colorScheme.error.withOpacity(0.3)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                              ),
                             ),
                           ),
-                          Container(width: 1, height: 24, color: Colors.grey[300]),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: TextButton.icon(
                               onPressed: _handleSignOut,
-                              icon: Icon(Icons.logout_rounded, size: 20, color: Colors.grey[700]),
-                              label: Text('Sign Out', style: TextStyle(color: Colors.grey[700])),
+                              icon: Icon(Icons.logout_rounded, size: 20, color: Theme.of(context).iconTheme.color),
+                              label: Text('Sign Out', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                              ),
                             ),
                           ),
                         ],
@@ -909,26 +962,45 @@ class _SettingsDialogState extends State<SettingsDialog>
                       // Upgrade / Subscription Button
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                             final subManager = widget.subscriptionManager;
-                             // Close dialog first or stack on top? Stacking on top is standard for navigating to a new page.
-                             // But let's close the dialog to keep stack clean if that's preferred, 
-                             // OR just push. User asked for "In apps button it is not in our newer UI".
-                             // Existing logic in shoe_list_view uses push.
-                             Navigator.of(context).push(MaterialPageRoute(
-                              builder: (_) => ChangeNotifierProvider.value(
-                                value: subManager,
-                                child: const SubscriptionUpgradePage(),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: Theme.of(context).brightness == Brightness.dark
+                                  ? [Colors.deepOrange.shade600, Colors.orange.shade700]
+                                  : [Colors.orange.shade400, Colors.deepOrange.shade600],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.4),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
                               ),
-                            ));
-                          },
-                          icon: const Icon(Icons.diamond_outlined, color: Colors.amber),
-                          label: const Text('Upgrade / Manage Subscription', style: TextStyle(color: Colors.black87)),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: Colors.amber.shade300),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                               final subManager = widget.subscriptionManager;
+                               Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => ChangeNotifierProvider.value(
+                                  value: subManager,
+                                  child: const SubscriptionUpgradePage(),
+                                ),
+                              ));
+                            },
+                            icon: const Icon(Icons.diamond_rounded, color: Colors.white),
+                            label: const Text(
+                              'Upgrade / Manage Subscription', 
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
                           ),
                         ),
                       ),
@@ -972,10 +1044,10 @@ class _SettingsDialogState extends State<SettingsDialog>
                                       children: [
                                         Text(
                                           "${app.dailyShares}",
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 26,
                                             fontWeight: FontWeight.w800,
-                                            color: Colors.black87,
+                                            color: Theme.of(context).textTheme.bodyLarge?.color,
                                             height: 1,
                                           ),
                                         ),
@@ -986,7 +1058,7 @@ class _SettingsDialogState extends State<SettingsDialog>
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
-                                              color: Colors.grey[500],
+                                              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                                             ),
                                           ),
                                         ),
@@ -1041,10 +1113,10 @@ class _SettingsDialogState extends State<SettingsDialog>
                                       children: [
                                         Text(
                                           "${app.dailyWrites}",
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 26,
                                             fontWeight: FontWeight.w800,
-                                            color: Colors.black87,
+                                            color: Theme.of(context).textTheme.bodyLarge?.color,
                                             height: 1,
                                           ),
                                         ),
@@ -1055,7 +1127,7 @@ class _SettingsDialogState extends State<SettingsDialog>
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
-                                              color: Colors.grey[500],
+                                              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                                             ),
                                           ),
                                         ),
@@ -1068,8 +1140,8 @@ class _SettingsDialogState extends State<SettingsDialog>
                                         value: (app.dailyWritesLimit > 0) 
                                             ? (app.dailyWrites / app.dailyWritesLimit).clamp(0.0, 1.0) 
                                             : 0.0,
-                                        backgroundColor: Colors.blue.withOpacity(0.15),
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
+                                        backgroundColor: Theme.of(context).primaryColor.withOpacity(0.15),
+                                        valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
                                         minHeight: 6,
                                       ),
                                     ),
@@ -1106,9 +1178,15 @@ class _SettingsDialogState extends State<SettingsDialog>
             ),
             subtitle: Text(
               '${activeCategories.length} active price overrides',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
             ),
-            leading: Icon(Icons.sell_outlined, color: Colors.indigo[400], size: 22),
+            leading: Icon(
+              Icons.sell_outlined,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.orange.shade300
+                  : Theme.of(context).primaryColor,
+              size: 22,
+            ),
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
               if (activeCategories.isEmpty)
@@ -1130,7 +1208,11 @@ class _SettingsDialogState extends State<SettingsDialog>
                         flex: 3,
                         child: Text(
                           displayName,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+                          style: TextStyle(
+                            fontSize: 14, 
+                            fontWeight: FontWeight.w600, 
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1139,15 +1221,21 @@ class _SettingsDialogState extends State<SettingsDialog>
                         child: Container(
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.grey[50],
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey[200]!),
+                            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
                           ),
                           child: TextField(
                             controller: _priceControllers[storageKey],
                             keyboardType: TextInputType.number,
                             textAlignVertical: TextAlignVertical.center,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.indigo),
+                            style: TextStyle(
+                              fontSize: 14, 
+                              fontWeight: FontWeight.bold, 
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.green.shade300
+                                  : Theme.of(context).colorScheme.primary,
+                            ),
                             decoration: InputDecoration(
                               hintText: 'Price',
                               hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.normal),
@@ -1183,22 +1271,39 @@ class _SettingsDialogState extends State<SettingsDialog>
                   ),
                 );
               }),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _showAddCategoryOverrideDialog,
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text('Add Category Policy'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.indigo,
-                    side: BorderSide(color: Colors.indigo.withOpacity(0.3)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _showAddCategoryOverrideDialog,
+            icon: Icon(
+              Icons.add_rounded,
+              size: 20,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white.withOpacity(0.9)
+                  : Theme.of(context).primaryColor,
+            ),
+            label: Text(
+              'Add Category Policy',
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withOpacity(0.9)
+                    : Theme.of(context).primaryColor,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withOpacity(0.3)
+                    : Theme.of(context).primaryColor.withOpacity(0.3),
+                width: 1.5,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
           ),
         ),
       ],
@@ -1234,7 +1339,7 @@ class _SettingsDialogState extends State<SettingsDialog>
           mainAxisSize: MainAxisSize.min,
           children: availableOptions.map((opt) {
             return ListTile(
-              title: Text(opt.key),
+              title: Text(opt.key, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
               onTap: () {
                 setState(() {
                   _categoryFixedPrices[opt.value] = null; // Mark as active but no price yet
