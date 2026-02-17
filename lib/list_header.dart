@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 import 'package:shoe_view/shoe_model.dart';
+import 'package:shoe_view/transaction_log_screen.dart';
 
 class ListHeader extends StatefulWidget {
   final double height;
@@ -144,6 +145,16 @@ class _ListHeaderState extends State<ListHeader> with WidgetsBindingObserver {
                       icon: Icons.local_shipping_rounded,
                       label: 'Send Samples',
                       onTap: widget.onSampleSendPressed,
+                    ),
+                    _buildOverlayItem(
+                      icon: Icons.history_rounded,
+                      label: 'Transact. History',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const TransactionLogScreen()),
+                        );
+                      },
                     ),
                     _buildOverlayItem(
                       icon: Icons.save_rounded,

@@ -11,10 +11,13 @@ import 'package:provider/provider.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/Auth/auth_screen.dart';
 import 'package:shoe_view/Services/analytics_service.dart';
+import 'package:shoe_view/Services/transaction_history_service.dart';
 import 'package:shoe_view/app_status_notifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Transaction History (Hive)
+  await TransactionHistoryService().init();
   // Lock orientation to portrait only
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

@@ -334,27 +334,49 @@ class Shoe {
     );
   }
 
-  String updateDriveImageUrl(String originalUrl, int desiredWidth) {
-    try {
-      // 1. Parse the original URL
-      final uri = Uri.parse(originalUrl);
+  // Identifies changed fields between this shoe and another.
+  // Returns a Map where keys are field names and values are {old: value, new: value}
+  Map<String, Map<String, dynamic>> diff(Shoe other) {
+    final changes = <String, Map<String, dynamic>>{};
 
-      // 2. Extract the existing query parameters as a mutable map
-      final queryParameters = Map<String, String>.from(uri.queryParameters);
-
-      // 3. Update the 'sz' parameter with the new width (e.g., 'w800')
-      // We use 'w' prefix for width control.
-      queryParameters['sz'] = 'w$desiredWidth';
-
-      // 4. Reconstruct the new URL
-      final newUri = uri.replace(queryParameters: queryParameters);
-
-      return newUri.toString();
-    } catch (e) {
-      // Return the original URL on failure
-      print('Error modifying image URL: $e');
-      return originalUrl;
+    if (shoeDetail != other.shoeDetail) {
+      changes['Name'] = {'old': shoeDetail, 'new': other.shoeDetail};
     }
+    if (status != other.status) {
+      changes['Status'] = {'old': status, 'new': other.status};
+    }
+    if (sellingPrice != other.sellingPrice) {
+      changes['Price'] = {'old': sellingPrice, 'new': other.sellingPrice};
+    }
+    if (condition != other.condition) {
+      changes['Condition'] = {'old': condition, 'new': other.condition};
+    }
+    if (quantity != other.quantity) {
+      changes['Quantity'] = {'old': quantity, 'new': other.quantity};
+    }
+    if (notes != other.notes) {
+      changes['Notes'] = {'old': notes, 'new': other.notes};
+    }
+    if (soldTo != other.soldTo) {
+      changes['Sold To'] = {'old': soldTo, 'new': other.soldTo};
+    }
+    if (instagramLink != other.instagramLink) {
+      changes['Instagram'] = {'old': instagramLink, 'new': other.instagramLink};
+    }
+    if (tiktokLink != other.tiktokLink) {
+      changes['TikTok'] = {'old': tiktokLink, 'new': other.tiktokLink};
+    }
+    if (imagesLink != other.imagesLink) {
+      changes['Images Link'] = {'old': imagesLink, 'new': other.imagesLink};
+    }
+    // Check sizes (simple comparison of formatted strings)
+    final thisSizes = (sizeEur ?? []).join(', ');
+    final otherSizes = (other.sizeEur ?? []).join(', ');
+    if (thisSizes != otherSizes) {
+      changes['Sizes'] = {'old': thisSizes, 'new': otherSizes};
+    }
+
+    return changes;
   }
 }
 

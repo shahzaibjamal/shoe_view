@@ -10,7 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:shoe_view/Helpers/app_info.dart';
 import 'package:shoe_view/Helpers/app_logger.dart';
 import 'package:shoe_view/shared/constants/app_constants.dart';
-import '../shoe_model.dart'; // Assuming this contains the Shoe class with itemId
+import 'package:shoe_view/Services/transaction_history_service.dart';
+import '../shoe_model.dart';
 
 /// A service class to handle all interactions with Firebase Firestore and Storage.
 class FirebaseService {
@@ -111,6 +112,7 @@ class FirebaseService {
   Future<dynamic> updateShoe(
     Shoe shoe,
     String? base64Image, {
+    Shoe? oldShoe,
     bool isTest = false,
   }) async {
     try {
@@ -120,6 +122,28 @@ class FirebaseService {
         'imageBase64': base64Image,
         'isTest': isTest,
       });
+
+      // Calculate diff if updating
+      Map<String, dynamic>? changes;
+      if (oldShoe != null) {
+        changes = oldShoe.diff(shoe);
+      }
+
+      // Log transaction
+      TransactionHistoryService().log(
+        action: shoe.documentId.isEmpty ? 'CREATE' : 'UPDATE',
+        entityId: '${shoe.shipmentId}_${shoe.itemId}',
+        entityName: shoe.shoeDetail,
+        summary: shoe.documentId.isEmpty
+            ? 'Added new shoe: ${shoe.shoeDetail}'
+            : 'Updated shoe details for ${shoe.shoeDetail}',
+        metadata: {
+          'itemId': shoe.itemId,
+          'shipmentId': shoe.shipmentId,
+          if (changes != null) 'changes': changes,
+        },
+      );
+
       return result.data;
     } catch (error) {
       AppLogger.log('Error updating shoe: $error');
@@ -137,6 +161,14 @@ class FirebaseService {
           'isTest': isTest,
         })
         .then((value) {
+          // Log transaction
+          TransactionHistoryService().log(
+            action: 'DELETE',
+            entityId: '${shoe.shipmentId}_${shoe.itemId}',
+            entityName: shoe.shoeDetail,
+            summary: 'Deleted shoe: ${shoe.shoeDetail}',
+            metadata: {'itemId': shoe.itemId, 'shipmentId': shoe.shipmentId},
+          );
           // Handle success
           return value.data;
         })

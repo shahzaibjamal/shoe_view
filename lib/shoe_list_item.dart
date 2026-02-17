@@ -419,8 +419,8 @@ class ShoeListItem extends StatelessWidget {
               // ⚙️ Action Buttons (2x2 Compact Grid)
               Container(
                 height: 40,
-                child: const VerticalDivider(
-                    width: 1, thickness: 0.5, indent: 2, endIndent: 2),
+                child: VerticalDivider(
+                    width: 1, thickness: 0.5, indent: 2, endIndent: 2, color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.7) : Colors.grey[200]),
               ),
               const SizedBox(width: 8),
 

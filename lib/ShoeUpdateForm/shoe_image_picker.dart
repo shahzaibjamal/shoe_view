@@ -60,7 +60,11 @@ class ShoeImagePicker extends StatelessWidget {
           icon: const Icon(Icons.photo_library),
           label: const Text('Pick Image'),
           onPressed: isLoading ? null : () => _pickImage(context),
-        ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withOpacity(0.2) : Colors.grey[50],
+            // backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.black26 : Colors.grey[50],
+          ),
+          ),
         const SizedBox(width: 26),
         Container(
           width: 90,

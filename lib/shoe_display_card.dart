@@ -16,29 +16,49 @@ class SizeDisplayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
     final Color borderColor = onTap == null
-        ? Colors.grey.shade300
+        ? Theme.of(context).dividerColor.withOpacity(0.1)
         : isBound
-        ? Theme.of(context).primaryColor
-        : Colors.grey.shade400;
+            ? Theme.of(context).primaryColor
+            : Theme.of(context).dividerColor.withOpacity(0.2);
+
+    final Color bgColor = onTap == null
+        ? (isDark ? Colors.white.withOpacity(0.02) : Colors.grey.shade100)
+        : (isDark ? Colors.white.withOpacity(0.05) : Colors.white);
+
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(8.0),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
           border: Border.all(color: borderColor, width: isBound ? 2.0 : 1.0),
           borderRadius: BorderRadius.circular(8.0),
-          color: onTap == null ? Colors.grey.shade200 : Colors.white,
+          color: bgColor,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               title,
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 10, 
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+                letterSpacing: 0.5,
+              ),
             ),
-            const SizedBox(height: 0),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 2),
+            Text(
+              value, 
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
           ],
         ),
       ),

@@ -14,6 +14,7 @@ import 'package:shoe_view/Helpers/quota_circle.dart';
 import 'package:shoe_view/Helpers/shoe_query_utils.dart';
 import 'package:shoe_view/Helpers/version_footer.dart';
 import 'package:shoe_view/Services/firebase_service.dart';
+import 'package:shoe_view/Services/transaction_history_service.dart';
 import 'package:shoe_view/Subscription/subscription_manager.dart';
 import 'package:shoe_view/Subscription/subscription_upgrade_page.dart';
 import 'package:shoe_view/app_status_notifier.dart';
@@ -57,6 +58,9 @@ class _SettingsDialogState extends State<SettingsDialog>
   String _conditionHintStyle = 'sash';
   bool _applySaleToAllStatuses = false;
   Map<String, double?> _categoryFixedPrices = {};
+
+  // Track initial settings for diffing
+  Map<String, dynamic> _initialSettings = {};
 
   // Controllers
   late TextEditingController _sampleController;
@@ -143,11 +147,28 @@ class _SettingsDialogState extends State<SettingsDialog>
       _highDiscountController.text = app.highDiscount.toString();
       _flatDiscountController.text = app.flatDiscount.toString();
 
-      // Initialize controllers for fixed prices
       for (var status in ['Available', 'Repaired', 'Sold', 'N/A', 'Internal']) {
         final val = _categoryFixedPrices[status];
         _priceControllers[status] = TextEditingController(text: val?.toString() ?? '');
       }
+
+      // Capture initial state for logging
+      _initialSettings = {
+        'theme': _selectedTheme.name,
+        'currency': _currencyCode,
+        'multiSize': _isMultiSize,
+        'isTest': _isTest,
+        'isSalePrice': _isSalePrice,
+        'flatSale': _isFlatSale,
+        'priceHidden': _isPriceHidden,
+        'infoCopied': _isInfoCopied,
+        'instagramOnly': _isInstagramOnly,
+        'conciseMode': _isConciseMode,
+        'mobileData': _allowMobileDataSync,
+        'conditionGradients': _showConditionGradients,
+        'hintStyle': _conditionHintStyle,
+        'allStatusSale': _applySaleToAllStatuses,
+      };
     });
   }
 
@@ -252,6 +273,45 @@ class _SettingsDialogState extends State<SettingsDialog>
         applySaleToAllStatuses: _applySaleToAllStatuses,
         categoryFixedPrices: _categoryFixedPrices,
       );
+
+      // Calculate diffs for settings
+      final changes = <String, Map<String, dynamic>>{};
+      final currentSettings = {
+        'theme': _selectedTheme.name,
+        'currency': _currencyCode,
+        'multiSize': _isMultiSize,
+        'isTest': _isTest,
+        'isSalePrice': _isSalePrice,
+        'flatSale': _isFlatSale,
+        'priceHidden': _isPriceHidden,
+        'infoCopied': _isInfoCopied,
+        'instagramOnly': _isInstagramOnly,
+        'conciseMode': _isConciseMode,
+        'mobileData': _allowMobileDataSync,
+        'conditionGradients': _showConditionGradients,
+        'hintStyle': _conditionHintStyle,
+        'allStatusSale': _applySaleToAllStatuses,
+      };
+
+      currentSettings.forEach((key, value) {
+        if (_initialSettings[key] != value) {
+          changes[key] = {'old': _initialSettings[key], 'new': value};
+        }
+      });
+
+      // Log settings change
+      if (changes.isNotEmpty) {
+        TransactionHistoryService().log(
+          action: 'UPDATE_SETTINGS',
+          entityId: 'user_profile',
+          entityName: 'App Settings',
+          summary: 'Updated application settings and preferences',
+          metadata: {
+            'changes': changes,
+          },
+        );
+      }
+
       Navigator.pop(context);
     }
 
@@ -286,6 +346,14 @@ class _SettingsDialogState extends State<SettingsDialog>
       await prefs.clear();
       await widget.firebaseService.deleteUserData();
 
+      // Log clear data action
+      TransactionHistoryService().log(
+        action: 'CLEAR_DATA',
+        entityId: 'user_profile',
+        entityName: 'Account Data',
+        summary: 'User cleared all local and cloud data',
+      );
+
       if (mounted) {
         Navigator.of(
           context,
@@ -312,6 +380,13 @@ class _SettingsDialogState extends State<SettingsDialog>
         await GoogleSignIn.instance.signOut();
         await FirebaseAuth.instance.signOut();
         if (mounted) {
+          // Log sign out
+          TransactionHistoryService().log(
+            action: 'SIGN_OUT',
+            entityId: 'user_profile',
+            entityName: 'Session',
+            summary: 'User signed out of the account',
+          );
           context.read<AppStatusNotifier>().reset();
           Navigator.of(
             context,

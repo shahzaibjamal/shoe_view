@@ -49,42 +49,67 @@ class ShoeSizePicker extends StatelessWidget {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).dividerColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(2),
                 ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
                 child: Text(
                   title,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ),
               SizedBox(
-                height: 250, // ⬆️ Enlarged from 200
+                height: 250,
                 child: CupertinoPicker.builder(
                   scrollController: FixedExtentScrollController(
                     initialItem: sizeList.indexOf(selectedSize),
                   ),
-                  itemExtent: 32.0,
+                  itemExtent: 40.0,
                   onSelectedItemChanged: (index) {
                     tempSelected = sizeList[index];
                   },
                   childCount: sizeList.length,
-                  itemBuilder: (context, index) =>
-                      Center(child: Text(sizeList[index])),
+                  itemBuilder: (context, index) => Center(
+                    child: Text(
+                      sizeList[index],
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  onSelected(tempSelected);
-                  Navigator.pop(context);
-                },
-                child: const Text('Done'),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      onSelected(tempSelected);
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Confirm Selection'),
+                  ),
+                ),
               ),
             ],
           ),
@@ -101,7 +126,11 @@ class ShoeSizePicker extends StatelessWidget {
           children: [
             Text(
               isBound ? 'Sizes linked (Auto)' : 'Sizes independent (Manual)',
-              style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+              style: TextStyle(
+                fontSize: 12, 
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+              ),
             ),
             Switch(
               value: isBound,
@@ -151,9 +180,13 @@ class ShoeSizePicker extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Include CM Size',
-              style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 12, 
+                color: Theme.of(context).textTheme.bodySmall?.color, 
+                fontWeight: FontWeight.w600,
+              ),
             ),
             Transform.scale(
               scale: 0.8,
@@ -194,9 +227,13 @@ class ShoeSizePicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Selected EUR Sizes:',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 14, 
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -223,9 +260,16 @@ class ShoeSizePicker extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (currentEurSizes.isEmpty)
-          const Text(
-            'Please select at least one size.',
-            style: TextStyle(color: Colors.red, fontSize: 12),
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Text(
+              'Please select at least one size.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error, 
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
       ],
     );

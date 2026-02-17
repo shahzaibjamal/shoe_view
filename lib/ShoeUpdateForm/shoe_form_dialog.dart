@@ -365,6 +365,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
       final response = await widget.firebaseService.updateShoe(
         newShoe,
         base64Image,
+        oldShoe: widget.shoe,
         isTest: isTest,
       );
 
@@ -442,7 +443,8 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      surfaceTintColor: Colors.transparent,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: ConstrainedBox(
@@ -836,7 +838,7 @@ class _ShoeFormDialogContentState extends State<ShoeFormDialogContent> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: color ?? Colors.blueGrey[800],
+            color: color ?? (Theme.of(context).brightness == Brightness.dark ? Colors.blueGrey[200] : Colors.blueGrey[800]),
           ),
         ),
       ],
